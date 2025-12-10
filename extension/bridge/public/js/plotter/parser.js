@@ -70,13 +70,35 @@ function parseLine(line) {
       }
     }
   } else {
-    // Try comma or space separated numbers
-    const parts = line.split(/[,\s]+/);
+    // Try comma/tab/space separated values
+    // Split by comma, tab, or multiple spaces (like Arduino Serial Plotter format)
+    const parts = line
+      .split(/[,\t]+|\s{2,}/)
+      .map((p) => p.trim())
+      .filter((p) => p);
+
+    // Check if this might be a header line (contains non-numeric text)
+    const hasNonNumeric = parts.some((part) => isNaN(parseFloat(part)));
+
+    if (hasNonNumeric && parts.length > 1) {
+      // This looks like a header line - store the labels
+      store.setPlotterLabels(parts);
+      return {}; // Don't plot this line
+    }
+
+    // Parse numeric values
+    const labels = store.getPlotterLabels();
     let idx = 0;
     for (const part of parts) {
       const num = parseFloat(part);
       if (!isNaN(num)) {
-        const label = parts.length === 1 ? "value" : `ch${idx + 1}`;
+        // Use stored label if available, otherwise use ch1, ch2, etc.
+        const label =
+          labels && labels[idx]
+            ? labels[idx]
+            : parts.length === 1
+            ? "value"
+            : `ch${idx + 1}`;
         values[label] = num;
         idx++;
       }

@@ -4,7 +4,7 @@
   "description": "Bridge between GitHub Codespaces and Raspberry Pi Pico/ESP32 for MicroPython development via Web Serial API",
   "version": "1.0.0",
   "publisher": "benpaddlejones",
-  "license": "MIT",
+  "license": "GPL-3.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge"
@@ -119,6 +119,18 @@
         "title": "Refresh Device Files",
         "category": "Pico Bridge",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "picoBridge.createProject",
+        "title": "Create MicroPython Project",
+        "category": "Pico Bridge",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "picoBridge.setupExistingProject",
+        "title": "Setup Existing Project",
+        "category": "Pico Bridge",
+        "icon": "$(folder)"
       }
     ],
     "menus": {
@@ -256,7 +268,13 @@
       },
       {
         "view": "picoBridge.workspaceFiles",
-        "contents": "No Python files found in workspace.\n\nCreate a main.py file to get started with MicroPython development."
+        "contents": "No MicroPython project detected.\n\n[$(new-folder) Create MicroPython Project](command:picoBridge.createProject)\n\nCopies the full project template (main.py, config.py, lib/) to your workspace root.\n\n[$(folder) Setup Existing Project](command:picoBridge.setupExistingProject)\n\nMark an existing folder as a MicroPython project.",
+        "when": "!picoBridge.projectDetected"
+      },
+      {
+        "view": "picoBridge.workspaceFiles",
+        "contents": "No Python files found in project.\n\nCreate a main.py file to get started with MicroPython development.",
+        "when": "picoBridge.projectDetected"
       }
     ],
     "configuration": {

@@ -1,5 +1,5 @@
 """
-"""Logging Module
+Logging Module
 Handles error logging to file.
 """
 

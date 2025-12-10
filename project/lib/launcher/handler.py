@@ -1,5 +1,5 @@
 """
-"""Exception Handler Module
+Exception Handler Module
 Main exception handling and reporting.
 """
 

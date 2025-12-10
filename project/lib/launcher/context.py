@@ -1,5 +1,5 @@
 """
-"""Code Context Display Module
+Code Context Display Module
 Handles displaying code context around error locations.
 """
 

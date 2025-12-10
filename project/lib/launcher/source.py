@@ -1,5 +1,5 @@
 """
-"""Source File Utilities Module
+Source File Utilities Module
 Handles source file loading and path resolution.
 """
 

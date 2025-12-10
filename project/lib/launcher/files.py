@@ -1,5 +1,5 @@
 """
-"""File Utilities Module
+File Utilities Module
 Directory listing and file availability functions.
 """
 

@@ -41,6 +41,7 @@ const state = {
     data: {},
     lineBuffer: "",
     maxPoints: 500,
+    labels: null, // Store header labels from first line (Arduino Serial Plotter style)
   },
 
   // Log buffer for download
@@ -282,10 +283,10 @@ export function addPlotterValue(label, value) {
     state.plotter.data[label].shift();
   }
 }
-
 export function clearPlotterData() {
   state.plotter.data = {};
   state.plotter.lineBuffer = "";
+  state.plotter.labels = null; // Clear labels when clearing data
   notifySubscribers("plotter");
 }
 
@@ -299,4 +300,12 @@ export function setPlotterLineBuffer(buffer) {
 
 export function getPlotterMaxPoints() {
   return state.plotter.maxPoints;
+}
+
+export function getPlotterLabels() {
+  return state.plotter.labels;
+}
+
+export function setPlotterLabels(labels) {
+  state.plotter.labels = labels;
 }

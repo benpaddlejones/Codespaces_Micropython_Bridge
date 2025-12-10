@@ -76,6 +76,10 @@ export function drawPlotter() {
   const labels = Object.keys(plotterData);
   const maxLen = Math.max(...labels.map((l) => plotterData[l].length));
 
+  // Fixed number of points to display (creates natural scrolling)
+  const displayPoints = store.getPlotterMaxPoints();
+  const pixelsPerPoint = plotWidth / displayPoints;
+
   labels.forEach((label, labelIdx) => {
     const values = plotterData[label];
     const color = PLOTTER_COLORS[labelIdx % PLOTTER_COLORS.length];
@@ -84,14 +88,17 @@ export function drawPlotter() {
     ctx.lineWidth = 2;
     ctx.beginPath();
 
-    for (let i = 0; i < values.length; i++) {
-      const x =
-        PADDING.left +
-        ((maxLen - values.length + i) / Math.max(maxLen - 1, 1)) * plotWidth;
+    // Calculate starting index (show most recent points)
+    const startIdx = Math.max(0, values.length - displayPoints);
+
+    for (let i = startIdx; i < values.length; i++) {
+      // Map data point to screen position (scrolls naturally left to right)
+      const dataIdx = i - startIdx;
+      const x = PADDING.left + dataIdx * pixelsPerPoint;
       const y =
         PADDING.top + ((maxY - values[i]) / (maxY - minY || 1)) * plotHeight;
 
-      if (i === 0) {
+      if (i === startIdx) {
         ctx.moveTo(x, y);
       } else {
         ctx.lineTo(x, y);
