@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RPi Pico Serial Terminal</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="header">
+      <div class="branding">
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <!-- Raspberry Pi Pico-style icon -->
+          <rect x="4" y="6" width="16" height="12" rx="2" fill="#e30b5d" />
+          <circle cx="7" cy="9" r="1" fill="#fff" />
+          <circle cx="17" cy="9" r="1" fill="#fff" />
+          <circle cx="7" cy="15" r="1" fill="#fff" />
+          <circle cx="17" cy="15" r="1" fill="#fff" />
+          <rect x="10" y="10" width="4" height="4" fill="#fff" />
+        </svg>
+        <span>RPi Pico -<br />Codespaces<br />Bridge</span>
+      </div>
+
+      <div class="toolbar-group">
+        <!-- Top Bar: Connection + Options + Server Status -->
+        <div class="toolbar">
+          <button id="connectBtn">Connect Pico</button>
+          <button id="disconnectBtn" disabled>Disconnect</button>
+          <div class="separator"></div>
+          <select id="baudRate">
+            <option value="300">300</option>
+            <option value="1200">1200</option>
+            <option value="2400">2400</option>
+            <option value="4800">4800</option>
+            <option value="9600">9600</option>
+            <option value="19200">19200</option>
+            <option value="38400">38400</option>
+            <option value="57600">57600</option>
+            <option value="74880">74880</option>
+            <option value="115200" selected>115200</option>
+            <option value="230400">230400</option>
+            <option value="250000">250000</option>
+            <option value="500000">500000</option>
+            <option value="921600">921600</option>
+            <option value="1000000">1000000</option>
+          </select>
+          <span id="status" class="status-indicator">Disconnected</span>
+          <div class="separator"></div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="timestampCheck" /> Timestamp
+          </label>
+          <button id="clearBtn">Clear</button>
+          <button id="downloadBtn">Download Log</button>
+          <div class="separator"></div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="plotterCheck" /> 📈 Plotter
+          </label>
+          <div class="spacer"></div>
+          <div
+            id="serverStatus"
+            class="server-status"
+            title="Server disconnected"
+          >
+            <span class="server-dot">●</span>
+            <span class="server-label">Server</span>
+            <button
+              id="restartServerBtn"
+              class="btn-restart-server"
+              title="Restart Server"
+              style="display: none"
+            >
+              ↻
+            </button>
+          </div>
+        </div>
+
+        <!-- Tool Bar: Pico Commands - Grouped by function -->
+        <div class="toolbar tools-bar">
+          <!-- Files Group -->
+          <div class="tool-group">
+            <span class="group-label">Files</span>
+            <div class="group-buttons">
+              <button
+                id="listFilesBtn"
+                class="tool-btn"
+                title="List files on Pico"
+              >
+                📁 List
+              </button>
+              <select
+                id="filePicker"
+                class="file-picker"
+                title="Select a Python file to run or upload"
+              >
+                <option value="">Select file...</option>
+              </select>
+              <button
+                id="runFileBtn"
+                class="tool-btn btn-run"
+                title="Run selected file on Pico"
+              >
+                ▶️ Run
+              </button>
+            </div>
+          </div>
+
+          <div class="tool-separator"></div>
+
+          <!-- Upload Group -->
+          <div class="tool-group">
+            <span class="group-label">Upload</span>
+            <div class="group-buttons">
+              <button
+                id="uploadFileBtn"
+                class="tool-btn"
+                title="Upload selected file to Pico"
+              >
+                📄 File
+              </button>
+              <button
+                id="uploadLibBtn"
+                class="tool-btn"
+                title="Upload /lib folder to Pico"
+              >
+                📚 Lib
+              </button>
+              <button
+                id="uploadProjectBtn"
+                class="tool-btn btn-upload-all"
+                title="Upload entire project (lib + py_scripts + main.py)"
+              >
+                📦 All
+              </button>
+            </div>
+          </div>
+
+          <div class="tool-separator"></div>
+
+          <!-- Control Group -->
+          <div class="tool-group">
+            <span class="group-label">Control</span>
+            <div class="group-buttons">
+              <button
+                id="stopBtn"
+                class="tool-btn btn-stop"
+                title="Stop running code (Ctrl+C) - Interrupts and returns to REPL"
+              >
+                🛑 Stop
+              </button>
+              <button
+                id="softResetBtn"
+                class="tool-btn btn-soft"
+                title="Soft reset (Ctrl+D) - Restart MicroPython, runs main.py"
+              >
+                🔄 Soft
+              </button>
+              <button
+                id="hardResetBtn"
+                class="tool-btn btn-hard"
+                title="Hard reset (machine.reset()) - Full reboot, USB disconnects"
+              >
+                ⚡ Hard
+              </button>
+            </div>
+          </div>
+
+          <div class="tool-separator"></div>
+
+          <!-- System Group -->
+          <div class="tool-group">
+            <span class="group-label">System</span>
+            <div class="group-buttons">
+              <button
+                id="bootloaderBtn"
+                class="tool-btn btn-boot"
+                title="Enter bootloader (UF2) mode for firmware updates"
+              >
+                💾 Boot
+              </button>
+              <button
+                id="firmwareBtn"
+                class="tool-btn btn-firmware"
+                title="Download latest MicroPython firmware for detected board"
+              >
+                ⬇️ Firmware
+              </button>
+              <button
+                id="deleteAllBtn"
+                class="tool-btn btn-danger"
+                title="⚠️ Delete ALL files on Pico"
+              >
+                🗑️ Wipe
+              </button>
+            </div>
+          </div>
+
+          <div class="tool-separator"></div>
+
+          <!-- Device Info -->
+          <div class="tool-group device-info-group">
+            <span class="group-label">Device</span>
+            <div
+              id="deviceInfo"
+              class="device-info"
+              title="Connect to detect device"
+            >
+              <span class="device-name">Not detected</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="main-content">
+      <div id="terminal-container"></div>
+      <div id="plotter-container" style="display: none">
+        <div class="plotter-toolbar">
+          <button id="plotterClearBtn" class="tool-btn">🗑️ Clear</button>
+          <button id="plotterFreezeBtn" class="tool-btn">⏸️ Freeze</button>
+          <button id="plotterDownloadBtn" class="tool-btn">📷 Save PNG</button>
+          <button id="plotterFullscreenBtn" class="tool-btn">
+            ⛶ Fullscreen
+          </button>
+          <div class="separator"></div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="plotterAutoScaleCheck" checked /> Auto
+            Scale
+          </label>
+          <span class="plotter-info">
+            Format: <code>value</code> or <code>v1,v2,v3</code> or
+            <code>label:value</code>
+          </span>
+          <div class="spacer"></div>
+          <div id="plotterLegend" class="plotter-legend"></div>
+        </div>
+        <canvas id="plotterCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="input-bar">
+      <input
+        type="text"
+        id="serialInput"
+        placeholder="Type command..."
+        disabled
+      />
+      <select id="lineEnding">
+        <option value="none">No line ending</option>
+        <option value="nl">Newline</option>
+        <option value="cr">Carriage return</option>
+        <option value="nlcr" selected>Both NL & CR</option>
+      </select>
+      <button id="sendBtn" disabled>Send</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

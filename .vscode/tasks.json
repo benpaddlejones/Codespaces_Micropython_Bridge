@@ -1,0 +1,65 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "extension: watch",
+      "type": "npm",
+      "script": "watch",
+      "path": "extension",
+      "problemMatcher": "$tsc-watch",
+      "isBackground": true,
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "extension: compile",
+      "type": "npm",
+      "script": "compile",
+      "path": "extension",
+      "problemMatcher": "$tsc",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "extension: lint",
+      "type": "npm",
+      "script": "lint",
+      "path": "extension",
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "extension: test",
+      "type": "npm",
+      "script": "test",
+      "path": "extension",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "extension: package",
+      "type": "npm",
+      "script": "package",
+      "path": "extension",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}

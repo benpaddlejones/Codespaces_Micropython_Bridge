@@ -1,0 +1,29 @@
+{
+  "name": "pico-codespaces-bridge",
+  "version": "2.1.0",
+  "description": "HIGH AVAILABILITY Bridge between Web Serial (Local Pico) and Codespaces PTY - Self-healing, never crashes",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:resilient": "node --expose-gc server.js",
+    "start:pm2": "pm2 start ecosystem.config.js",
+    "stop:pm2": "pm2 stop pico-bridge",
+    "restart:pm2": "pm2 restart pico-bridge",
+    "logs": "pm2 logs pico-bridge",
+    "status": "pm2 status",
+    "monitor": "pm2 monit",
+    "health": "curl -s http://localhost:3000/api/health | node -e \"process.stdin.pipe(process.stdout)\"",
+    "resilience": "curl -s http://localhost:3000/api/resilience | node -e \"process.stdin.pipe(process.stdout)\""
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "serialport": "^12.0.0"
+  },
+  "devDependencies": {
+    "pm2": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

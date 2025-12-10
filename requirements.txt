@@ -1,0 +1,6 @@
+# Pi Pico MicroPython Dependencies
+# =================================
+
+# mpremote - MicroPython remote control tool for Pico
+# Used for connecting to and managing Pico devices
+mpremote>=1.22.0
