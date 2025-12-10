@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 24 24">
+  <!-- Generator: Adobe Illustrator 29.6.1, SVG Export Plug-In . SVG Version: 2.1.1 Build 9)  -->
+  <defs>
+    <style>
+      .st0 {
+        isolation: isolate;
+        opacity: .5;
+      }
+
+      .st0, .st1 {
+        fill: none;
+        stroke: #000;
+        stroke-width: .5px;
+      }
+    </style>
+  </defs>
+  <path d="M2.71,3.86c0-1.6,1.26-2.86,2.86-2.86,1.14,0,2.06.57,2.51,1.49.34-.23.8-.34,1.26-.34,1.37,0,2.51,1.14,2.51,2.51,0,.11,0,.34-.11.46.8.34,1.26,1.14,1.26,1.94,0,1.26-1.03,2.29-2.29,2.29H3.29c-1.26,0-2.29-1.03-2.29-2.29,0-.91.57-1.71,1.37-2.06-.11-.34-.23-.8-.23-1.14,0,0,.57,0,.57,0Z"/>
+  <rect x="9.12" y="16.6" width="12.81" height="6.4" rx="1" ry="1"/>
+  <rect x="19.8" y="18.2" width="3.2" height="3.2" rx=".5" ry=".5"/>
+  <rect class="st0" x="12.32" y="18.2" width="5.33" height="3.2" rx=".5" ry=".5"/>
+  <circle class="st1" cx="10.73" cy="18.2" r=".75"/>
+  <circle class="st1" cx="10.73" cy="21.4" r=".75"/>
+  <circle class="st1" cx="18.2" cy="18.2" r=".75"/>
+  <circle class="st1" cx="18.2" cy="21.4" r=".75"/>
+  <polygon points="13.29 15.57 15.88 9.35 7.07 12.98 13.29 15.57"/>
+</svg>

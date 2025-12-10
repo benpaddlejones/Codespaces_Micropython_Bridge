@@ -1,0 +1,71 @@
+name: Bug Report
+description: Report a problem with the Pico Bridge extension or bridge server
+labels:
+  - bug
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to help improve the project! Please provide as much detail as you can so we can reproduce and fix the problem quickly.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Which area is affected?
+      options:
+        - VS Code Extension
+        - Bridge Server
+        - Browser UI
+        - MicroPython Project Template
+        - Other / Unsure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      description: e.g. 1.0.6 (check in VS Code > Extensions > Pico Bridge)
+      placeholder: 1.0.x
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear description of the bug
+      placeholder: Tell us what you expected to happen and what actually happened
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: List each step so we can reproduce the issue
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. Observe ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / console output
+      description: Include error messages or logs (use triple backticks ``` ``` for multi-line logs)
+      render: shell
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment details
+      description: OS, Codespaces vs local, browser/version, Pico/ESP board, etc.
+      placeholder: |
+        - OS: ...
+        - VS Code version: ...
+        - Codespaces? ...
+        - Browser: ...
+        - Hardware: ...
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have searched existing issues and discussions
+        - label: I am willing to help verify a fix if needed

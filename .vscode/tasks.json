@@ -5,7 +5,7 @@
       "label": "extension: watch",
       "type": "npm",
       "script": "watch",
-      "path": "extension",
+      "path": ".extension",
       "problemMatcher": "$tsc-watch",
       "isBackground": true,
       "group": {
@@ -21,7 +21,7 @@
       "label": "extension: compile",
       "type": "npm",
       "script": "compile",
-      "path": "extension",
+      "path": ".extension",
       "problemMatcher": "$tsc",
       "group": "build",
       "presentation": {
@@ -33,7 +33,7 @@
       "label": "extension: lint",
       "type": "npm",
       "script": "lint",
-      "path": "extension",
+      "path": ".extension",
       "problemMatcher": ["$eslint-stylish"],
       "group": "test",
       "presentation": {
@@ -45,7 +45,7 @@
       "label": "extension: test",
       "type": "npm",
       "script": "test",
-      "path": "extension",
+      "path": ".extension",
       "presentation": {
         "reveal": "always",
         "panel": "shared"
@@ -55,7 +55,7 @@
       "label": "extension: package",
       "type": "npm",
       "script": "package",
-      "path": "extension",
+      "path": ".extension",
       "presentation": {
         "reveal": "always",
         "panel": "shared"

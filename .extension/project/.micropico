@@ -1,0 +1,11 @@
+# MicroPython Project Marker
+
+# This file marks this folder as a MicroPython project root.
+
+# The Pico Bridge extension uses this to determine which files
+
+# can be uploaded to the device.
+
+#
+
+# Do not delete this file.
