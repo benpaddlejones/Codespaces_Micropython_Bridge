@@ -4,4 +4,5 @@
  */
 
 export * from "./dom.js";
+export * from "./pinout.js";
 export * from "./status.js";

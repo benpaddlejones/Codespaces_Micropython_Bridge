@@ -1,0 +1,12 @@
+{
+  "include": ["py_scripts/**/*.py", "lib/**/*.py"],
+  "extraPaths": [
+    ".extension/emulator/mock/typings",
+    ".extension/emulator/mock/micropython"
+  ],
+  "typeCheckingMode": "basic",
+  "pythonVersion": "3.11",
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "warning",
+  "stubPath": ".extension/emulator/mock/typings"
+}

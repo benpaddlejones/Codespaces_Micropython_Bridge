@@ -1,0 +1,319 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #333;
+  background-color: #252526;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.board-select {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #d4d4d4;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.board-select:focus {
+  outline: none;
+  border-color: #4fc1ff;
+}
+
+.status {
+  font-size: 13px;
+  color: #4fc1ff;
+}
+
+main {
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.info {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+}
+
+/* Board Visualization */
+.board-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.board-container {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+.board-container svg {
+  max-width: 100%;
+  max-height: 400px;
+  height: auto;
+}
+
+.board-loading {
+  color: #666;
+  font-size: 13px;
+}
+
+/* Pin state indicators in SVG */
+.board-container .pin-indicator {
+  transition: all 0.15s ease;
+}
+
+.board-container .pin-indicator.active {
+  opacity: 1;
+}
+
+.board-container .pin-high {
+  fill: #00ff00;
+  filter: drop-shadow(0 0 3px #00ff00);
+}
+
+.board-container .pin-low {
+  fill: #333;
+}
+
+.board-container .pin-pwm {
+  fill: #ffaa00;
+  filter: drop-shadow(0 0 3px #ffaa00);
+  animation: pwm-pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes pwm-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.board-container .led-onboard.on {
+  fill: #00ff00;
+  filter: drop-shadow(0 0 6px #00ff00);
+}
+
+/* NeoPixel Strip */
+.neopixel-strip {
+  background: #252526;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.neopixel-header {
+  font-size: 13px;
+  color: #9cdcfe;
+  margin-bottom: 8px;
+}
+
+.neopixel-leds {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.neopixel-led {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #222;
+  border: 1px solid #444;
+  transition: all 0.1s ease;
+}
+
+.neopixel-led.lit {
+  box-shadow: 0 0 8px var(--led-color, #fff);
+}
+
+/* Legacy LED panel (hidden when board SVG is active) */
+.led-panel {
+  display: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.led-label {
+  font-size: 13px;
+  color: #9cdcfe;
+}
+
+.led {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #222, #000);
+  border: 1px solid #444;
+  transition: all 0.2s ease;
+}
+
+.led.on {
+  background: radial-gradient(circle at 30% 30%, #ffef8a, #f5a623 60%, #d48806);
+  box-shadow: 0 0 12px rgba(245, 166, 35, 0.8), 0 0 24px rgba(245, 166, 35, 0.6);
+}
+
+.log {
+  background-color: #252526;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #9cdcfe;
+}
+
+#eventLog {
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: transparent;
+  color: #ce9178;
+  font-size: 12px;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #4fc1ff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+/* Panel Grid Layout */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  background-color: #252526;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #9cdcfe;
+  border-bottom: 1px solid #333;
+  padding-bottom: 8px;
+}
+
+/* Console Panel */
+.console-panel #consoleOutput {
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #1a1a1a;
+  color: #d4d4d4;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* I2C Monitor Panel */
+.i2c-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.i2c-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.i2c-section label {
+  font-size: 11px;
+  color: #808080;
+  text-transform: uppercase;
+}
+
+.i2c-section pre {
+  margin: 0;
+  background: #1a1a1a;
+  color: #4ec9b0;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.i2c-section input {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #d4d4d4;
+  padding: 8px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.i2c-section input:focus {
+  outline: none;
+  border-color: #4fc1ff;
+}
+
+.i2c-section small {
+  font-size: 10px;
+  color: #666;
+}

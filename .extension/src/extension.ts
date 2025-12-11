@@ -14,6 +14,7 @@
 
 import * as vscode from "vscode";
 import { registerCommands } from "./commands";
+import { EmulatorManager } from "./emulator";
 import { BridgeServer } from "./server";
 import { Logger } from "./utils";
 import { StatusViewProvider, WorkspaceFilesProvider } from "./views";
@@ -21,6 +22,7 @@ import { StatusViewProvider, WorkspaceFilesProvider } from "./views";
 // Global instances
 let logger: Logger | undefined;
 let server: BridgeServer | undefined;
+let emulatorManager: EmulatorManager | undefined;
 
 /**
  * Called when the extension is activated
@@ -43,6 +45,15 @@ export async function activate(
 
     // Register all commands
     registerCommands(context, server, logger);
+
+    // Initialize emulator manager
+    emulatorManager = new EmulatorManager(context, logger);
+    emulatorManager.registerCommands();
+    context.subscriptions.push({
+      dispose: () => {
+        emulatorManager?.dispose();
+      },
+    });
 
     // Register tree view providers with proper disposal
     const statusProvider = new StatusViewProvider(server);
@@ -148,6 +159,7 @@ export async function deactivate(): Promise<void> {
     if (server?.isRunning) {
       await server.stop();
     }
+    emulatorManager?.dispose();
   } catch (error) {
     // Log but don't throw during deactivation
     logger?.error(

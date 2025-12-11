@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{{nonce}}'; img-src {{cspSource}} data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MicroPython Emulator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="title">MicroPython Emulator</div>
+      <div class="header-controls">
+        <select id="boardSelect" class="board-select">
+          <option value="pico" selected>Raspberry Pi Pico</option>
+          <option value="pico-w">Raspberry Pi Pico W</option>
+          <option value="esp32">ESP32 DevKit</option>
+        </select>
+        <div class="status" id="status">Idle</div>
+        <button id="resetBtn" class="link-button">Reset</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="info">
+        <div>Script: <span id="scriptName">-</span></div>
+        <div>Board: <span id="boardName">pico</span></div>
+      </section>
+
+      <!-- Board Visualization -->
+      <section class="board-section">
+        <div class="board-container" id="boardContainer">
+          <!-- SVG will be loaded here -->
+          <div class="board-loading">Loading board...</div>
+        </div>
+
+        <!-- NeoPixel Strip -->
+        <div class="neopixel-strip" id="neopixelStrip" style="display: none">
+          <div class="neopixel-header">NeoPixels</div>
+          <div class="neopixel-leds" id="neopixelLeds">
+            <!-- LEDs will be dynamically added -->
+          </div>
+        </div>
+      </section>
+
+      <div class="panels">
+        <!-- Console Output Panel -->
+        <section class="panel console-panel">
+          <div class="panel-header">
+            <span>Console Output</span>
+            <button id="clearConsoleBtn" class="link-button">Clear</button>
+          </div>
+          <pre id="consoleOutput"></pre>
+        </section>
+
+        <!-- I2C Monitor Panel -->
+        <section class="panel i2c-panel">
+          <div class="panel-header">
+            <span>I2C Monitor</span>
+            <button id="clearI2cBtn" class="link-button">Clear</button>
+          </div>
+          <div class="i2c-content">
+            <div class="i2c-section">
+              <label>Last Write:</label>
+              <pre id="i2cLastWrite">-</pre>
+            </div>
+            <div class="i2c-section">
+              <label>Read Response (hex bytes):</label>
+              <input
+                type="text"
+                id="i2cReadInput"
+                placeholder="0x00 0x01 0xFF"
+              />
+              <small
+                >Enter hex bytes separated by spaces. Press Enter to set.</small
+              >
+            </div>
+            <div class="i2c-section">
+              <label>Transaction Log:</label>
+              <pre id="i2cLog"></pre>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="log">
+        <div class="log-header">
+          <span>Pin Activity</span>
+          <button id="clearLogBtn" class="link-button">Clear</button>
+        </div>
+        <pre id="eventLog"></pre>
+      </section>
+    </main>
+
+    <script nonce="{{nonce}}" src="js/main.js"></script>
+  </body>
+</html>

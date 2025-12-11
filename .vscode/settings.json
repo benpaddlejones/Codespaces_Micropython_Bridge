@@ -27,5 +27,9 @@
   "workbench.iconTheme": "vs-seti",
   "git.confirmSync": false,
   "git.enableSmartCommit": true,
-  "window.restoreWindows": "preserve"
+  "window.restoreWindows": "preserve",
+  "python.analysis.extraPaths": [
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-1.1.0/emulator/mock/micropython",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-1.1.0/emulator/mock/typings"
+  ]
 }

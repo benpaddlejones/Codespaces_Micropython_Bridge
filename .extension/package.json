@@ -2,7 +2,7 @@
   "name": "pico-bridge",
   "displayName": "Pi Pico to Codespaces Bridge",
   "description": "Bridge between GitHub Codespaces and Raspberry Pi Pico/ESP32 for MicroPython development via Web Serial API",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "publisher": "benpaddlejones",
   "license": "GPL-3.0",
   "repository": {
@@ -37,7 +37,10 @@
     "web serial"
   ],
   "activationEvents": [
-    "workspaceContains:**/main.py"
+    "workspaceContains:**/main.py",
+    "onCommand:picoBridge.openEmulator",
+    "onCommand:picoBridge.runActiveFileInEmulator",
+    "onCommand:picoBridge.viewPinout"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -131,6 +134,45 @@
         "title": "Setup Existing Project",
         "category": "Pico Bridge",
         "icon": "$(folder)"
+      },
+      {
+        "command": "picoBridge.openEmulator",
+        "title": "Open MicroPython Emulator",
+        "category": "Pico Bridge",
+        "icon": "$(circuit-board)"
+      },
+      {
+        "command": "picoBridge.runActiveFileInEmulator",
+        "title": "Run Active File in Emulator",
+        "category": "Pico Bridge",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "picoBridge.viewPinout",
+        "title": "View Board Pinout",
+        "category": "Pico Bridge",
+        "icon": "$(circuit-board)"
+      },
+      {
+        "command": "picoBridge.debugPythonFile",
+        "title": "Debug Python File",
+        "category": "Pico Bridge",
+        "icon": "$(bug)"
+      },
+      {
+        "command": "picoBridge.getMockRunnerPath",
+        "title": "Pico Bridge: Get Emulator Runner Path",
+        "category": "Pico Bridge"
+      },
+      {
+        "command": "picoBridge.getMockPath",
+        "title": "Pico Bridge: Get Emulator Path",
+        "category": "Pico Bridge"
+      },
+      {
+        "command": "picoBridge.getSelectedBoard",
+        "title": "Pico Bridge: Get Selected Emulator Board",
+        "category": "Pico Bridge"
       }
     ],
     "menus": {
@@ -178,6 +220,25 @@
         {
           "command": "picoBridge.stopCode",
           "when": "picoBridge.serverRunning"
+        },
+        {
+          "command": "picoBridge.openEmulator"
+        },
+        {
+          "command": "picoBridge.runActiveFileInEmulator",
+          "when": "editorLangId == python"
+        },
+        {
+          "command": "picoBridge.getMockRunnerPath",
+          "when": "false"
+        },
+        {
+          "command": "picoBridge.getMockPath",
+          "when": "false"
+        },
+        {
+          "command": "picoBridge.getSelectedBoard",
+          "when": "false"
         }
       ],
       "editor/context": [
@@ -202,6 +263,33 @@
           "command": "picoBridge.uploadFile",
           "when": "resourceExtname == .py && picoBridge.serverRunning",
           "group": "picoBridge@2"
+        },
+        {
+          "command": "picoBridge.runActiveFileInEmulator",
+          "when": "resourceExtname == .py",
+          "group": "picoBridge@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "picoBridge.runActiveFileInEmulator",
+          "when": "view == picoBridge.workspaceFiles && viewItem == pythonFile",
+          "group": "inline@1"
+        },
+        {
+          "command": "picoBridge.debugPythonFile",
+          "when": "view == picoBridge.workspaceFiles && viewItem == pythonFile",
+          "group": "inline@2"
+        },
+        {
+          "command": "picoBridge.runFile",
+          "when": "view == picoBridge.workspaceFiles && viewItem == pythonFile && picoBridge.serverRunning",
+          "group": "inline@3"
+        },
+        {
+          "command": "picoBridge.uploadFile",
+          "when": "view == picoBridge.workspaceFiles && viewItem == pythonFile && picoBridge.serverRunning",
+          "group": "1_file"
         }
       ],
       "view/title": [
@@ -248,12 +336,12 @@
     "viewsWelcome": [
       {
         "view": "picoBridge.status",
-        "contents": "Pico Bridge server is not running.\n\n[$(play) Start Bridge Server](command:picoBridge.startServer)\n\nAfter starting, a browser will open where you can connect your Pico device using the Web Serial API.\n\n**Note:** Use Chrome or Edge browser for Web Serial support.",
+        "contents": "Pico Bridge server is not running.\n\n[$(play) Start Bridge Server](command:picoBridge.startServer)\n\nAfter starting, a browser will open where you can connect your Pico device using the Web Serial API.\n\n**Note:** Use Chrome or Edge browser for Web Serial support.\n\n---\n\n[$(circuit-board) Open Emulator](command:picoBridge.openEmulator)\n\nTest MicroPython code without hardware.",
         "when": "!picoBridge.serverRunning"
       },
       {
         "view": "picoBridge.status",
-        "contents": "Bridge server is running on port $(picoBridge.port).\n\n[$(globe) Open in Browser](command:picoBridge.openBrowser)\n\n[$(debug-stop) Stop Server](command:picoBridge.stopServer)",
+        "contents": "Bridge server is running on port $(picoBridge.port).\n\n[$(globe) Open in Browser](command:picoBridge.openBrowser)\n\n[$(debug-stop) Stop Server](command:picoBridge.stopServer)\n\n---\n\n[$(circuit-board) Open Emulator](command:picoBridge.openEmulator)\n\nTest MicroPython code without hardware.",
         "when": "picoBridge.serverRunning"
       },
       {
@@ -347,6 +435,12 @@
           "type": "string",
           "default": "",
           "description": "Custom browser command (leave empty for system default). Example: 'google-chrome --incognito'",
+          "scope": "window"
+        },
+        "picoBridge.emulator.pythonExecutable": {
+          "type": "string",
+          "default": "python3",
+          "description": "Python executable used to run the emulator runner (fall back to system python3 if empty)",
           "scope": "window"
         }
       }

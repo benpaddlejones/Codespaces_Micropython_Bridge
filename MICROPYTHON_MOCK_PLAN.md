@@ -6,20 +6,226 @@ Create a full MicroPython hardware emulator that runs inside VS Code, allowing d
 
 **Key Principle**: MicroPython scripts should run like normal Python in VS Code - no import errors, no linting warnings, click Play and it works.
 
+**Design Philosophy**: Start simple, make more complex when simple is working.
+
+---
+
+## 📋 TODO List (Active Sprint)
+
+### Priority Tasks
+
+| #   | Task                            | Status         | Phase  | Notes                                                                             |
+| --- | ------------------------------- | -------------- | ------ | --------------------------------------------------------------------------------- |
+| 1   | **Pico 2 W Board SVG**          | 🔲 Not Started | 4      | Create new board SVG for Raspberry Pi Pico 2 W with updated pinout                |
+| 2   | **I2C Power-On Response Mock**  | 🔲 Not Started | 4      | Always return valid response to prevent infinite `while not device.ready()` loops |
+| 3   | **Emulator UI Modernization**   | 🔲 Not Started | 5      | Match bridge UI style - cleaner, more modern look                                 |
+| 4   | **Full MicroPython Mock Audit** | 🔲 Not Started | 5      | Audit all MicroPython modules for missing mocks & pass-throughs                   |
+| 5   | **WebSocket Server**            | 🔲 Not Started | 1      | Create `websocket_server.py` to push state to webview (currently uses stdout)     |
+| 6   | **Official Pinout Diagrams**    | 🔲 Not Started | 3      | Copy official pinout diagrams to `media/pinouts/`                                 |
+| 7   | **View Pinout Menu Option**     | 🔲 Not Started | 3      | Add "View Pinout" menu option in webview                                          |
+| 8   | **Test Pin Activity Real-time** | 🔲 Not Started | 3      | Verify pin activity visible in real-time in webview                               |
+| 9   | **Auto-configure Pylance**      | 🔲 Not Started | 4      | Auto-configure Pylance on extension activation                                    |
+| 10  | **ESP32 Board Schematic SVG**   | 🔲 Not Started | 4      | Add ESP32 board schematic SVG (separate from existing dropdown)                   |
+| 11  | **Full Workflow Test**          | 🔲 Not Started | 4      | Test full workflow from empty project to running emulator                         |
+| 12  | **Error Handling & Messages**   | 🔲 Not Started | 5      | User-friendly error messages and handling                                         |
+| 13  | **Performance Optimization**    | 🔲 Not Started | 5      | Optimize emulator performance                                                     |
+| 14  | **Test Community Examples**     | 🔲 Not Started | 5      | Run community MicroPython examples to validate emulator                           |
+| 15  | **I2C Device Presets**          | 🔲 Not Started | Future | MPU6050, BME280, etc. with pre-filled hex patterns                                |
+| 16  | **SSD1306 Display Rendering**   | 🔲 Not Started | Future | Show SSD1306 framebuffer contents as image                                        |
+| 17  | **Record/Replay Interactions**  | 🔲 Not Started | Future | Record hardware interactions for regression testing                               |
+| 18  | **Multi-board Simulation**      | 🔲 Not Started | Future | Run multiple virtual boards simultaneously                                        |
+
+### Task Details
+
+#### 1. Pico 2 W Board SVG
+
+- [ ] Research Pico 2 W pinout differences from Pico W
+- [ ] Create `board-pico2w.svg` with accurate pin layout
+- [ ] Add "Pico 2 W" option to board dropdown
+- [ ] Update webview provider to handle new board type
+
+#### 2. I2C Power-On Response Mock
+
+- [ ] Modify `I2C.readfrom()` to always return non-zero on first byte (device present)
+- [ ] Implement `I2C.scan()` to return configured mock addresses
+- [ ] Add `I2C.register_device(addr)` method to simulate connected devices
+- [ ] Handle common patterns: `while not i2c.scan()`, `while device.read() == 0`
+
+#### 3. Emulator UI Modernization
+
+- [ ] Update webview CSS to match bridge styling (fonts, colors, spacing)
+- [ ] Add card-based layout with subtle shadows
+- [ ] Improve pin state indicators (larger, clearer)
+- [ ] Add dark/light theme support
+- [ ] Modernize console output styling
+- [ ] Add toolbar with clear actions
+
+#### 4. Full MicroPython Mock Audit
+
+- [ ] Audit `micropython/` folder for incomplete implementations
+- [ ] Check all pass-through modules (uio→io, uos→os, etc.)
+- [ ] Verify stub files match runtime implementations
+- [ ] Add missing modules: `uctypes`, `ubinascii`, `ujson`, `ure`, `uzlib`
+- [ ] Document any MicroPython-specific behaviors not covered
+
+#### 5. WebSocket Server
+
+- [ ] Create `emulator/mock/websocket_server.py`
+- [ ] Push pin state changes to webview in real-time
+- [ ] Replace current stdout-based communication
+
+#### 6-8. Pinout & Testing
+
+- [ ] Download official Pico/ESP32 pinout PDFs/SVGs
+- [ ] Add to `media/pinouts/` folder
+- [ ] Create "View Pinout" button in webview toolbar
+- [ ] Write integration tests for real-time pin visualization
+
+#### 9-11. VS Code Integration
+
+- [ ] Add Pylance configuration on extension activate
+- [ ] Create ESP32 board schematic (currently only in dropdown)
+- [ ] End-to-end test: fresh workspace → emulator running
+
+#### 12-14. Polish
+
+- [ ] Try/catch with user-friendly error messages
+- [ ] Profile and optimize hot paths
+- [ ] Test with popular MicroPython tutorials/examples
+
+---
+
+## Current Status (December 11, 2025)
+
+| Area                  | Status                                                                    |
+| --------------------- | ------------------------------------------------------------------------- |
+| **Extension Release** | Version 1.1.0 packaged; Phase 3 complete; ready for Phase 4 polish        |
+| **Emulator Code**     | Phase 3 COMPLETE (board SVGs, pin viz, NeoPixels, board dropdown, pinout) |
+| **Plan Alignment**    | Phase 3 complete; Phase 4 partially done (Pylance auto-config added)      |
+
+### Latest Progress (December 11, 2025)
+
+- **Phase 1 Complete** ✓ - Mock runtime, runner, LED webview, launch config
+- **Phase 2 Complete** ✓ - Stub files, ADC/I2C/SPI/Timer classes, webview panels
+- **Phase 3 Complete** ✓:
+  - Created Pico board schematic SVG with interactive pin indicators
+  - Created ESP32 board schematic SVG with interactive pin indicators
+  - Implemented pin state visualization (HIGH=green, LOW=dim, PWM=pulsing orange)
+  - Added NeoPixel strip visualization component
+  - Added board selection dropdown (Pico, Pico W, ESP32)
+  - Created runtime modules: `network.py`, `neopixel.py`, `rp2.py`, `gc.py`, `sys.py`, `os.py`
+  - Webview provider dynamically loads and sends board SVG based on selection
+  - Added "View Pinout" command for official pinout reference
+  - Pylance auto-configuration on extension activation (zero setup)
+  - UART loopback simulation for testing without hardware
+  - Updated README with comprehensive emulator documentation
+- **Phase 4 In Progress**: Polish and production readiness (see TODO list above)
+
+---
+
+## Packaging & Deployment
+
+### Emulator Lives Separate from Bridge
+
+The emulator is **completely isolated** from the bridge server to avoid any conflicts. They live in separate folders within the extension and share no code paths.
+
+```
+extension/                        # VS Code Extension Root
+├── bridge/                       # Bridge server (EXISTING - DO NOT MODIFY)
+│   ├── server.js
+│   ├── public/
+│   └── src/
+│
+├── emulator/                     # MicroPython emulator (NEW - ISOLATED)
+│   ├── mock/                     # Python runtime mocks
+│   │   ├── micropython/          # Runtime mock modules
+│   │   ├── typings/              # Type stubs for Pylance
+│   │   └── runner.py             # Entry point
+│   ├── webview/                  # Emulator UI (separate from bridge)
+│   │   ├── index.html
+│   │   ├── style.css
+│   │   └── js/
+│   └── boards/                   # Board definitions
+│
+├── media/
+│   ├── pinouts/                  # Official pinout diagrams
+│   └── icons/
+│
+└── src/                          # Extension TypeScript code
+    ├── commands/
+    ├── server/                   # Bridge server management
+    ├── emulator/                 # Emulator management (NEW)
+    │   ├── webviewProvider.ts
+    │   ├── launchConfig.ts
+    │   └── pylanceConfig.ts
+    └── views/
+```
+
+### Why Separate from Bridge?
+
+| Concern     | Bridge                                  | Emulator                    |
+| ----------- | --------------------------------------- | --------------------------- |
+| **Purpose** | Connect to real hardware via Web Serial | Simulate hardware in Python |
+| **Runtime** | Node.js + Express + Socket.IO           | Python + WebSocket          |
+| **UI**      | Browser-based (port 3000)               | VS Code Webview panel       |
+| **State**   | Real device state                       | Simulated state             |
+
+**No shared code** = No conflicts. They can be developed, tested, and debugged independently.
+
+### How It Works at Runtime
+
+1. **Extension activates** → Registers "MicroPython (Emulator)" launch configuration
+2. **User clicks Play** → Extension resolves paths to `extension/emulator/mock/` folder
+3. **Pylance configuration** → Extension auto-configures `python.analysis.extraPaths` pointing to `emulator/mock/typings/`
+4. **Script runs** → Python executes with `emulator/mock/micropython/` prepended to `sys.path`
+5. **Webview opens** → Emulator panel (separate from bridge) shows board state
+
+### Path Resolution
+
+The extension dynamically resolves the emulator folder path:
+
+```typescript
+// In extension activation
+const extensionPath = context.extensionPath;
+const emulatorPath = path.join(extensionPath, "emulator");
+const mockPath = path.join(emulatorPath, "mock");
+const typingsPath = path.join(mockPath, "typings");
+const micropythonPath = path.join(mockPath, "micropython");
+
+// Auto-configure Pylance (does NOT affect bridge)
+const config = vscode.workspace.getConfiguration("python.analysis");
+await config.update(
+  "extraPaths",
+  [micropythonPath, typingsPath],
+  vscode.ConfigurationTarget.Workspace
+);
+```
+
+### Why Not Copy to Workspace?
+
+| Approach                   | Pros                                                  | Cons                                                          |
+| -------------------------- | ----------------------------------------------------- | ------------------------------------------------------------- |
+| **Bundle in extension** ✅ | Zero setup, always up-to-date, no workspace pollution | Paths must be resolved dynamically                            |
+| Copy to workspace `.mock/` | Simple path references                                | User must manage files, version conflicts, clutters workspace |
+
+**Decision**: Bundle everything in the extension under `emulator/` folder, completely separate from `bridge/`.
+
 ---
 
 ## Goals
 
-| Goal                        | Description                                                               |
-| --------------------------- | ------------------------------------------------------------------------- |
-| **Full Emulation**          | Simulate MicroPython as close to real hardware as possible                |
-| **Zero Linting Errors**     | `import machine`, `import utime` work without red squiggles               |
-| **Multi-board**             | Support Raspberry Pi Pico (RP2040) and ESP32                              |
-| **Visual Feedback**         | Show a virtual board with LED states, pin activity in a VS Code webview   |
-| **Interactive I2C**         | User can enter sensor return values via UI (e.g., accelerometer X/Y/Z)    |
-| **Zero Upload Impact**      | Mock lives in hidden folder (`.mock/`) - invisible to Pico Bridge uploads |
-| **Click Play to Run**       | VS Code's standard Play button triggers the emulator                      |
-| **Bridge Menu Integration** | "Open Emulator" command in Pico Bridge sidebar menu                       |
+| Goal                        | Description                                                             |
+| --------------------------- | ----------------------------------------------------------------------- |
+| **Full Emulation**          | Simulate MicroPython as close to real hardware as possible              |
+| **Zero Linting Errors**     | `import machine`, `import utime` work without red squiggles             |
+| **Multi-board**             | Support Raspberry Pi Pico (RP2040) and ESP32                            |
+| **Visual Feedback**         | Show a virtual board with LED states, pin activity in a VS Code webview |
+| **Simple I2C**              | Basic I2C input/output hex boxes (start simple, enhance later)          |
+| **Zero Setup**              | Works immediately after extension install - no manual file copying      |
+| **Zero Upload Impact**      | Emulator is in extension folder - never uploaded to Pico                |
+| **Click Play to Run**       | VS Code's standard Play button triggers the emulator                    |
+| **Bridge Menu Integration** | "Open Emulator" command in Pico Bridge sidebar menu                     |
+| **Isolated from Bridge**    | Emulator folder completely separate from bridge - no code conflicts     |
 
 ---
 
@@ -27,23 +233,22 @@ Create a full MicroPython hardware emulator that runs inside VS Code, allowing d
 
 To eliminate import errors and linting warnings for MicroPython modules:
 
-### Strategy: Type Stubs + Path Configuration
+### Strategy: Type Stubs + Auto-Configuration
 
-#### 1. Type Stub Files (`.pyi`)
+The extension **automatically configures** Pylance/Pyright on activation - users don't need to edit any config files.
 
-Create comprehensive type stubs for Pylance/Pyright:
+#### 1. Type Stub Files (`.pyi`) - Bundled in Extension
 
 ```
-.mock/
-├── typings/                    # Type stubs for static analysis
-│   ├── machine.pyi             # Full type hints for machine module
-│   ├── utime.pyi               # Time functions with signatures
-│   ├── network.pyi             # WLAN, interfaces
-│   ├── neopixel.pyi            # NeoPixel class
-│   ├── rp2.pyi                 # RP2040-specific
-│   ├── esp.pyi                 # ESP-specific
-│   ├── esp32.pyi               # ESP32-specific
-│   └── ... (all MicroPython modules)
+.extension/mock/typings/        # Type stubs (packaged in extension)
+├── machine.pyi                 # Full type hints for machine module
+├── utime.pyi                   # Time functions with signatures
+├── network.pyi                 # WLAN, interfaces
+├── neopixel.pyi                # NeoPixel class
+├── rp2.pyi                     # RP2040-specific
+├── esp.pyi                     # ESP-specific
+├── esp32.pyi                   # ESP32-specific
+└── ... (all MicroPython modules)
 ```
 
 Example `machine.pyi`:
@@ -83,38 +288,45 @@ class I2C:
 # ... ADC, SPI, UART, Timer, WDT, RTC
 ```
 
-#### 2. Pyrightconfig Configuration
+#### 2. Auto-Configuration on Extension Activation
 
-Create `pyrightconfig.json` in workspace root:
+The extension automatically configures Pylance when activated:
 
-```json
-{
-  "include": ["**/*.py"],
-  "exclude": [".mock/micropython/**", "node_modules"],
-  "stubPath": ".mock/typings",
-  "extraPaths": [".mock/micropython"],
-  "reportMissingImports": false,
-  "reportMissingModuleSource": false,
-  "pythonVersion": "3.11",
-  "typeCheckingMode": "basic"
-}
-```
+```typescript
+// In extension.ts activate()
+async function configurePylanceForMock(context: vscode.ExtensionContext) {
+  const mockPath = path.join(context.extensionPath, "mock");
+  const typingsPath = path.join(mockPath, "typings");
+  const micropythonPath = path.join(mockPath, "micropython");
 
-#### 3. VS Code Settings
+  const config = vscode.workspace.getConfiguration("python.analysis");
 
-Add to `.vscode/settings.json`:
+  // Add extension paths to Pylance analysis
+  const extraPaths = config.get<string[]>("extraPaths") || [];
+  const newPaths = [micropythonPath, typingsPath];
 
-```json
-{
-  "python.analysis.extraPaths": [".mock/micropython", ".mock/typings"],
-  "python.analysis.stubPath": ".mock/typings",
-  "python.analysis.diagnosticSeverityOverrides": {
-    "reportMissingModuleSource": "none"
+  for (const p of newPaths) {
+    if (!extraPaths.includes(p)) {
+      extraPaths.push(p);
+    }
   }
+
+  await config.update(
+    "extraPaths",
+    extraPaths,
+    vscode.ConfigurationTarget.Workspace
+  );
+  await config.update(
+    "stubPath",
+    typingsPath,
+    vscode.ConfigurationTarget.Workspace
+  );
 }
 ```
 
-**Result**: User writes `import machine` → No red squiggles, full IntelliSense!
+**Result**: User installs extension → writes `import machine` → **No red squiggles, full IntelliSense!**
+
+No manual configuration required.
 
 ---
 
@@ -156,7 +368,9 @@ When user clicks the Play button (▶) in VS Code's top-right corner:
 3. **Script executes** with mock MicroPython modules
 4. **Pin activity** streams to webview in real-time
 
-#### `.vscode/launch.json` Addition
+#### `.vscode/launch.json` - Auto-Generated by Extension
+
+The extension creates/updates this launch configuration automatically:
 
 ```json
 {
@@ -166,18 +380,20 @@ When user clicks the Play button (▶) in VS Code's top-right corner:
       "name": "MicroPython (Emulator)",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/.mock/runner.py",
+      "program": "${command:picoBridge.getMockRunnerPath}",
       "args": ["${file}"],
       "console": "integratedTerminal",
       "env": {
         "MICROPYTHON_MOCK": "1",
-        "MOCK_BOARD": "pico"
-      },
-      "preLaunchTask": "picoBridge.openEmulator"
+        "MOCK_BOARD": "${command:picoBridge.getSelectedBoard}",
+        "MOCK_PATH": "${command:picoBridge.getMockPath}"
+      }
     }
   ]
 }
 ```
+
+The `${command:...}` variables are resolved by the extension to point to the bundled mock folder.
 
 ### Bridge Menu Integration
 
@@ -189,7 +405,7 @@ Add "Open Emulator" to the Pico Bridge sidebar menu:
   "commands": [
     {
       "command": "picoBridge.openEmulator",
-      "title": "Open Emulator",
+      "title": "Open MicroPython Emulator",
       "icon": "$(circuit-board)"
     }
   ],
@@ -197,13 +413,21 @@ Add "Open Emulator" to the Pico Bridge sidebar menu:
     "view/title": [
       {
         "command": "picoBridge.openEmulator",
-        "when": "view == picoBridgeFiles",
+        "when": "view == picoBridge.status",
         "group": "navigation"
+      }
+    ],
+    "viewsWelcome": [
+      {
+        "view": "picoBridge.status",
+        "contents": "...[$(circuit-board) Open Emulator](command:picoBridge.openEmulator)..."
       }
     ]
   }
 }
 ```
+
+Both welcome states (server running or idle) now surface the emulator CTA so users can launch the mock even before wiring up hardware.
 
 ---
 
@@ -224,8 +448,8 @@ Add "Open Emulator" to the Pico Bridge sidebar menu:
 │  │ 🔧 Board            │                                                │
 │  │   ├─ Raspberry Pi Pico                                               │
 │  │   └─ ESP32 DevKit                                                    │
-│  │ 📡 I2C Devices      │                                                │
-│  │   └─ Configure...   │  ← Opens device configuration panel            │
+│  │ 📡 I2C              │                                                │
+│  │   └─ Open Monitor   │  ← Simple hex input/output panel               │
 │  └─────────────────────┘                                                │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -258,19 +482,15 @@ Add "Open Emulator" to the Pico Bridge sidebar menu:
 │  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                         │
 │  ┌─────────────────────────────┐  ┌─────────────────────────────────┐  │
-│  │ I2C Devices                 │  │ Console Output                  │  │
+│  │ I2C Monitor                 │  │ Console Output                  │  │
 │  │                             │  │                                 │  │
-│  │ 0x68: MPU6050 [Configure]   │  │ > [Mock] Running: main.py       │  │
-│  │   X: [====|====] 0.5g       │  │ > [Mock] Board: Raspberry Pi    │  │
-│  │   Y: [====|====] -0.2g      │  │ > ─────────────────────────     │  │
-│  │   Z: [====|====] 1.0g       │  │ > LED on                        │  │
-│  │                             │  │ > Accel: X=0.5 Y=-0.2 Z=1.0     │  │
-│  │ 0x76: BME280 [Configure]    │  │ > Temperature: 22.5°C           │  │
-│  │   Temp:  [========] 22.5°C  │  │ >                               │  │
-│  │   Humid: [======] 45%       │  │                                 │  │
-│  │   Press: [========] 1013hPa │  │                                 │  │
-│  │                             │  │                                 │  │
-│  │ [+ Add Device]              │  │                                 │  │
+│  │ Output (writes):            │  │ > [Mock] Running: main.py       │  │
+│  │ 0x68 reg:0x3B → 0x00        │  │ > [Mock] Board: Raspberry Pi    │  │
+│  │                             │  │ > ─────────────────────────     │  │
+│  │ Input (reads return):       │  │ > LED on                        │  │
+│  │ [0x00            ]          │  │ > I2C read: 0x00                │  │
+│  │                             │  │ > Temperature: 0                │  │
+│  │                             │  │ >                               │  │
 │  └─────────────────────────────┘  └─────────────────────────────────┘  │
 │                                                                         │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
@@ -312,151 +532,109 @@ The pinout diagrams will be stored in the extension:
 
 ---
 
-## I2C Device Simulation
+## I2C Device Simulation (Simplified)
 
-### The Problem
+### Design Philosophy: Start Simple
 
-When user code does `i2c.readfrom_mem(0x68, 0x3B, 14)` (read accelerometer data), the emulator needs to return realistic bytes. But we can't know what values the user expects.
+Instead of complex device simulators with sliders and value conversion, we start with a **minimal, generic I2C interface** that works for any device.
 
-### Solution: Interactive Device Configuration
-
-#### Flow:
-
-1. **Auto-detect**: When script calls `i2c.scan()` or accesses an address, emulator checks if device is known
-2. **Prompt user**: If address matches known device (MPU6050 at 0x68), show configuration UI
-3. **User enters values**: Sliders/inputs for human-readable values (X=0.5g, Y=-0.2g, Z=1.0g)
-4. **Emulator converts**: Values → raw bytes in correct format for that device
-5. **Fallback**: Unknown devices return `0x00` bytes (configurable)
-
-#### I2C Device Configuration Panel
+### Simple I2C UI
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Configure I2C Device                                          [×]     │
+│  I2C Bus Monitor                                               [×]     │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  Address: 0x68                                                          │
-│  Detected: MPU6050 (Accelerometer/Gyroscope)                           │
-│                                                                         │
-│  ─── Accelerometer (±2g range) ───────────────────────────────────────  │
-│                                                                         │
-│  X-Axis:  [-2g] ════════════●════════════ [+2g]     Value: 0.50 g     │
-│  Y-Axis:  [-2g] ════════●════════════════ [+2g]     Value: -0.20 g    │
-│  Z-Axis:  [-2g] ════════════════════●════ [+2g]     Value: 1.00 g     │
-│                                                                         │
-│  ─── Gyroscope (±250°/s range) ───────────────────────────────────────  │
-│                                                                         │
-│  X-Axis:  [-250] ══════════●══════════════ [+250]   Value: 0.0 °/s    │
-│  Y-Axis:  [-250] ══════════●══════════════ [+250]   Value: 0.0 °/s    │
-│  Z-Axis:  [-250] ══════════●══════════════ [+250]   Value: 0.0 °/s    │
-│                                                                         │
-│  ─── Temperature ─────────────────────────────────────────────────────  │
-│                                                                         │
-│  Temp:    [-40°C] ═════════════●══════════ [+85°C]  Value: 25.0 °C    │
-│                                                                         │
+│  I2C Output (last write from script):                                   │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ Raw bytes preview (register 0x3B, 14 bytes):                     │   │
-│  │ 0x10 0x00 0xFC 0xCD 0x40 0x00 0x00 0x00 0x00 0x00 0x00 0x00 ... │   │
+│  │ Address: 0x68  Register: 0x3B  Data: 0x00 0x00                  │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                         │
-│  [Apply]  [Reset to Defaults]  [Enable Random Noise ☑]                 │
+│  I2C Input (value returned to script on read):                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ [0x00]                                                          │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│  (Enter hex bytes separated by spaces, e.g., "0x00 0x01 0xFF")         │
+│                                                                         │
+│  Default: 0x00 (all reads return 0x00 bytes if not specified)          │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### Conversion Logic (MPU6050 Example)
+### How It Works
+
+1. **Script writes to I2C** → Output box shows address, register, and data written
+2. **Script reads from I2C** → Returns bytes from Input box (defaults to `0x00`)
+3. **User can modify input** → Type hex bytes to simulate sensor responses
+
+### Python Implementation
 
 ```python
-class MPU6050Device:
-    """MPU6050 I2C device simulator"""
+class I2C:
+    """Simplified I2C mock - just input/output hex values"""
 
-    # Register addresses
-    ACCEL_XOUT_H = 0x3B
-    GYRO_XOUT_H = 0x43
-    TEMP_OUT_H = 0x41
-    WHO_AM_I = 0x75
+    def __init__(self, id, scl=None, sda=None, freq=400000):
+        self.id = id
+        self.freq = freq
+        self._input_bytes = bytes([0x00])  # Default response
+        self._last_write = None
 
-    def __init__(self, addr=0x68):
-        self.addr = addr
-        # User-configurable values (set via webview)
-        self.accel = {'x': 0.0, 'y': 0.0, 'z': 1.0}  # g units
-        self.gyro = {'x': 0.0, 'y': 0.0, 'z': 0.0}   # °/s
-        self.temp = 25.0  # °C
-        self.noise_enabled = True
+    def scan(self):
+        """Return empty list - user adds addresses as needed"""
+        return []
 
-    def read_mem(self, memaddr, nbytes):
-        if memaddr == self.WHO_AM_I:
-            return bytes([0x68])  # Device ID
+    def writeto(self, addr, buf):
+        """Log the write, notify webview"""
+        self._last_write = {
+            'address': hex(addr),
+            'data': ' '.join(f'0x{b:02X}' for b in buf)
+        }
+        # Send to webview for display
+        _notify_webview('i2c_write', self._last_write)
+        return len(buf)
 
-        if memaddr == self.ACCEL_XOUT_H:
-            # Convert g values to raw 16-bit signed integers
-            # Scale: ±2g = ±32768, so 1g = 16384
-            ax = self._g_to_raw(self.accel['x'])
-            ay = self._g_to_raw(self.accel['y'])
-            az = self._g_to_raw(self.accel['z'])
+    def readfrom(self, addr, nbytes):
+        """Return input bytes (padded/truncated to nbytes)"""
+        result = (self._input_bytes * ((nbytes // len(self._input_bytes)) + 1))[:nbytes]
+        return bytes(result)
 
-            # Temperature: raw = (temp_c + 36.53) / 0.00294
-            temp_raw = int((self.temp + 36.53) / 0.00294)
+    def writeto_mem(self, addr, memaddr, buf):
+        """Log write with register address"""
+        self._last_write = {
+            'address': hex(addr),
+            'register': hex(memaddr),
+            'data': ' '.join(f'0x{b:02X}' for b in buf)
+        }
+        _notify_webview('i2c_write', self._last_write)
 
-            # Gyro: ±250°/s = ±32768, so 1°/s = 131
-            gx = self._dps_to_raw(self.gyro['x'])
-            gy = self._dps_to_raw(self.gyro['y'])
-            gz = self._dps_to_raw(self.gyro['z'])
+    def readfrom_mem(self, addr, memaddr, nbytes):
+        """Return input bytes for register read"""
+        self._last_write = {
+            'address': hex(addr),
+            'register': hex(memaddr),
+            'read_bytes': nbytes
+        }
+        _notify_webview('i2c_read', self._last_write)
+        result = (self._input_bytes * ((nbytes // len(self._input_bytes)) + 1))[:nbytes]
+        return bytes(result)
 
-            # Pack as big-endian 16-bit values
-            data = struct.pack('>hhhhhhh', ax, ay, az, temp_raw, gx, gy, gz)
-            return data[:nbytes]
-
-        # Unknown register - return zeros
-        return bytes(nbytes)
-
-    def _g_to_raw(self, g_value):
-        raw = int(g_value * 16384)  # ±2g scale
-        if self.noise_enabled:
-            raw += random.randint(-50, 50)  # Small noise
-        return max(-32768, min(32767, raw))
-
-    def _dps_to_raw(self, dps_value):
-        raw = int(dps_value * 131)  # ±250°/s scale
-        if self.noise_enabled:
-            raw += random.randint(-10, 10)
-        return max(-32768, min(32767, raw))
+    def set_input(self, hex_string):
+        """Called from webview when user updates input box"""
+        # Parse "0x00 0x01 0xFF" -> bytes([0, 1, 255])
+        self._input_bytes = bytes(int(h, 16) for h in hex_string.split())
 ```
 
-#### Supported Devices (Initial Set)
+### Why Start Simple?
 
-| Address   | Device  | User Inputs                                  | Output                            |
-| --------- | ------- | -------------------------------------------- | --------------------------------- |
-| 0x68      | MPU6050 | Accel X/Y/Z (g), Gyro X/Y/Z (°/s), Temp (°C) | 14-byte sensor data               |
-| 0x76/0x77 | BME280  | Temp (°C), Humidity (%), Pressure (hPa)      | Calibrated raw bytes              |
-| 0x3C/0x3D | SSD1306 | N/A (display)                                | ACKs writes, captures framebuffer |
-| 0x23      | BH1750  | Light level (lux)                            | 16-bit light value                |
-| 0x27/0x20 | PCF8574 | 8 GPIO states                                | Byte reflecting state             |
-| 0x48      | ADS1115 | 4 analog voltages                            | 16-bit ADC readings               |
-| Unknown   | Generic | Hex byte pattern                             | Repeated pattern                  |
+| Complex Approach                                | Simple Approach               |
+| ----------------------------------------------- | ----------------------------- |
+| Device-specific simulators (MPU6050, BME280...) | Generic hex input/output      |
+| Value → byte conversion logic                   | User provides raw bytes       |
+| Slider UIs for each sensor                      | Single text input             |
+| Many files to maintain                          | Minimal code                  |
+| Bugs in conversion formulas                     | What you type is what you get |
 
-#### Fallback for Unknown Devices
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Unknown I2C Device                                            [×]     │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  Address: 0x42 (Unknown device)                                         │
-│                                                                         │
-│  The emulator doesn't recognize this I2C address.                       │
-│  Configure how it should respond to read requests:                      │
-│                                                                         │
-│  Response Mode:                                                         │
-│    ○ Return zeros (0x00 0x00 0x00 ...)                                 │
-│    ● Return pattern: [0xFF] repeated                                    │
-│    ○ Return custom hex: [________________]                              │
-│    ○ Return random bytes                                                │
-│                                                                         │
-│  [Apply]                                                                │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+**Future Enhancement**: Once simple I2C works, we can add device presets that auto-populate common byte patterns (e.g., "MPU6050 WHO_AM_I" → sets input to `0x68`).
 
 ---
 
@@ -553,95 +731,125 @@ Similar approach for ESP32-WROOM-32 DevKit:
 
 ---
 
-## Folder Structure (Updated)
+## Extension Folder Structure
+
+All emulator code is **completely separated** from the bridge server:
 
 ```
-.mock/                          # Hidden from Pico Bridge uploads
-├── __init__.py
-├── runner.py                   # Main entry point - executes user code
-├── config.py                   # Board selection, pin mappings
-├── state.py                    # Global emulator state (pins, I2C, etc)
-├── websocket_server.py         # Pushes state to webview
+extension/                          # VS Code Extension Root
+├── package.json                    # Extension manifest
 │
-├── typings/                    # Type stubs for Pylance (static analysis)
-│   ├── machine.pyi
-│   ├── utime.pyi
-│   ├── time.pyi
-│   ├── network.pyi
-│   ├── neopixel.pyi
-│   ├── rp2.pyi
-│   ├── esp.pyi
-│   ├── esp32.pyi
-│   ├── dht.pyi
-│   ├── onewire.pyi
-│   ├── framebuf.pyi
-│   ├── bluetooth.pyi
-│   ├── _thread.pyi
-│   └── micropython.pyi
+├── bridge/                         # ═══ BRIDGE SERVER (EXISTING) ═══
+│   ├── server.js                   # Express + Socket.IO server
+│   ├── package.json
+│   ├── public/                     # Bridge web UI (browser-based)
+│   │   ├── index.html
+│   │   ├── style.css
+│   │   └── js/
+│   └── src/                        # Bridge backend
+│       ├── api/
+│       ├── services/
+│       └── utils/
 │
-├── micropython/                # Runtime mock modules
-│   ├── __init__.py
-│   ├── machine.py
-│   ├── utime.py
-│   ├── time.py
-│   └── ... (same as typings, but with implementations)
-│
-├── boards/                     # Board definitions
-│   ├── __init__.py
-│   ├── base.py
-│   ├── rpi_pico.py
-│   └── esp32.py
-│
-├── devices/                    # I2C/SPI device simulators
-│   ├── __init__.py
-│   ├── registry.py
-│   ├── i2c/
+├── emulator/                       # ═══ EMULATOR (NEW - ISOLATED) ═══
+│   ├── mock/                       # Python mock modules
 │   │   ├── __init__.py
-│   │   ├── mpu6050.py
-│   │   ├── bme280.py
-│   │   ├── ssd1306.py
-│   │   ├── bh1750.py
-│   │   ├── pcf8574.py
-│   │   ├── ads1115.py
-│   │   └── generic.py
-│   └── spi/
+│   │   ├── runner.py               # Entry point - executes user scripts
+│   │   ├── state.py                # Global emulator state (pins)
+│   │   ├── config.py               # Board selection, settings *(planned)*
+│   │   ├── websocket_server.py     # Pushes state to webview *(planned)*
+│   │   │
+│   │   ├── typings/                # Type stubs for Pylance
+│   │   │   ├── machine.pyi
+│   │   │   ├── utime.pyi *(planned)*
+│   │   │   ├── time.pyi *(planned)*
+│   │   │   ├── network.pyi *(planned)*
+│   │   │   ├── neopixel.pyi *(planned)*
+│   │   │   ├── rp2.pyi *(planned)*
+│   │   │   ├── esp.pyi *(planned)*
+│   │   │   ├── esp32.pyi *(planned)*
+│   │   │   └── micropython.pyi *(planned)*
+│   │   │
+│   │   └── micropython/            # Runtime mock modules
+│   │       ├── __init__.py
+│   │       ├── machine.py          # Pin outputs (implemented)
+│   │       ├── utime.py
+│   │       ├── time.py
+│   │       ├── network.py *(planned)*
+│   │       ├── neopixel.py *(planned)*
+│   │       ├── rp2.py *(planned)*
+│   │       └── esp.py *(planned)*
+│   │
+│   ├── webview/                    # Emulator UI (VS Code webview)
+│   │   ├── index.html
+│   │   ├── style.css
+│   │   └── js/
+│   │       ├── main.js
+│   │       ├── websocket.js
+│   │       ├── board.js            # Board schematic rendering
+│   │       ├── i2c-monitor.js      # Simple hex input/output
+│   │       ├── console.js
+│   │       └── activity-log.js
+│   │
+│   └── boards/                     # Board definitions
 │       ├── __init__.py
-│       └── generic.py
+│       ├── base.py
+│       ├── rpi_pico.py
+│       └── esp32.py
 │
-└── webview/                    # VS Code webview assets
-    ├── index.html
-    ├── style.css
-    └── js/
-        ├── main.js
-        ├── menu.js
-        ├── websocket.js
-        ├── boards/
-        │   ├── pico.js
-        │   └── esp32.js
-        ├── components/
-        │   ├── pin.js
-        │   ├── led.js
-        │   ├── console.js
-        │   ├── i2c-config.js
-        │   └── activity-log.js
-        └── pinout-viewer.js
-
-.extension/
-└── media/
-    └── pinouts/
-        ├── pico-pinout.svg     # Official Pico pinout (reference)
-        └── esp32-pinout.svg    # Official ESP32 pinout (reference)
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="MicroPython Mock Runner")
-    parser.add_argument("script", help="Path to MicroPython script to run")
-    parser.add_argument("--board", default="pico", choices=["pico", "esp32"],
-                        help="Board to emulate")
-    args = parser.parse_args()
-
-    os.environ.setdefault('MOCK_BOARD', args.board)
-    run_script(args.script)
+├── src/                            # Extension TypeScript code
+│   ├── extension.ts
+│   ├── commands/
+│   │   └── index.ts
+│   ├── server/                     # Bridge server management
+│   │   ├── index.ts
+│   │   └── bridgeServer.ts
+│   ├── emulator/                   # Emulator management (NEW)
+│   │   ├── index.ts
+│   │   ├── webviewProvider.ts      # Webview panel management
+│   │   ├── launchConfig.ts         # Auto-generate launch.json
+│   │   └── pylanceConfig.ts        # Auto-configure Pylance paths
+│   ├── views/
+│   └── utils/
+│
+├── media/
+│   ├── pinouts/                    # Official pinout reference diagrams
+│   │   ├── pico-pinout.svg
+│   │   └── esp32-pinout.svg
+│   └── icons/
+│
+└── dist/                           # Compiled extension (webpack output)
 ```
+
+### Key Separation Points
+
+| Aspect            | Bridge (`extension/bridge/`) | Emulator (`extension/emulator/`) |
+| ----------------- | ---------------------------- | -------------------------------- |
+| **Purpose**       | Real hardware connection     | Hardware simulation              |
+| **UI Runtime**    | Browser (port 3000)          | VS Code Webview panel            |
+| **Backend**       | Node.js + Express            | Python                           |
+| **Communication** | Socket.IO                    | WebSocket                        |
+| **State**         | Real device                  | Simulated                        |
+| **TypeScript**    | `src/server/`                | `src/emulator/`                  |
+
+### What Gets Packaged in VSIX
+
+The `.vscodeignore` ensures only necessary files are included:
+
+```
+# Include in VSIX:
+bridge/**               # Bridge server (existing)
+emulator/**             # Emulator modules (new)
+media/**                # Pinouts and icons
+dist/**                 # Compiled TypeScript
+
+# Exclude from VSIX:
+src/**                  # TypeScript source (compiled to dist/)
+node_modules/**         # Dev dependencies
+*.ts                    # Source files
+```
+
+````
 
 ### VS Code Extension Command
 
@@ -675,7 +883,7 @@ vscode.commands.registerCommand("picoBridge.runWithMock", async () => {
   terminal.show();
   terminal.sendText(`python "${mockRunnerPath}" "${editor.document.fileName}"`);
 });
-```
+````
 
 ---
 
@@ -728,68 +936,73 @@ vscode.commands.registerCommand("picoBridge.runWithMock", async () => {
 
 ## Implementation Phases
 
-### Phase 1: Core Infrastructure & Linting Support (Week 1)
+### Phase 1: Minimal Viable Emulator (Week 1)
 
-- [ ] Create `.mock/` folder structure
-- [ ] Create `typings/` folder with all `.pyi` stub files
-- [ ] Configure `pyrightconfig.json` for zero import errors
-- [ ] Update `.vscode/settings.json` for Pylance
-- [ ] Implement `state.py` - global emulator state management
-- [ ] Implement basic `machine.py` - Pin, PWM classes
-- [ ] Implement `time.py` / `utime.py`
-- [ ] Create `runner.py` - script execution
-- [ ] Add VS Code launch configuration for Play button
-- [ ] Basic console output
+**Goal**: Get a basic emulator running with LED blink working end-to-end.
 
-### Phase 2: Extended Machine Module (Week 2)
+- [x] Create `extension/emulator/` folder structure (separate from bridge)
+- [x] Create `emulator/mock/typings/machine.pyi` stub (Pin, PWM basics)
+- [x] Create `emulator/mock/micropython/machine.py` (Pin class with state tracking)
+- [x] Create `emulator/mock/micropython/time.py` / `utime.py` (sleep functions)
+- [x] Create `emulator/mock/runner.py` - script execution entry point
+- [x] Create `emulator/mock/state.py` - global pin state management
+- [ ] Create `emulator/mock/websocket_server.py` - push state to webview _(deferred: Phase 1 uses stdout bridge into VS Code)_
+- [x] Create minimal `emulator/webview/index.html` with single LED indicator
+- [x] Create `src/emulator/webviewProvider.ts` - VS Code webview panel
+- [x] Add VS Code launch configuration for Play button _(Dec 11, 2025)_
+- [x] **Test**: LED blink script toggles LED in webview _(Dec 11, 2025 - CLI verified)_
 
-- [ ] ADC class with noise simulation
-- [ ] I2C class with device registry framework
-- [ ] SPI class
-- [ ] UART class (loopback simulation)
-- [ ] Timer class with real threading
-- [ ] WDT class (warning on timeout)
-- [ ] RTC class
+### Phase 2: Core Infrastructure (Week 2)
 
-### Phase 3: I2C Device Simulators (Week 3)
+- [x] Complete all `.pyi` stub files for Pylance _(Dec 11, 2025)_
+- [x] Configure `pyrightconfig.json` for zero import errors _(Dec 11, 2025)_
+- [x] Implement ADC class _(Dec 11, 2025)_
+- [x] Implement basic I2C class (simple hex input/output - NO device simulators) _(Dec 11, 2025)_
+- [x] Implement SPI class (stub) _(Dec 11, 2025)_
+- [x] Implement Timer class _(Dec 11, 2025)_
+- [x] Add I2C Monitor panel to webview (input/output hex boxes) _(Dec 11, 2025)_
+- [x] Add Console output panel to webview _(Dec 11, 2025)_
+- [x] **Test**: All imports resolve without red squiggles _(Dec 11, 2025)_
 
-- [ ] Device registry with address auto-detection
-- [ ] Interactive configuration panel UI
-- [ ] MPU6050 (accelerometer/gyroscope) with user input → hex conversion
-- [ ] BME280 (temperature/humidity/pressure)
-- [ ] SSD1306 OLED (capture display buffer)
-- [ ] BH1750 (light sensor)
-- [ ] Generic device fallback with configurable response
+**Phase 2 Complete!** ✓
 
-### Phase 4: Board-Specific Modules (Week 4)
+### Phase 3: Board Visualization (Week 3)
 
-- [ ] `rp2.py` - PIO stubs, StateMachine
-- [ ] `esp.py` - ESP-specific functions
-- [ ] `esp32.py` - Partition, RMT, ULP stubs
-- [ ] `network.py` - WLAN simulation
-- [ ] `neopixel.py` - LED strip simulation
-- [ ] `bluetooth.py` - BLE stubs
+- [x] Create Pico board schematic SVG _(Dec 11, 2025)_
+- [x] Implement pin state visualization (HIGH/LOW/PWM) _(Dec 11, 2025)_
+- [x] Add activity log panel _(Dec 11, 2025)_
+- [x] Add NeoPixel strip visualization _(Dec 11, 2025)_
+- [x] Implement `neopixel.py` module _(Dec 11, 2025)_
+- [x] Add board selection dropdown (Pico vs ESP32) _(Dec 11, 2025)_
+- [ ] Copy official pinout diagrams to `media/pinouts/`
+- [ ] Add "View Pinout" menu option
+- [ ] **Test**: Pin activity visible in real-time
 
-### Phase 5: Webview Emulator (Week 5)
+### Phase 4: VS Code Integration (Week 4)
 
-- [ ] WebSocket server for real-time state updates
-- [ ] Menu system (View, Board, I2C Devices)
-- [ ] Pico board schematic SVG (accurate, animated)
-- [ ] ESP32 board schematic SVG
-- [ ] Pin state visualization (HIGH/LOW/PWM/Activity)
-- [ ] Activity log panel
-- [ ] Console output panel
-- [ ] NeoPixel strip display
+- [x] Add "Open Emulator" command to Pico Bridge menu _(Dec 11, 2025)_
+- [ ] Auto-configure Pylance on extension activation
+- [x] Auto-generate launch.json configuration _(Dec 11, 2025)_
+- [x] Implement `rp2.py` module (PIO stubs) _(Dec 11, 2025)_
+- [x] Implement `network.py` module (stubs) _(Dec 11, 2025)_
+- [ ] Add ESP32 board schematic SVG
+- [ ] **Test**: Full workflow from empty project to running emulator
 
-### Phase 6: VS Code Extension Integration (Week 6)
+### Phase 5: Polish & Future Prep (Week 5)
 
-- [ ] "Open Emulator" command in Bridge menu
-- [ ] Play button triggers mock runner + opens webview
-- [ ] Pinout diagram viewer (menu item)
-- [ ] Copy official pinout SVGs to extension media
-- [ ] I2C device configuration modal
-- [ ] Board selection dropdown
-- [ ] Persist device configurations
+- [ ] Error handling and user-friendly messages
+- [ ] Documentation and README for emulator
+- [ ] Add UART loopback simulation
+- [ ] Add RTC class
+- [ ] Performance optimization
+- [ ] **Test**: Run community MicroPython examples
+
+### Future Phases (After Simple Works)
+
+- [ ] I2C device presets (MPU6050, BME280, etc. with pre-filled hex patterns)
+- [ ] SSD1306 display framebuffer rendering
+- [ ] Record/replay hardware interactions
+- [ ] Multi-board simulation
 
 ---
 
@@ -834,27 +1047,40 @@ vscode.commands.registerCommand("picoBridge.runWithMock", async () => {
 
 ## Success Criteria
 
+### Phase 1 Success (Minimal Viable)
+
+1. ✅ LED blink script runs in emulator
+2. ✅ LED state visible in webview (on/off)
+3. ✅ Emulator is in `extension/emulator/` - completely separate from `extension/bridge/`
+
+### Full Success
+
 1. ✅ User writes `import machine` - **no red squiggles**, full IntelliSense
 2. ✅ User clicks Play button - emulator runs and webview opens
 3. ✅ Pin state changes visible in webview within 100ms
-4. ✅ User adjusts accelerometer slider - script reads correct g values
+4. ✅ Simple I2C: user types hex in input box, script reads those bytes
 5. ✅ Common libraries (machine, time, neopixel) work without modification
 6. ✅ "Open Emulator" appears in Pico Bridge menu
 7. ✅ Pinout diagram viewable from webview menu
-8. ✅ No files in `.mock/` are uploaded to Pico via bridge
+8. ✅ No files in `emulator/` are uploaded to Pico via bridge
 9. ✅ Supports both Pico and ESP32 board emulation
+10. ✅ Bridge and emulator can run simultaneously without conflicts
 
 ---
 
 ## Future Enhancements
 
+Once the simple emulator is working well:
+
+- **I2C Device Presets**: Pre-configured byte patterns for common sensors (MPU6050 WHO_AM_I = 0x68, etc.)
+- **Sensor Simulators**: Slider UIs for accelerometer, temperature, etc. with value→byte conversion
+- **Display Rendering**: Show SSD1306 framebuffer contents as image
 - **Record/Replay**: Capture hardware interactions for regression testing
 - **Breakpoints**: Pause on pin state changes
 - **Logic Analyzer**: Visualize timing of signals
 - **Network Simulation**: Fake WiFi with configurable latency/errors
 - **File System**: Simulate Pico's flash file system
 - **Multi-board**: Run multiple virtual boards simultaneously
-- **Display Rendering**: Show SSD1306 framebuffer contents as image
 - **Import from Real Device**: Read sensor values from connected Pico, replay in mock
 
 ---

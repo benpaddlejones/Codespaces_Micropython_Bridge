@@ -124,7 +124,171 @@ The bridge interface will open in your default browser. This is required because
 **Why External Browser?**
 The Web Serial API is not available in VS Code webviews. The bridge interface must run in an external browser (Chrome/Edge) to access serial ports.
 
+## 🎮 MicroPython Emulator (No Hardware Required!)
+
+Test and debug your MicroPython code **without physical hardware**! The built-in emulator simulates MicroPython's hardware APIs, allowing you to develop and test your code entirely in VS Code.
+
+### Why Use the Emulator?
+
+- **No Hardware Needed**: Test code without a Pico or ESP32
+- **Instant Feedback**: Run scripts immediately, no upload time
+- **Debugging Support**: Use VS Code's debugger with breakpoints
+- **Visual State**: See pin states, PWM values, and sensor readings
+- **Safe Experimentation**: Test code without risking your hardware
+
+### Running Scripts in the Emulator
+
+There are three ways to run MicroPython scripts:
+
+#### 1. Inline Buttons (Recommended)
+
+In the **Project Files** tree view (Pico Bridge sidebar):
+
+- **▷ Play Button**: Run script in emulator
+- **🐛 Debug Button**: Run with VS Code debugger attached
+
+Simply click the button next to any `.py` file!
+
+#### 2. Command Palette
+
+```
+Ctrl+Shift+P → "Run in MicroPython Emulator"
+```
+
+#### 3. Launch Configuration
+
+Use the **"MicroPython (Emulator)"** launch configuration from the Run and Debug panel.
+
+### Emulated Hardware Modules
+
+The emulator supports these MicroPython modules:
+
+| Module           | Classes/Functions                                                     |
+| ---------------- | --------------------------------------------------------------------- |
+| `machine`        | `Pin`, `PWM`, `ADC`, `I2C`, `SPI`, `Timer`, `UART`, `WDT`, `RTC`      |
+| `utime` / `time` | `sleep`, `sleep_ms`, `sleep_us`, `ticks_ms`, `ticks_us`, `ticks_diff` |
+| `neopixel`       | `NeoPixel` (with full color support)                                  |
+| `network`        | `WLAN` (station/AP mode simulation)                                   |
+| `rp2`            | `PIO`, `StateMachine`, `asm_pio` decorator                            |
+| `gc`             | `collect`, `mem_free`, `mem_alloc`                                    |
+| `uos` / `os`     | File system operations                                                |
+| `uio` / `io`     | I/O stream operations                                                 |
+| `sys`            | `print_exception`, system info                                        |
+
+### Hardware Visualization
+
+Click **"Show Board"** in the Pico Bridge panel to open the hardware visualizer:
+
+- See **pin states** in real-time (HIGH/LOW)
+- Monitor **PWM duty cycles**
+- View **ADC readings**
+- Track **I2C/SPI** transactions
+
+### Example: Blink Test
+
+```python
+from machine import Pin
+import utime
+
+led = Pin(25, Pin.OUT)  # Built-in LED on Pico
+
+while True:
+    led.value(1)
+    print("LED ON")
+    utime.sleep(1)
+
+    led.value(0)
+    print("LED OFF")
+    utime.sleep(1)
+```
+
+Run this in the emulator - you'll see:
+
+- Console output showing LED state
+- Pin 25 state changes in the visualizer
+- No hardware required!
+
+### Advanced Features
+
+#### UART Loopback Testing
+
+Test UART code without external hardware:
+
+```python
+from machine import UART
+
+# Enable loopback mode (TX connects to RX)
+UART.enable_loopback(True)
+
+uart = UART(0, baudrate=115200)
+uart.write(b"Hello")
+print(uart.read())  # Returns b"Hello"
+```
+
+#### Timer Callbacks
+
+```python
+from machine import Timer
+
+def tick(t):
+    print("Timer tick!")
+
+timer = Timer(-1)
+timer.init(period=1000, callback=tick)
+```
+
+#### PWM Control
+
+```python
+from machine import Pin, PWM
+
+pwm = PWM(Pin(25))
+pwm.freq(1000)
+pwm.duty_u16(32768)  # 50% duty cycle
+```
+
+### Debugging MicroPython Code
+
+1. Set breakpoints in your Python file
+2. Click the **🐛 Debug** button (or use launch config)
+3. VS Code debugger attaches automatically
+4. Step through code, inspect variables, watch expressions
+
+### Type Checking and IntelliSense
+
+The extension includes type stubs for all MicroPython modules. You'll get:
+
+- **Autocomplete** for `machine.Pin`, `UART`, etc.
+- **Type checking** via Pylance
+- **Documentation** on hover
+
+### Emulator Limitations
+
+The emulator is great for logic testing, but has some limitations:
+
+- **Timing**: Not cycle-accurate (uses Python's `time.sleep`)
+- **PIO**: Basic simulation only, not bit-accurate
+- **Network**: Simulated responses, no real connections
+- **Interrupts**: Simulated, may not match exact hardware timing
+
+For production code, always test on real hardware!
+
 ## 🐛 Troubleshooting
+
+### Emulator Issues
+
+#### "No module named 'machine'"
+
+Your script is running with regular Python instead of the emulator. Use:
+
+- The inline **▷ Play** button in Project Files, OR
+- Run → "MicroPython (Emulator)" launch config
+
+#### Import errors for MicroPython modules
+
+Make sure the emulator is properly initialized. The extension automatically sets up the Python path when using the emulator commands.
+
+### Server Issues
 
 ### Server won't start
 

@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 600" class="esp32-board">
+  <defs>
+    <style>
+      .board-body { fill: #1a1a2e; stroke: #0d0d1a; stroke-width: 2; }
+      .usb-connector { fill: #c0c0c0; stroke: #808080; stroke-width: 1; }
+      .chip { fill: #2d2d2d; stroke: #1a1a1a; stroke-width: 1; }
+      .chip-text { fill: #808080; font-family: monospace; font-size: 7px; }
+      .antenna { fill: #d4a017; stroke: #b8860b; stroke-width: 1; }
+      .pin-hole { fill: #b8860b; stroke: #8b6914; stroke-width: 0.5; }
+      .pin-label { fill: #d4d4d4; font-family: monospace; font-size: 6px; }
+      .pin-label-right { text-anchor: start; }
+      .pin-label-left { text-anchor: end; }
+      .led-power { fill: #333; stroke: #222; stroke-width: 1; }
+      .led-user { fill: #333; stroke: #222; stroke-width: 1; }
+      .led-user.on { fill: #0088ff; filter: drop-shadow(0 0 4px #0088ff); }
+      .button { fill: #444; stroke: #333; stroke-width: 1; }
+      .pin-indicator { opacity: 0; transition: opacity 0.2s; }
+      .pin-indicator.active { opacity: 1; }
+      .pin-high { fill: #00ff00; }
+      .pin-low { fill: #444; }
+      .pin-pwm { fill: #ffaa00; }
+    </style>
+  </defs>
+  
+  <!-- Board body -->
+  <rect class="board-body" x="30" y="20" width="240" height="560" rx="6"/>
+  
+  <!-- WiFi Antenna area -->
+  <rect class="antenna" x="80" y="30" width="140" height="60" rx="4"/>
+  <text x="150" y="65" text-anchor="middle" fill="#1a1a1a" font-size="8" font-family="monospace">WiFi/BT Antenna</text>
+  
+  <!-- USB Micro connector -->
+  <rect class="usb-connector" x="110" y="550" width="80" height="25" rx="3"/>
+  <text x="150" y="567" text-anchor="middle" fill="#555" font-size="8" font-family="monospace">USB</text>
+  
+  <!-- ESP32-WROOM Module -->
+  <rect class="chip" x="70" y="100" width="160" height="140" rx="4"/>
+  <text class="chip-text" x="150" y="160" text-anchor="middle">ESP32-WROOM-32</text>
+  <text class="chip-text" x="150" y="175" text-anchor="middle">Dual Core 240MHz</text>
+  <text class="chip-text" x="150" y="190" text-anchor="middle">WiFi + BT</text>
+  
+  <!-- EN/RST button -->
+  <rect class="button" x="55" y="270" width="25" height="12" rx="2"/>
+  <text x="67" y="278" text-anchor="middle" fill="#888" font-size="5" font-family="monospace">EN</text>
+  
+  <!-- BOOT button -->
+  <rect class="button" x="220" y="270" width="25" height="12" rx="2"/>
+  <text x="232" y="278" text-anchor="middle" fill="#888" font-size="5" font-family="monospace">BOOT</text>
+  
+  <!-- Power LED (red) -->
+  <circle class="led-power" cx="90" y="255" r="4" style="fill: #ff3333;"/>
+  <text x="100" y="258" fill="#888" font-size="5" font-family="monospace">PWR</text>
+  
+  <!-- User LED (GPIO2) -->
+  <circle id="led-gpio2" class="led-user" cx="200" cy="255" r="4"/>
+  <text x="185" y="258" text-anchor="end" fill="#888" font-size="5" font-family="monospace">LED</text>
+  
+  <!-- Left side pins -->
+  <g id="left-pins">
+    <!-- 3V3 -->
+    <circle class="pin-hole" cx="45" cy="310" r="3"/>
+    <text class="pin-label pin-label-left" x="38" y="312">3V3</text>
+    
+    <!-- EN -->
+    <circle class="pin-hole" cx="45" cy="330" r="3"/>
+    <text class="pin-label pin-label-left" x="38" y="332">EN</text>
+    
+    <!-- GPIO36/VP -->
+    <circle class="pin-hole" cx="45" cy="350" r="3"/>
+    <circle id="pin-36" class="pin-indicator pin-low" cx="45" cy="350" r="2"/>
+    <text class="pin-label pin-label-left" x="38" y="352">36</text>
+    
+    <!-- GPIO39/VN -->
+    <circle class="pin-hole" cx="45" cy="370" r="3"/>
+    <circle id="pin-39" class="pin-indicator pin-low" cx="45" cy="370" r="2"/>
+    <text class="pin-label pin-label-left" x="38" y="372">39</text>
+    
+    <!-- GPIO34 -->
+    <circle class="pin-hole" cx="45" cy="390" r="3"/>
+    <circle id="pin-34" class="pin-indicator pin-low" cx="45" cy="390" r="2"/>
+    <text class="pin-label pin-label-left" x="38" y="392">34</text>
+    
+    <!-- GPIO35 -->
+    <circle class="pin-hole" cx="45" cy="410" r="3"/>
+    <circle id="pin-35" class="pin-indicator pin-low" cx="45" cy="410" r="2"/>
+    <text class="pin-label pin-label-left" x="38" y="412">35</text>
+    
+    <!-- GPIO32 -->
+    <circle class="pin-hole" cx="45" cy="430" r="3"/>
+    <circle id="pin-32" class="pin-indicator pin-low" cx="45" cy="430" r="2"/>
+    <text class="pin-label pin-label-left" x="38" y="432">32</text>
+    
+    <!-- GPIO33 -->
+    <circle class="pin-hole" cx="45" cy="450" r="3"/>
+    <circle id="pin-33" class="pin-indicator pin-low" cx="45" cy="450" r="2"/>
+    <text class="pin-label pin-label-left" x="38" y="452">33</text>
+    
+    <!-- GPIO25 -->
+    <circle class="pin-hole" cx="45" cy="470" r="3"/>
+    <circle id="pin-25" class="pin-indicator pin-low" cx="45" cy="470" r="2"/>
+    <text class="pin-label pin-label-left" x="38" y="472">25</text>
+    
+    <!-- GPIO26 -->
+    <circle class="pin-hole" cx="45" cy="490" r="3"/>
+    <circle id="pin-26" class="pin-indicator pin-low" cx="45" cy="490" r="2"/>
+    <text class="pin-label pin-label-left" x="38" y="492">26</text>
+    
+    <!-- GPIO27 -->
+    <circle class="pin-hole" cx="45" cy="510" r="3"/>
+    <circle id="pin-27" class="pin-indicator pin-low" cx="45" cy="510" r="2"/>
+    <text class="pin-label pin-label-left" x="38" y="512">27</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="45" cy="530" r="3"/>
+    <text class="pin-label pin-label-left" x="38" y="532">GND</text>
+  </g>
+  
+  <!-- Right side pins -->
+  <g id="right-pins">
+    <!-- VIN -->
+    <circle class="pin-hole" cx="255" cy="310" r="3"/>
+    <text class="pin-label pin-label-right" x="262" y="312">VIN</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="255" cy="330" r="3"/>
+    <text class="pin-label pin-label-right" x="262" y="332">GND</text>
+    
+    <!-- GPIO13 -->
+    <circle class="pin-hole" cx="255" cy="350" r="3"/>
+    <circle id="pin-13" class="pin-indicator pin-low" cx="255" cy="350" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="352">13</text>
+    
+    <!-- GPIO12 -->
+    <circle class="pin-hole" cx="255" cy="370" r="3"/>
+    <circle id="pin-12" class="pin-indicator pin-low" cx="255" cy="370" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="372">12</text>
+    
+    <!-- GPIO14 -->
+    <circle class="pin-hole" cx="255" cy="390" r="3"/>
+    <circle id="pin-14" class="pin-indicator pin-low" cx="255" cy="390" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="392">14</text>
+    
+    <!-- GPIO27 -->
+    <circle class="pin-hole" cx="255" cy="410" r="3"/>
+    <circle id="pin-27r" class="pin-indicator pin-low" cx="255" cy="410" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="412">27</text>
+    
+    <!-- GPIO26 -->
+    <circle class="pin-hole" cx="255" cy="430" r="3"/>
+    <circle id="pin-26r" class="pin-indicator pin-low" cx="255" cy="430" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="432">26</text>
+    
+    <!-- GPIO25 -->
+    <circle class="pin-hole" cx="255" cy="450" r="3"/>
+    <circle id="pin-25r" class="pin-indicator pin-low" cx="255" cy="450" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="452">25</text>
+    
+    <!-- GPIO33 -->
+    <circle class="pin-hole" cx="255" cy="470" r="3"/>
+    <circle id="pin-33r" class="pin-indicator pin-low" cx="255" cy="470" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="472">33</text>
+    
+    <!-- GPIO32 -->
+    <circle class="pin-hole" cx="255" cy="490" r="3"/>
+    <circle id="pin-32r" class="pin-indicator pin-low" cx="255" cy="490" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="492">32</text>
+    
+    <!-- GPIO23 -->
+    <circle class="pin-hole" cx="255" cy="510" r="3"/>
+    <circle id="pin-23" class="pin-indicator pin-low" cx="255" cy="510" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="512">23</text>
+    
+    <!-- GPIO22 -->
+    <circle class="pin-hole" cx="255" cy="530" r="3"/>
+    <circle id="pin-22" class="pin-indicator pin-low" cx="255" cy="530" r="2"/>
+    <text class="pin-label pin-label-right" x="262" y="532">22</text>
+  </g>
+  
+  <!-- More pins on bottom edges -->
+  <g id="bottom-left-pins">
+    <!-- GPIO14 -->
+    <circle class="pin-hole" cx="70" cy="540" r="3"/>
+    <circle id="pin-14b" class="pin-indicator pin-low" cx="70" cy="540" r="2"/>
+    <text x="70" y="555" text-anchor="middle" fill="#d4d4d4" font-size="5" font-family="monospace">14</text>
+    
+    <!-- GPIO4 -->
+    <circle class="pin-hole" cx="90" cy="540" r="3"/>
+    <circle id="pin-4" class="pin-indicator pin-low" cx="90" cy="540" r="2"/>
+    <text x="90" y="555" text-anchor="middle" fill="#d4d4d4" font-size="5" font-family="monospace">4</text>
+    
+    <!-- GPIO16/RX2 -->
+    <circle class="pin-hole" cx="110" cy="540" r="3"/>
+    <circle id="pin-16" class="pin-indicator pin-low" cx="110" cy="540" r="2"/>
+    <text x="110" y="555" text-anchor="middle" fill="#d4d4d4" font-size="5" font-family="monospace">16</text>
+    
+    <!-- GPIO17/TX2 -->
+    <circle class="pin-hole" cx="130" cy="540" r="3"/>
+    <circle id="pin-17" class="pin-indicator pin-low" cx="130" cy="540" r="2"/>
+    <text x="130" y="555" text-anchor="middle" fill="#d4d4d4" font-size="5" font-family="monospace">17</text>
+    
+    <!-- GPIO5 -->
+    <circle class="pin-hole" cx="150" cy="540" r="3"/>
+    <circle id="pin-5" class="pin-indicator pin-low" cx="150" cy="540" r="2"/>
+    <text x="150" y="555" text-anchor="middle" fill="#d4d4d4" font-size="5" font-family="monospace">5</text>
+    
+    <!-- GPIO18 -->
+    <circle class="pin-hole" cx="170" cy="540" r="3"/>
+    <circle id="pin-18" class="pin-indicator pin-low" cx="170" cy="540" r="2"/>
+    <text x="170" y="555" text-anchor="middle" fill="#d4d4d4" font-size="5" font-family="monospace">18</text>
+    
+    <!-- GPIO19 -->
+    <circle class="pin-hole" cx="190" cy="540" r="3"/>
+    <circle id="pin-19" class="pin-indicator pin-low" cx="190" cy="540" r="2"/>
+    <text x="190" y="555" text-anchor="middle" fill="#d4d4d4" font-size="5" font-family="monospace">19</text>
+    
+    <!-- GPIO21 -->
+    <circle class="pin-hole" cx="210" cy="540" r="3"/>
+    <circle id="pin-21" class="pin-indicator pin-low" cx="210" cy="540" r="2"/>
+    <text x="210" y="555" text-anchor="middle" fill="#d4d4d4" font-size="5" font-family="monospace">21</text>
+    
+    <!-- GPIO2 (builtin LED) -->
+    <circle class="pin-hole" cx="230" cy="540" r="3"/>
+    <circle id="pin-2" class="pin-indicator pin-low" cx="230" cy="540" r="2"/>
+    <text x="230" y="555" text-anchor="middle" fill="#d4d4d4" font-size="5" font-family="monospace">2</text>
+  </g>
+  
+  <!-- Board label -->
+  <text x="150" y="295" text-anchor="middle" fill="#4a9eff" font-size="11" font-family="sans-serif" font-weight="bold">ESP32</text>
+  <text x="150" y="308" text-anchor="middle" fill="#4a9eff" font-size="9" font-family="sans-serif">DevKit V1</text>
+</svg>

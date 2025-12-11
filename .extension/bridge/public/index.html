@@ -215,6 +215,45 @@
               <span class="device-name">Not detected</span>
             </div>
           </div>
+
+          <div class="tool-separator"></div>
+
+          <!-- Help Group -->
+          <div class="tool-group">
+            <span class="group-label">Help</span>
+            <div class="group-buttons">
+              <button
+                id="pinoutBtn"
+                class="tool-btn btn-pinout"
+                title="View Raspberry Pi Pico pinout diagram"
+              >
+                📌 Pinout
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pinout Modal -->
+    <div id="pinoutModal" class="pinout-modal" style="display: none">
+      <div class="pinout-modal-content">
+        <div class="pinout-modal-header">
+          <h2>Raspberry Pi Pico Pinout</h2>
+          <button id="pinoutCloseBtn" class="pinout-close-btn" title="Close">
+            ×
+          </button>
+        </div>
+        <div class="pinout-modal-body">
+          <img
+            src="pico-pinout.svg"
+            alt="Raspberry Pi Pico Pinout Diagram"
+            id="pinoutImage"
+          />
+        </div>
+        <div class="pinout-modal-footer">
+          <span class="pinout-tip">💡 Scroll to zoom, drag to pan</span>
+          <button id="pinoutResetBtn" class="tool-btn">Reset View</button>
         </div>
       </div>
     </div>
