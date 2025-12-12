@@ -175,8 +175,14 @@ class ADC:
 class I2C:
     """I2C bus implementation for emulated device communication.
     
-    This is a minimal I2C emulator that logs all transactions.
-    Device responses can be configured through the webview panel.
+    This is an I2C emulator that logs all transactions and simulates
+    device responses. By default, it auto-responds with valid data
+    to prevent infinite loops in common patterns like:
+    - `while not i2c.scan(): pass`
+    - `while device.read() == 0: pass`
+    
+    Device responses can be configured through the webview panel
+    or programmatically via the state module.
     """
 
     def __init__(
@@ -199,11 +205,22 @@ class I2C:
         })
 
     def scan(self) -> list[int]:
-        """Scan for I2C devices. Returns list of addresses found."""
-        # Return configured devices from state, or empty list
+        """Scan for I2C devices. Returns list of addresses found.
+        
+        If no devices are explicitly configured, returns common device
+        addresses to prevent infinite scan loops.
+        """
         devices = state.get_i2c_devices(self._id)
         state.emit_event("i2c_scan", {"id": self._id, "devices": devices})
         return devices
+
+    def register_device(self, addr: int) -> None:
+        """Register a mock I2C device at the given address.
+        
+        This makes the device appear in scan() results and allows
+        configuring responses for this address.
+        """
+        state.register_i2c_device(self._id, addr)
 
     def writeto(self, addr: int, buf: bytes, stop: bool = True) -> int:
         """Write bytes to an I2C device."""

@@ -67,6 +67,12 @@ export class EmulatorWebview {
           this.sendBoardSvg(msg.board);
         }
         break;
+
+      case "request_pinout":
+        if (msg.board) {
+          this.sendPinoutSvg(msg.board);
+        }
+        break;
     }
   }
 
@@ -84,6 +90,17 @@ export class EmulatorWebview {
     }
   }
 
+  private sendPinoutSvg(board: string): void {
+    const svgPath = this.getPinoutSvgPath(board);
+    if (fs.existsSync(svgPath)) {
+      const svgContent = fs.readFileSync(svgPath, "utf8");
+      this.postMessage({ type: "pinout_svg", svg: svgContent });
+    } else {
+      this.logger.warn(`Pinout SVG not found: ${svgPath}`);
+      this.postMessage({ type: "pinout_svg", svg: null });
+    }
+  }
+
   private getBoardSvgPath(board: string): string {
     const webviewRoot = path.join(
       this.context.extensionPath,
@@ -92,6 +109,23 @@ export class EmulatorWebview {
     );
     const boardFile = `board-${board}.svg`;
     return path.join(webviewRoot, boardFile);
+  }
+
+  private getPinoutSvgPath(board: string): string {
+    const pinoutsRoot = path.join(
+      this.context.extensionPath,
+      "media",
+      "pinouts"
+    );
+    // Map board names to pinout files
+    const pinoutMap: Record<string, string> = {
+      pico: "pico-pinout.svg",
+      "pico-w": "pico-pinout.svg", // Pico W uses same pinout as Pico
+      pico2w: "pico-pinout.svg", // Pico 2 W uses same pinout layout
+      esp32: "esp32-pinout.svg",
+    };
+    const pinoutFile = pinoutMap[board] || "pico-pinout.svg";
+    return path.join(pinoutsRoot, pinoutFile);
   }
 
   public postMessage(message: unknown): void {

@@ -1,5 +1,4 @@
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
-import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { Logger } from "../utils";
@@ -15,7 +14,6 @@ export class EmulatorManager {
   private webview: EmulatorWebview;
   private process: ChildProcessWithoutNullStreams | undefined;
   private stdoutBuffer = "";
-  private readonly defaultBoard = "raspberry-pi-pico";
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -27,9 +25,6 @@ export class EmulatorManager {
   }
 
   public registerCommands(): void {
-    void this.ensureLaunchConfiguration();
-    void this.configurePylance();
-
     const openDisposable = vscode.commands.registerCommand(
       "picoBridge.openEmulator",
       () => {
@@ -41,15 +36,10 @@ export class EmulatorManager {
 
     const runDisposable = vscode.commands.registerCommand(
       "picoBridge.runActiveFileInEmulator",
-      async (resource?: vscode.Uri | { uri: vscode.Uri }) => {
+      async (resource?: vscode.Uri) => {
         this.logger.info("Command: runActiveFileInEmulator");
 
-        // Handle both Uri and tree item (which has .uri property)
-        let targetUri: vscode.Uri | undefined;
-        if (resource) {
-          targetUri = resource instanceof vscode.Uri ? resource : resource.uri;
-        }
-
+        let targetUri: vscode.Uri | undefined = resource;
         if (!targetUri) {
           const editor = vscode.window.activeTextEditor;
           if (!editor || editor.document.languageId !== "python") {
@@ -76,88 +66,7 @@ export class EmulatorManager {
       }
     );
 
-    const viewPinoutDisposable = vscode.commands.registerCommand(
-      "picoBridge.viewPinout",
-      async () => {
-        this.logger.info("Command: viewPinout");
-        await this.showPinoutDiagram();
-      }
-    );
-
-    const debugPythonDisposable = vscode.commands.registerCommand(
-      "picoBridge.debugPythonFile",
-      async (resource?: vscode.Uri | { uri: vscode.Uri }) => {
-        this.logger.info("Command: debugPythonFile");
-
-        let targetUri: vscode.Uri | undefined;
-        if (resource) {
-          targetUri = resource instanceof vscode.Uri ? resource : resource.uri;
-        }
-
-        if (!targetUri) {
-          const editor = vscode.window.activeTextEditor;
-          if (!editor || editor.document.languageId !== "python") {
-            vscode.window.showWarningMessage("Open a Python file to debug");
-            return;
-          }
-          targetUri = editor.document.uri;
-        }
-
-        // Use runner.py as the program - it sets up paths safely at runtime
-        const runnerPath = this.getRunnerPath();
-        const scriptDir = path.dirname(targetUri.fsPath);
-
-        await vscode.debug.startDebugging(undefined, {
-          type: "debugpy",
-          name: "Debug MicroPython File",
-          request: "launch",
-          program: runnerPath,
-          args: [targetUri.fsPath],
-          console: "integratedTerminal",
-          cwd: scriptDir,
-          env: {
-            MICROPYTHON_MOCK: "1",
-          },
-        });
-      }
-    );
-
-    const runnerPathDisposable = vscode.commands.registerCommand(
-      "picoBridge.getMockRunnerPath",
-      () => {
-        const runnerPath = this.getRunnerPath();
-        this.logger.info(`Command: getMockRunnerPath -> ${runnerPath}`);
-        return runnerPath;
-      }
-    );
-
-    const mockPathDisposable = vscode.commands.registerCommand(
-      "picoBridge.getMockPath",
-      () => {
-        const mockPath = this.getMockRoot();
-        this.logger.info(`Command: getMockPath -> ${mockPath}`);
-        return mockPath;
-      }
-    );
-
-    const boardDisposable = vscode.commands.registerCommand(
-      "picoBridge.getSelectedBoard",
-      () => {
-        const board = this.getBoardIdentifier();
-        this.logger.info(`Command: getSelectedBoard -> ${board}`);
-        return board;
-      }
-    );
-
-    this.context.subscriptions.push(
-      openDisposable,
-      runDisposable,
-      viewPinoutDisposable,
-      debugPythonDisposable,
-      runnerPathDisposable,
-      mockPathDisposable,
-      boardDisposable
-    );
+    this.context.subscriptions.push(openDisposable, runDisposable);
   }
 
   public dispose(): void {
@@ -168,7 +77,12 @@ export class EmulatorManager {
     this.stopProcess();
 
     const pythonExecutable = this.getPythonExecutable();
-    const runnerPath = this.getRunnerPath();
+    const runnerPath = path.join(
+      this.context.extensionPath,
+      "emulator",
+      "mock",
+      "runner.py"
+    );
 
     this.logger.info(
       `Starting emulator runner: ${pythonExecutable} ${runnerPath} ${uri.fsPath}`
@@ -211,14 +125,6 @@ export class EmulatorManager {
       );
       this.stopProcess();
     });
-  }
-
-  private getRunnerPath(): string {
-    return path.join(this.getMockRoot(), "runner.py");
-  }
-
-  private getMockRoot(): string {
-    return path.join(this.context.extensionPath, "emulator", "mock");
   }
 
   private handleStdout(chunk: string): void {
@@ -279,171 +185,5 @@ export class EmulatorManager {
   private getPythonExecutable(): string {
     const config = vscode.workspace.getConfiguration("picoBridge.emulator");
     return config.get<string>("pythonExecutable", "python3");
-  }
-
-  private getBoardIdentifier(): string {
-    const config = vscode.workspace.getConfiguration("picoBridge.emulator");
-    return config.get<string>("board", this.defaultBoard);
-  }
-
-  private async ensureLaunchConfiguration(): Promise<void> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      this.logger.info(
-        "Skipping launch configuration setup: no workspace folder detected"
-      );
-      return;
-    }
-
-    const workspaceFolder = workspaceFolders[0];
-    const launchConfig = vscode.workspace.getConfiguration(
-      "launch",
-      workspaceFolder.uri
-    );
-
-    const configurations =
-      launchConfig.get<unknown[]>("configurations")?.slice() ?? [];
-
-    const existing = configurations.find((entry) => {
-      if (typeof entry !== "object" || !entry) {
-        return false;
-      }
-      const candidate = entry as { name?: unknown };
-      return candidate.name === "MicroPython (Emulator)";
-    });
-
-    if (!existing) {
-      const newConfig = {
-        name: "MicroPython (Emulator)",
-        type: "python",
-        request: "launch",
-        program: "${command:picoBridge.getMockRunnerPath}",
-        args: ["${file}"],
-        console: "integratedTerminal",
-        env: {
-          MICROPYTHON_MOCK: "1",
-          MOCK_BOARD: "${command:picoBridge.getSelectedBoard}",
-          MOCK_PATH: "${command:picoBridge.getMockPath}",
-        },
-      };
-
-      configurations.push(newConfig);
-      try {
-        await launchConfig.update(
-          "configurations",
-          configurations,
-          vscode.ConfigurationTarget.WorkspaceFolder
-        );
-        this.logger.info("Created MicroPython (Emulator) launch configuration");
-      } catch (error) {
-        this.logger.error(
-          `Failed to update launch configuration: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      }
-    }
-
-    const version = launchConfig.get<string>("version");
-    if (!version) {
-      try {
-        await launchConfig.update(
-          "version",
-          "0.2.0",
-          vscode.ConfigurationTarget.WorkspaceFolder
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to set launch.json version: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      }
-    }
-  }
-
-  private async showPinoutDiagram(): Promise<void> {
-    const board = this.getBoardIdentifier();
-    let pinoutFile = "pico-pinout.svg";
-
-    if (board.includes("esp32")) {
-      pinoutFile = "esp32-pinout.svg";
-    } else if (board.includes("pico-w")) {
-      pinoutFile = "pico-w-pinout.svg";
-    }
-
-    const pinoutPath = path.join(
-      this.context.extensionPath,
-      "media",
-      "pinouts",
-      pinoutFile
-    );
-
-    if (fs.existsSync(pinoutPath)) {
-      const uri = vscode.Uri.file(pinoutPath);
-      await vscode.commands.executeCommand("vscode.open", uri);
-    } else {
-      // Fallback: open in browser for official pinout
-      const urls: Record<string, string> = {
-        "raspberry-pi-pico":
-          "https://datasheets.raspberrypi.com/pico/Pico-R3-A4-Pinout.pdf",
-        "raspberry-pi-pico-w":
-          "https://datasheets.raspberrypi.com/picow/PicoW-A4-Pinout.pdf",
-        esp32:
-          "https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-devkitc.html",
-      };
-
-      const url =
-        urls[board] ||
-        "https://datasheets.raspberrypi.com/pico/Pico-R3-A4-Pinout.pdf";
-      await vscode.env.openExternal(vscode.Uri.parse(url));
-    }
-  }
-
-  private async configurePylance(): Promise<void> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      return;
-    }
-
-    const mockPath = this.getMockRoot();
-    const micropythonPath = path.join(mockPath, "micropython");
-    const typingsPath = path.join(mockPath, "typings");
-
-    const config = vscode.workspace.getConfiguration(
-      "python.analysis",
-      workspaceFolders[0].uri
-    );
-
-    // Get current extraPaths
-    const extraPaths = config.get<string[]>("extraPaths") || [];
-    const pathsToAdd = [micropythonPath, typingsPath];
-    let needsUpdate = false;
-
-    for (const p of pathsToAdd) {
-      if (!extraPaths.includes(p)) {
-        extraPaths.push(p);
-        needsUpdate = true;
-      }
-    }
-
-    if (needsUpdate) {
-      try {
-        await config.update(
-          "extraPaths",
-          extraPaths,
-          vscode.ConfigurationTarget.Workspace
-        );
-        this.logger.info(
-          `Configured Pylance extraPaths for MicroPython emulator`
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to configure Pylance: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      }
-    }
   }
 }

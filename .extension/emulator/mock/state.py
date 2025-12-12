@@ -19,6 +19,7 @@ _pins: Dict[str, PinState] = {}
 _adc_values: Dict[str, int] = {}
 _i2c_devices: Dict[int, List[int]] = {}  # bus_id -> list of addresses
 _i2c_responses: Dict[str, bytes] = {}  # "bus_addr_memaddr" -> response bytes
+_i2c_auto_respond: bool = True  # Auto-respond with device-present data
 
 
 def set_reporter(callback: EventCallback) -> None:
@@ -34,10 +35,12 @@ def clear_reporters() -> None:
 
 def reset() -> None:
     """Reset all state."""
+    global _i2c_auto_respond
     _pins.clear()
     _adc_values.clear()
     _i2c_devices.clear()
     _i2c_responses.clear()
+    _i2c_auto_respond = True
     _emit({"type": "reset"})
 
 
@@ -102,8 +105,17 @@ def clear_adc_value(pin_id: str) -> None:
 # I2C Support
 
 def get_i2c_devices(bus_id: int) -> List[int]:
-    """Get list of I2C device addresses on a bus."""
-    return _i2c_devices.get(bus_id, [])
+    """Get list of I2C device addresses on a bus.
+    
+    If no devices are configured but auto-respond is enabled,
+    returns common device addresses to prevent infinite scan loops.
+    """
+    devices = _i2c_devices.get(bus_id, [])
+    if not devices and _i2c_auto_respond:
+        # Return common I2C device addresses when auto-respond is enabled
+        # This prevents infinite loops in code like `while not i2c.scan(): pass`
+        devices = [0x68, 0x3C, 0x76, 0x27]  # MPU6050, SSD1306, BME280, LCD
+    return devices
 
 
 def set_i2c_devices(bus_id: int, addresses: List[int]) -> None:
@@ -112,15 +124,58 @@ def set_i2c_devices(bus_id: int, addresses: List[int]) -> None:
     _emit({"type": "i2c_devices_set", "bus": bus_id, "addresses": addresses})
 
 
+def register_i2c_device(bus_id: int, addr: int) -> None:
+    """Register a single I2C device address on a bus."""
+    if bus_id not in _i2c_devices:
+        _i2c_devices[bus_id] = []
+    if addr not in _i2c_devices[bus_id]:
+        _i2c_devices[bus_id].append(addr)
+    _emit({"type": "i2c_device_registered", "bus": bus_id, "addr": addr})
+
+
+def set_i2c_auto_respond(enabled: bool) -> None:
+    """Enable/disable automatic I2C device responses.
+    
+    When enabled, I2C operations return valid data even without 
+    explicit configuration, preventing infinite loops.
+    """
+    global _i2c_auto_respond
+    _i2c_auto_respond = enabled
+    _emit({"type": "i2c_auto_respond", "enabled": enabled})
+
+
 def get_i2c_response(
     bus_id: int,
     addr: int,
     nbytes: int,
     memaddr: Optional[int] = None,
 ) -> bytes:
-    """Get configured I2C response data."""
+    """Get configured I2C response data.
+    
+    If no response is configured and auto-respond is enabled,
+    returns sensible defaults:
+    - First byte is always non-zero (device present)
+    - WHO_AM_I style registers return address
+    - Other registers return 0x00
+    """
     key = f"{bus_id}_{addr}_{memaddr}" if memaddr is not None else f"{bus_id}_{addr}"
-    response = _i2c_responses.get(key, b'\x00' * nbytes)
+    response = _i2c_responses.get(key)
+    
+    if response is None and _i2c_auto_respond:
+        # Generate sensible auto-response data
+        if memaddr == 0x75 or memaddr == 0x00:  # Common WHO_AM_I registers
+            # Return device address as identification
+            response = bytes([addr]) + b'\x00' * (nbytes - 1)
+        elif memaddr is not None:
+            # For memory reads, return non-zero first byte to indicate presence
+            response = bytes([0x01]) + b'\x00' * (nbytes - 1)
+        else:
+            # For direct reads, return ACK-style response (non-zero first byte)
+            response = bytes([0x01]) + b'\x00' * (nbytes - 1)
+    elif response is None:
+        # No response configured and auto-respond disabled
+        response = b'\x00' * nbytes
+    
     # Return exactly nbytes, padding or truncating as needed
     if len(response) < nbytes:
         response = response + b'\x00' * (nbytes - len(response))

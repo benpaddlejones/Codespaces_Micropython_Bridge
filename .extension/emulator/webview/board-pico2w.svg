@@ -1,0 +1,260 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 520" class="pico2w-board">
+  <defs>
+    <style>
+      .board-body { fill: #1a472a; stroke: #0d2818; stroke-width: 2; }
+      .usb-connector { fill: #c0c0c0; stroke: #808080; stroke-width: 1; }
+      .chip { fill: #2d2d2d; stroke: #1a1a1a; stroke-width: 1; }
+      .chip-text { fill: #808080; font-family: monospace; font-size: 8px; }
+      .wifi-module { fill: #3d3d3d; stroke: #2a2a2a; stroke-width: 1; }
+      .wifi-text { fill: #666; font-family: monospace; font-size: 6px; }
+      .antenna { fill: #d4a017; stroke: #b8860b; stroke-width: 1; }
+      .pin-hole { fill: #b8860b; stroke: #8b6914; stroke-width: 0.5; }
+      .pin-label { fill: #d4d4d4; font-family: monospace; font-size: 7px; }
+      .pin-label-right { text-anchor: start; }
+      .pin-label-left { text-anchor: end; }
+      .led-onboard { fill: #333; stroke: #222; stroke-width: 1; }
+      .led-onboard.on { fill: #00ff00; filter: drop-shadow(0 0 4px #00ff00); }
+      .bootsel { fill: #444; stroke: #333; stroke-width: 1; rx: 2; }
+      .debug-header { fill: #b8860b; stroke: #8b6914; stroke-width: 0.5; }
+      .pin-indicator { opacity: 0; transition: opacity 0.2s; }
+      .pin-indicator.active { opacity: 1; }
+      .pin-high { fill: #00ff00; }
+      .pin-low { fill: #444; }
+      .pin-pwm { fill: #ffaa00; }
+    </style>
+  </defs>
+  
+  <!-- Board body -->
+  <rect class="board-body" x="40" y="20" width="240" height="480" rx="8"/>
+  
+  <!-- USB Micro connector -->
+  <rect class="usb-connector" x="120" y="10" width="80" height="25" rx="3"/>
+  <text x="160" y="27" text-anchor="middle" fill="#555" font-size="8" font-family="monospace">USB</text>
+  
+  <!-- WiFi Module (CYW43439) - top right area -->
+  <rect class="wifi-module" x="190" y="50" width="80" height="60" rx="3"/>
+  <text class="wifi-text" x="230" y="75" text-anchor="middle">CYW43439</text>
+  <text class="wifi-text" x="230" y="88" text-anchor="middle">WiFi/BT</text>
+  
+  <!-- Antenna area -->
+  <rect class="antenna" x="200" y="115" width="60" height="20" rx="2"/>
+  <text x="230" y="128" text-anchor="middle" fill="#1a1a1a" font-size="5" font-family="monospace">ANT</text>
+  
+  <!-- RP2350 Chip -->
+  <rect class="chip" x="100" y="200" width="120" height="120" rx="4"/>
+  <text class="chip-text" x="160" y="250" text-anchor="middle">RP2350</text>
+  <text class="chip-text" x="160" y="265" text-anchor="middle">ARM Cortex-M33</text>
+  <text class="chip-text" x="160" y="280" text-anchor="middle">Dual Core</text>
+  
+  <!-- BOOTSEL button -->
+  <rect class="bootsel" x="85" y="130" width="30" height="15"/>
+  <text x="100" y="141" text-anchor="middle" fill="#888" font-size="6" font-family="monospace">BOOT</text>
+  
+  <!-- Onboard LED (WL_GPIO0 via WiFi chip) -->
+  <circle id="led-gp25" class="led-onboard" cx="220" cy="160" r="6"/>
+  <text x="235" y="163" fill="#888" font-size="6" font-family="monospace">LED</text>
+  
+  <!-- Left side pins (GP0-GP15, GND, 3V3) -->
+  <g id="left-pins">
+    <!-- GP0 -->
+    <circle class="pin-hole" cx="55" cy="60" r="4"/>
+    <circle id="pin-0" class="pin-indicator pin-low" cx="55" cy="60" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="63">GP0</text>
+    
+    <!-- GP1 -->
+    <circle class="pin-hole" cx="55" cy="80" r="4"/>
+    <circle id="pin-1" class="pin-indicator pin-low" cx="55" cy="80" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="83">GP1</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="55" cy="100" r="4"/>
+    <text class="pin-label pin-label-left" x="48" y="103">GND</text>
+    
+    <!-- GP2 -->
+    <circle class="pin-hole" cx="55" cy="120" r="4"/>
+    <circle id="pin-2" class="pin-indicator pin-low" cx="55" cy="120" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="123">GP2</text>
+    
+    <!-- GP3 -->
+    <circle class="pin-hole" cx="55" cy="140" r="4"/>
+    <circle id="pin-3" class="pin-indicator pin-low" cx="55" cy="140" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="143">GP3</text>
+    
+    <!-- GP4 -->
+    <circle class="pin-hole" cx="55" cy="160" r="4"/>
+    <circle id="pin-4" class="pin-indicator pin-low" cx="55" cy="160" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="163">GP4</text>
+    
+    <!-- GP5 -->
+    <circle class="pin-hole" cx="55" cy="180" r="4"/>
+    <circle id="pin-5" class="pin-indicator pin-low" cx="55" cy="180" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="183">GP5</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="55" cy="200" r="4"/>
+    <text class="pin-label pin-label-left" x="48" y="203">GND</text>
+    
+    <!-- GP6 -->
+    <circle class="pin-hole" cx="55" cy="220" r="4"/>
+    <circle id="pin-6" class="pin-indicator pin-low" cx="55" cy="220" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="223">GP6</text>
+    
+    <!-- GP7 -->
+    <circle class="pin-hole" cx="55" cy="240" r="4"/>
+    <circle id="pin-7" class="pin-indicator pin-low" cx="55" cy="240" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="243">GP7</text>
+    
+    <!-- GP8 -->
+    <circle class="pin-hole" cx="55" cy="260" r="4"/>
+    <circle id="pin-8" class="pin-indicator pin-low" cx="55" cy="260" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="263">GP8</text>
+    
+    <!-- GP9 -->
+    <circle class="pin-hole" cx="55" cy="280" r="4"/>
+    <circle id="pin-9" class="pin-indicator pin-low" cx="55" cy="280" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="283">GP9</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="55" cy="300" r="4"/>
+    <text class="pin-label pin-label-left" x="48" y="303">GND</text>
+    
+    <!-- GP10 -->
+    <circle class="pin-hole" cx="55" cy="320" r="4"/>
+    <circle id="pin-10" class="pin-indicator pin-low" cx="55" cy="320" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="323">GP10</text>
+    
+    <!-- GP11 -->
+    <circle class="pin-hole" cx="55" cy="340" r="4"/>
+    <circle id="pin-11" class="pin-indicator pin-low" cx="55" cy="340" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="343">GP11</text>
+    
+    <!-- GP12 -->
+    <circle class="pin-hole" cx="55" cy="360" r="4"/>
+    <circle id="pin-12" class="pin-indicator pin-low" cx="55" cy="360" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="363">GP12</text>
+    
+    <!-- GP13 -->
+    <circle class="pin-hole" cx="55" cy="380" r="4"/>
+    <circle id="pin-13" class="pin-indicator pin-low" cx="55" cy="380" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="383">GP13</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="55" cy="400" r="4"/>
+    <text class="pin-label pin-label-left" x="48" y="403">GND</text>
+    
+    <!-- GP14 -->
+    <circle class="pin-hole" cx="55" cy="420" r="4"/>
+    <circle id="pin-14" class="pin-indicator pin-low" cx="55" cy="420" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="423">GP14</text>
+    
+    <!-- GP15 -->
+    <circle class="pin-hole" cx="55" cy="440" r="4"/>
+    <circle id="pin-15" class="pin-indicator pin-low" cx="55" cy="440" r="3"/>
+    <text class="pin-label pin-label-left" x="48" y="443">GP15</text>
+  </g>
+  
+  <!-- Right side pins (GP16-GP28, ADC, VBUS, etc) -->
+  <g id="right-pins">
+    <!-- VBUS -->
+    <circle class="pin-hole" cx="265" cy="60" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="63">VBUS</text>
+    
+    <!-- VSYS -->
+    <circle class="pin-hole" cx="265" cy="80" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="83">VSYS</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="265" cy="100" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="103">GND</text>
+    
+    <!-- 3V3_EN -->
+    <circle class="pin-hole" cx="265" cy="120" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="123">3V3_EN</text>
+    
+    <!-- 3V3 -->
+    <circle class="pin-hole" cx="265" cy="140" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="143">3V3</text>
+    
+    <!-- ADC_VREF -->
+    <circle class="pin-hole" cx="265" cy="160" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="163">VREF</text>
+    
+    <!-- GP28/ADC2 -->
+    <circle class="pin-hole" cx="265" cy="180" r="4"/>
+    <circle id="pin-28" class="pin-indicator pin-low" cx="265" cy="180" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="183">GP28</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="265" cy="200" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="203">GND</text>
+    
+    <!-- GP27/ADC1 -->
+    <circle class="pin-hole" cx="265" cy="220" r="4"/>
+    <circle id="pin-27" class="pin-indicator pin-low" cx="265" cy="220" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="223">GP27</text>
+    
+    <!-- GP26/ADC0 -->
+    <circle class="pin-hole" cx="265" cy="240" r="4"/>
+    <circle id="pin-26" class="pin-indicator pin-low" cx="265" cy="240" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="243">GP26</text>
+    
+    <!-- RUN -->
+    <circle class="pin-hole" cx="265" cy="260" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="263">RUN</text>
+    
+    <!-- GP22 -->
+    <circle class="pin-hole" cx="265" cy="280" r="4"/>
+    <circle id="pin-22" class="pin-indicator pin-low" cx="265" cy="280" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="283">GP22</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="265" cy="300" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="303">GND</text>
+    
+    <!-- GP21 -->
+    <circle class="pin-hole" cx="265" cy="320" r="4"/>
+    <circle id="pin-21" class="pin-indicator pin-low" cx="265" cy="320" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="323">GP21</text>
+    
+    <!-- GP20 -->
+    <circle class="pin-hole" cx="265" cy="340" r="4"/>
+    <circle id="pin-20" class="pin-indicator pin-low" cx="265" cy="340" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="343">GP20</text>
+    
+    <!-- GP19 -->
+    <circle class="pin-hole" cx="265" cy="360" r="4"/>
+    <circle id="pin-19" class="pin-indicator pin-low" cx="265" cy="360" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="363">GP19</text>
+    
+    <!-- GP18 -->
+    <circle class="pin-hole" cx="265" cy="380" r="4"/>
+    <circle id="pin-18" class="pin-indicator pin-low" cx="265" cy="380" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="383">GP18</text>
+    
+    <!-- GND -->
+    <circle class="pin-hole" cx="265" cy="400" r="4"/>
+    <text class="pin-label pin-label-right" x="272" y="403">GND</text>
+    
+    <!-- GP17 -->
+    <circle class="pin-hole" cx="265" cy="420" r="4"/>
+    <circle id="pin-17" class="pin-indicator pin-low" cx="265" cy="420" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="423">GP17</text>
+    
+    <!-- GP16 -->
+    <circle class="pin-hole" cx="265" cy="440" r="4"/>
+    <circle id="pin-16" class="pin-indicator pin-low" cx="265" cy="440" r="3"/>
+    <text class="pin-label pin-label-right" x="272" y="443">GP16</text>
+  </g>
+  
+  <!-- Debug header (bottom) -->
+  <g id="debug-header">
+    <circle class="debug-header" cx="130" cy="470" r="3"/>
+    <circle class="debug-header" cx="150" cy="470" r="3"/>
+    <circle class="debug-header" cx="170" cy="470" r="3"/>
+    <text x="150" y="490" text-anchor="middle" fill="#666" font-size="6" font-family="monospace">DEBUG</text>
+  </g>
+  
+  <!-- Board label -->
+  <text x="160" y="350" text-anchor="middle" fill="#4a7c59" font-size="12" font-family="sans-serif" font-weight="bold">Raspberry Pi</text>
+  <text x="160" y="365" text-anchor="middle" fill="#4a7c59" font-size="12" font-family="sans-serif" font-weight="bold">Pico 2 W</text>
+</svg>

@@ -25,6 +25,14 @@ const clearI2cBtn = document.getElementById("clearI2cBtn");
 const neopixelStrip = document.getElementById("neopixelStrip");
 const neopixelLeds = document.getElementById("neopixelLeds");
 
+// Pinout modal elements
+const pinoutBtn = document.getElementById("pinoutBtn");
+const pinoutModal = document.getElementById("pinoutModal");
+const modalOverlay = document.getElementById("modalOverlay");
+const closePinoutBtn = document.getElementById("closePinoutBtn");
+const pinoutContent = document.getElementById("pinoutContent");
+const pinoutBoardName = document.getElementById("pinoutBoardName");
+
 // Pin state tracking
 const pinStates = {};
 
@@ -79,7 +87,7 @@ function loadBoardSvg(svgContent) {
 function updatePinVisual(pin, value, mode = "digital") {
   // Extract pin number from various formats (GP25, 25, "25", "LED")
   let pinNum = String(pin).replace(/^GP/i, "");
-  
+
   // Handle special "LED" pin name (maps to GP25 on Pico)
   if (pinNum.toUpperCase() === "LED") {
     pinNum = "25";
@@ -191,6 +199,40 @@ function resetAll() {
   }
 
   updateStatus("Idle");
+}
+
+// Pinout modal functions
+function showPinoutModal() {
+  if (pinoutModal) {
+    pinoutModal.style.display = "flex";
+    const currentBoard = boardSelect?.value || "pico";
+    const boardNames = {
+      pico: "Raspberry Pi Pico",
+      "pico-w": "Raspberry Pi Pico W",
+      pico2w: "Raspberry Pi Pico 2 W",
+      esp32: "ESP32 DevKit",
+    };
+    if (pinoutBoardName) {
+      pinoutBoardName.textContent = boardNames[currentBoard] || currentBoard;
+    }
+    // Request pinout SVG from extension
+    vscode.postMessage({ type: "request_pinout", board: currentBoard });
+  }
+}
+
+function hidePinoutModal() {
+  if (pinoutModal) {
+    pinoutModal.style.display = "none";
+  }
+}
+
+function loadPinoutSvg(svgContent) {
+  if (pinoutContent && svgContent) {
+    pinoutContent.innerHTML = svgContent;
+  } else if (pinoutContent) {
+    pinoutContent.innerHTML =
+      '<div class="pinout-loading">Pinout diagram not available for this board</div>';
+  }
 }
 
 // Message handling
@@ -305,6 +347,10 @@ window.addEventListener("message", (event) => {
       );
       break;
 
+    case "pinout_svg":
+      loadPinoutSvg(message.svg);
+      break;
+
     default:
       if (message.type) {
         logEvent(`Received ${message.type}`);
@@ -374,6 +420,26 @@ if (boardSelect) {
     vscode.postMessage({ type: "board_change", board });
   });
 }
+
+// Pinout modal event listeners
+if (pinoutBtn) {
+  pinoutBtn.addEventListener("click", showPinoutModal);
+}
+
+if (closePinoutBtn) {
+  closePinoutBtn.addEventListener("click", hidePinoutModal);
+}
+
+if (modalOverlay) {
+  modalOverlay.addEventListener("click", hidePinoutModal);
+}
+
+// Close modal on Escape key
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && pinoutModal?.style.display === "flex") {
+    hidePinoutModal();
+  }
+});
 
 // Request board SVG on load
 vscode.postMessage({ type: "ready" });

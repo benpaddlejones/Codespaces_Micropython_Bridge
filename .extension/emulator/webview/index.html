@@ -17,9 +17,17 @@
         <select id="boardSelect" class="board-select">
           <option value="pico" selected>Raspberry Pi Pico</option>
           <option value="pico-w">Raspberry Pi Pico W</option>
+          <option value="pico2w">Raspberry Pi Pico 2 W</option>
           <option value="esp32">ESP32 DevKit</option>
         </select>
         <div class="status" id="status">Idle</div>
+        <button
+          id="pinoutBtn"
+          class="link-button"
+          title="View board pinout diagram"
+        >
+          📌 Pinout
+        </button>
         <button id="resetBtn" class="link-button">Reset</button>
       </div>
     </header>
@@ -94,6 +102,23 @@
         <pre id="eventLog"></pre>
       </section>
     </main>
+
+    <!-- Pinout Diagram Modal -->
+    <div id="pinoutModal" class="modal" style="display: none">
+      <div class="modal-overlay" id="modalOverlay"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title"
+            >📌 <span id="pinoutBoardName">Pico</span> Pinout Diagram</span
+          >
+          <button id="closePinoutBtn" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body" id="pinoutContent">
+          <!-- Pinout SVG will be loaded here -->
+          <div class="pinout-loading">Loading pinout diagram...</div>
+        </div>
+      </div>
+    </div>
 
     <script nonce="{{nonce}}" src="js/main.js"></script>
   </body>
