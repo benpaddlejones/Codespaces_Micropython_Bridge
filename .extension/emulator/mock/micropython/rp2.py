@@ -1,4 +1,13 @@
-"""Mock rp2 module for MicroPython emulation (RP2040/Pico specific)."""
+"""MicroPython `rp2` module emulator for RP2040-specific features.
+
+This module provides mock implementations of RP2040/Pico-specific
+functionality including PIO (Programmable I/O) and state machines.
+
+Compatible with: MicroPython v1.20+ (RP2040/Raspberry Pi Pico)
+Last API audit: December 2025
+
+See: https://docs.micropython.org/en/latest/library/rp2.html
+"""
 
 import state
 
@@ -29,22 +38,22 @@ class StateMachine:
         self.freq = freq
         self.kwargs = kwargs
         self._active = False
-        state.emit("pio_sm_init", {"id": id, "freq": freq})
+        state.emit_event("pio_sm_init", {"id": id, "freq": freq})
     
     def active(self, value: int = None):
         """Activate or deactivate the state machine."""
         if value is not None:
             self._active = bool(value)
-            state.emit("pio_sm_active", {"id": self.id, "active": self._active})
+            state.emit_event("pio_sm_active", {"id": self.id, "active": self._active})
         return int(self._active)
     
     def restart(self):
         """Restart the state machine."""
-        state.emit("pio_sm_restart", {"id": self.id})
+        state.emit_event("pio_sm_restart", {"id": self.id})
     
     def exec(self, instr):
         """Execute a single PIO instruction."""
-        state.emit("pio_sm_exec", {"id": self.id, "instr": instr})
+        state.emit_event("pio_sm_exec", {"id": self.id, "instr": instr})
     
     def get(self, buf=None, shift: int = 0):
         """Get data from the TX FIFO."""
@@ -52,7 +61,7 @@ class StateMachine:
     
     def put(self, value, shift: int = 0):
         """Put data into the RX FIFO."""
-        state.emit("pio_sm_put", {"id": self.id, "value": value})
+        state.emit_event("pio_sm_put", {"id": self.id, "value": value})
     
     def tx_fifo(self) -> int:
         """Get the number of words in the TX FIFO."""
@@ -83,7 +92,7 @@ class PIO:
     
     def __init__(self, id: int):
         self.id = id
-        state.emit("pio_init", {"id": id})
+        state.emit_event("pio_init", {"id": id})
     
     def state_machine(self, id: int, prog=None, **kwargs):
         """Get or create a state machine."""

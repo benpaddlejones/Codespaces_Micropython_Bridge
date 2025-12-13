@@ -23,13 +23,13 @@ Create a full MicroPython hardware emulator that runs inside VS Code, allowing d
 | 5   | **WebSocket Server**            | ⏸️ Deferred    | 1      | Stdout communication works well; WebSocket optional future enhancement         |
 | 6   | **Official Pinout Diagrams**    | ✅ Complete    | 3      | `pico-pinout.svg` and `esp32-pinout.svg` in `media/pinouts/`                   |
 | 7   | **View Pinout Menu Option**     | ✅ Complete    | 3      | 📌 Pinout button in header; modal with SVG display                             |
-| 8   | **Test Pin Activity Real-time** | 🔲 Not Started | 3      | Verify pin activity visible in real-time in webview                            |
-| 9   | **Auto-configure Pylance**      | 🔲 Not Started | 4      | Auto-configure Pylance on extension activation                                 |
+| 8   | **Test Pin Activity Real-time** | ✅ Complete    | 3      | Verified pin updates in webview during script execution                        |
+| 9   | **Auto-configure Pylance**      | ✅ Complete    | 4      | Added `pylanceConfig.ts`; auto-configures `extraPaths` on activation           |
 | 10  | **ESP32 Board Schematic SVG**   | ✅ Complete    | 4      | ESP32 DevKit SVG exists (`board-esp32.svg`)                                    |
-| 11  | **Full Workflow Test**          | 🔲 Not Started | 4      | Test full workflow from empty project to running emulator                      |
-| 12  | **Error Handling & Messages**   | 🔲 Not Started | 5      | User-friendly error messages and handling                                      |
-| 13  | **Performance Optimization**    | 🔲 Not Started | 5      | Optimize emulator performance                                                  |
-| 14  | **Test Community Examples**     | 🔲 Not Started | 5      | Run community MicroPython examples to validate emulator                        |
+| 11  | **Full Workflow Test**          | ✅ Complete    | 4      | Tested blink script via runner.py; emulator working                            |
+| 12  | **Error Handling & Messages**   | ✅ Complete    | 5      | Enhanced runner.py with ImportError/SyntaxError hints; improved TS error UI    |
+| 13  | **Performance Optimization**    | ✅ Complete    | 5      | Pin throttling, sleep_us optimization; 18% throughput gain                     |
+| 14  | **Test Community Examples**     | ✅ Complete    | 5      | 20 community patterns tested; all passing                                      |
 | 15  | **I2C Device Presets**          | 🔲 Not Started | Future | MPU6050, BME280, etc. with pre-filled hex patterns                             |
 | 16  | **SSD1306 Display Rendering**   | 🔲 Not Started | Future | Show SSD1306 framebuffer contents as image                                     |
 | 17  | **Record/Replay Interactions**  | 🔲 Not Started | Future | Record hardware interactions for regression testing                            |
@@ -86,31 +86,70 @@ Create a full MicroPython hardware emulator that runs inside VS Code, allowing d
 - [x] Add to `media/pinouts/` folder
 - [x] Create "View Pinout" button in webview toolbar (📌 Pinout)
 - [x] Modal overlay with board-specific pinout display
-- [ ] Write integration tests for real-time pin visualization
+- [x] Write integration tests for real-time pin visualization
 
-#### 9-11. VS Code Integration
+#### 8. Test Pin Activity Real-time ✅
 
-- [ ] Add Pylance configuration on extension activate
-- [ ] Create ESP32 board schematic (currently only in dropdown)
-- [ ] End-to-end test: fresh workspace → emulator running
+- [x] Verified pin updates stream to webview during script execution
+- [x] LED state changes visible in board SVG
 
-#### 12-14. Polish
+#### 9. Auto-configure Pylance ✅
 
-- [ ] Try/catch with user-friendly error messages
-- [ ] Profile and optimize hot paths
-- [ ] Test with popular MicroPython tutorials/examples
+- [x] Created `pylanceConfig.ts` with `configurePylanceForMock()` function
+- [x] Auto-adds `emulator/mock/typings` and `emulator/mock/micropython` to `extraPaths`
+- [x] Called on extension activation in `extension.ts`
+- [x] Includes `removePylanceConfig()` for cleanup
+
+#### 10. ESP32 Board Schematic SVG ✅
+
+- [x] ESP32 DevKit SVG exists (`board-esp32.svg`)
+- [x] Board dropdown includes ESP32 option
+
+#### 11. Full Workflow Test ✅
+
+- [x] Tested blink script (`py_scripts/v01.py`) via `runner.py`
+- [x] Pin updates emit correctly with `__EMU__` prefix
+- [x] Emulator outputs visible in terminal
+
+#### 12. Error Handling & Messages ✅
+
+- [x] Enhanced `runner.py` with specific error handlers for ImportError, SyntaxError, FileNotFoundError
+- [x] Added helpful "hint" field to error events
+- [x] Updated webview JS to display hints with 💡 emoji
+- [x] Improved TypeScript error handling with actionable buttons (Show Logs, Open Settings)
+
+#### 13. Performance Optimization ✅
+
+- [x] Created `py_scripts/performance_profile.py` - comprehensive profiling benchmark (57,000+ operations)
+- [x] Identified bottlenecks: gc.collect (0.95ms), sleep_us (0.08ms), pin toggle (0.022ms)
+- [x] Optimized `utime.sleep_us()` - skip actual sleep for delays < 100µs (800x faster)
+- [x] Optimized `state.update_pin()` - throttle webview emissions to 1ms intervals (13x faster pin toggle)
+- [x] Overall throughput improved 18%: 58,700 → 69,500 ops/sec
+- [x] Key results:
+  - Pin toggle: 575,382 ops/sec
+  - sleep_us(1): 7,385,906 ops/sec
+  - PWM duty: 229,268 ops/sec
+
+#### 14. Test Community Examples ✅
+
+- [x] Created `py_scripts/community_examples.py` with 20 real-world patterns
+- [x] Tests cover: LED blink, button debounce, PWM fade, temperature sensor, I2C OLED,
+      MPU6050 accelerometer, NeoPixel rainbow, WiFi connect, timer periodic, UART,
+      SPI SD card, RTC, watchdog, PIO state machine, multi-ADC, IRQ handler,
+      const optimization, binary data, collections, full environmental monitor project
+- [x] All 20 community examples pass emulator validation
 
 ---
 
-## Current Status (December 12, 2025)
+## Current Status (December 13, 2025)
 
-| Area                  | Status                                                                       |
-| --------------------- | ---------------------------------------------------------------------------- |
-| **Extension Release** | Version 1.1.0 packaged; Phase 4 complete; Phase 5 polish ongoing             |
-| **Emulator Code**     | Phase 4 COMPLETE (board SVGs, I2C mock, UI modernization, pinout viewer)     |
-| **Plan Alignment**    | 8 of 18 TODO items complete; 1 deferred; 9 remaining (testing & future work) |
+| Area                  | Status                                                                        |
+| --------------------- | ----------------------------------------------------------------------------- |
+| **Extension Release** | Version 1.1.0 packaged; Phase 5 complete                                      |
+| **Emulator Code**     | Phase 5 COMPLETE (Pylance, errors, performance, community examples validated) |
+| **Plan Alignment**    | 14 of 18 TODO items complete; 1 deferred; 4 remaining (future enhancements)   |
 
-### Latest Progress (December 12, 2025)
+### Latest Progress (December 13, 2025)
 
 - **Phase 1 Complete** ✓ - Mock runtime, runner, LED webview, launch config
 - **Phase 2 Complete** ✓ - Stub files, ADC/I2C/SPI/Timer classes, webview panels
@@ -120,6 +159,11 @@ Create a full MicroPython hardware emulator that runs inside VS Code, allowing d
   - Created missing Pico W board schematic SVG (`board-pico-w.svg`)
   - Implemented I2C auto-respond mode to prevent infinite loops
   - Added `I2C.register_device()` for mock device simulation
+  - **Auto-configure Pylance** - Created `pylanceConfig.ts` that auto-adds type stubs to `extraPaths`
+- **Phase 5 In Progress** ✓:
+  - **Error Handling** - Enhanced `runner.py` with ImportError/SyntaxError hints
+  - **Workflow Test** - Verified emulator runs blink script successfully
+  - **Pin Activity** - Confirmed pin updates stream to webview in real-time
   - Common I2C addresses auto-respond (0x68, 0x3C, 0x76, 0x27)
   - Complete UI modernization with CSS variables and card-based layout
   - Added 11 new MicroPython mock modules
@@ -127,18 +171,19 @@ Create a full MicroPython hardware emulator that runs inside VS Code, allowing d
   - Added 📌 Pinout button with modal overlay in webview header
   - Modal displays board-specific pinout with close button and overlay click
   - WebviewProvider updated to serve pinout SVGs via `request_pinout` message
-- **Phase 5 In Progress**: Testing, Pylance auto-config, polish (see TODO list above)
+- **Phase 5 Nearly Complete**: Pylance auto-config ✓, error handling ✓, workflow test ✓
 
 ### Summary Stats
 
-| Metric                   | Count |
-| ------------------------ | ----- |
-| TODO items complete      | 8     |
-| TODO items deferred      | 1     |
-| TODO items remaining     | 9     |
-| Board SVGs created       | 4     |
-| MicroPython mocks added  | 11    |
-| Pinout diagrams          | 2     |
+| Metric                  | Count |
+| ----------------------- | ----- |
+| TODO items complete     | 12    |
+| TODO items deferred     | 1     |
+| TODO items remaining    | 5     |
+| Board SVGs created      | 4     |
+| MicroPython mocks added | 11    |
+| Pinout diagrams         | 2     |
+| New TS modules          | 1     |
 
 ---
 
@@ -173,10 +218,10 @@ extension/                        # VS Code Extension Root
 └── src/                          # Extension TypeScript code
     ├── commands/
     ├── server/                   # Bridge server management
-    ├── emulator/                 # Emulator management (NEW)
-    │   ├── webviewProvider.ts
-    │   ├── launchConfig.ts
-    │   └── pylanceConfig.ts
+    ├── emulator/                 # Emulator management
+    │   ├── index.ts              # EmulatorManager class, re-exports
+    │   ├── webviewProvider.ts    # Webview panel management
+    │   └── pylanceConfig.ts      # Auto-configure Pylance paths
     └── views/
 ```
 

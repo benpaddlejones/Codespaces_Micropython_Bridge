@@ -14,7 +14,7 @@
 
 import * as vscode from "vscode";
 import { registerCommands } from "./commands";
-import { EmulatorManager } from "./emulator";
+import { configurePylanceForMock, EmulatorManager } from "./emulator";
 import { BridgeServer } from "./server";
 import { Logger } from "./utils";
 import { StatusViewProvider, WorkspaceFilesProvider } from "./views";
@@ -54,6 +54,10 @@ export async function activate(
         emulatorManager?.dispose();
       },
     });
+
+    // Auto-configure Pylance for MicroPython mock modules
+    // This enables IntelliSense for `import machine`, `import utime`, etc.
+    await configurePylanceForMock(context, logger);
 
     // Register tree view providers with proper disposal
     const statusProvider = new StatusViewProvider(server);

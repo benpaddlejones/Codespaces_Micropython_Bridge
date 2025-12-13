@@ -1,8 +1,23 @@
-"""Global state management for MicroPython emulator."""
+"""Global state management for MicroPython emulator.
+
+This is the SINGLE source of truth for emulator state. All mock modules
+should import from here. Do NOT create duplicate state modules.
+
+Events are emitted in two ways:
+1. Via registered reporter callbacks (for testing)
+2. Directly to stdout with __EMU__ prefix (for VS Code webview)
+
+The stdout emission happens automatically - no reporter setup required.
+"""
 from __future__ import annotations
 
+import json
+import time as _time
 from dataclasses import dataclass, asdict
 from typing import Any, Callable, Dict, List, Optional
+
+# Event prefix that VS Code extension looks for in stdout
+EVENT_PREFIX = "__EMU__"
 
 EventCallback = Callable[[Dict[str, Any]], None]
 
@@ -20,6 +35,10 @@ _adc_values: Dict[str, int] = {}
 _i2c_devices: Dict[int, List[int]] = {}  # bus_id -> list of addresses
 _i2c_responses: Dict[str, bytes] = {}  # "bus_addr_memaddr" -> response bytes
 _i2c_auto_respond: bool = True  # Auto-respond with device-present data
+
+# Performance optimization: throttle high-frequency pin updates
+_last_pin_emit: Dict[str, float] = {}
+_PIN_EMIT_THROTTLE_MS = 1  # Minimum ms between emits for same pin (0 = no throttle)
 
 
 def set_reporter(callback: EventCallback) -> None:
@@ -41,6 +60,7 @@ def reset() -> None:
     _i2c_devices.clear()
     _i2c_responses.clear()
     _i2c_auto_respond = True
+    _last_pin_emit.clear()
     _emit({"type": "reset"})
 
 
@@ -57,7 +77,11 @@ def register_pin(identifier: str, mode: str, initial: Optional[int] = None) -> N
 
 
 def update_pin(identifier: str, value: int, mode: Optional[str] = None) -> None:
-    """Update pin value and optionally mode."""
+    """Update pin value and optionally mode.
+    
+    Uses throttling to avoid flooding the webview with updates during
+    high-frequency operations like PWM or fast blinking.
+    """
     state = _pins.get(identifier)
     if state is None:
         state = PinState(identifier=identifier, mode=mode or "OUT", value=value)
@@ -67,6 +91,15 @@ def update_pin(identifier: str, value: int, mode: Optional[str] = None) -> None:
             state.mode = mode
         state.value = value
 
+    # Throttle pin updates to avoid flooding the webview
+    now = _time.time() * 1000  # ms
+    last_emit = _last_pin_emit.get(identifier, 0)
+    
+    if _PIN_EMIT_THROTTLE_MS > 0 and (now - last_emit) < _PIN_EMIT_THROTTLE_MS:
+        return  # Skip this update, too soon
+    
+    _last_pin_emit[identifier] = now
+    
     event = {"type": "pin_update", "pin": identifier, "value": value}
     if mode is not None:
         event["mode"] = mode
@@ -208,7 +241,31 @@ def emit_event(event_type: str, data: Dict[str, Any]) -> None:
     _emit(event)
 
 
+def emit_pwm_update(pin_id: str, freq: int, duty: int) -> None:
+    """Emit a PWM update event."""
+    _emit({"type": "pwm_update", "pin": pin_id, "freq": freq, "duty": duty})
+
+
+def emit_neopixel_init(pin_id: str, count: int) -> None:
+    """Emit NeoPixel initialization event."""
+    _emit({"type": "neopixel_init", "pin": pin_id, "n": count})
+
+
+def emit_neopixel_write(pixels: list) -> None:
+    """Emit NeoPixel write event with pixel colors."""
+    _emit({"type": "neopixel_write", "pixels": pixels})
+
+
 def _emit(event: Dict[str, Any]) -> None:
+    """Emit event to stdout (for VS Code) and all registered reporters.
+    
+    This ALWAYS prints to stdout with the __EMU__ prefix so the VS Code
+    extension can receive events. Reporters are optional for testing.
+    """
+    # Always print to stdout for VS Code extension
+    print(f"{EVENT_PREFIX}{json.dumps(event)}", flush=True)
+    
+    # Also call any registered reporters (for testing)
     for reporter in list(_reporters):
         try:
             reporter(event)

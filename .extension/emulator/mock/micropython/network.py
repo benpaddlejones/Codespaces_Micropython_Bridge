@@ -26,26 +26,32 @@ class WLAN:
         self._subnet = "255.255.255.0"
         self._gateway = "192.168.1.1"
         self._dns = "8.8.8.8"
-        state.emit("wlan_init", {"interface": interface_id})
+        state.emit_event("wlan_init", {"interface": interface_id})
     
     def active(self, is_active: bool = None):
         """Activate or deactivate the network interface."""
         if is_active is not None:
             self._active = is_active
-            state.emit("wlan_active", {"interface": self.interface_id, "active": is_active})
+            state.emit_event("wlan_active", {"interface": self.interface_id, "active": is_active})
         return self._active
     
     def connect(self, ssid: str, password: str = None):
         """Connect to a wireless access point."""
         self._ssid = ssid
         self._connected = True
-        state.emit("wlan_connect", {"interface": self.interface_id, "ssid": ssid})
+        state.emit_event("wlan_connect", {
+            "interface": self.interface_id,
+            "ssid": ssid,
+            "ip": self._ip,
+            "subnet": self._subnet,
+            "gateway": self._gateway,
+        })
     
     def disconnect(self):
         """Disconnect from the wireless access point."""
         self._connected = False
         self._ssid = None
-        state.emit("wlan_disconnect", {"interface": self.interface_id})
+        state.emit_event("wlan_disconnect", {"interface": self.interface_id})
     
     def isconnected(self) -> bool:
         """Check if connected to a wireless access point."""
@@ -61,7 +67,7 @@ class WLAN:
         """Get or set IP-level network interface parameters."""
         if config is not None:
             self._ip, self._subnet, self._gateway, self._dns = config
-            state.emit("wlan_ifconfig", {"interface": self.interface_id, "config": config})
+            state.emit_event("wlan_ifconfig", {"interface": self.interface_id, "config": config})
         return (self._ip, self._subnet, self._gateway, self._dns)
     
     def config(self, *args, **kwargs):
@@ -75,7 +81,7 @@ class WLAN:
     def scan(self):
         """Scan for available wireless networks."""
         # Return mock networks
-        state.emit("wlan_scan", {"interface": self.interface_id})
+        state.emit_event("wlan_scan", {"interface": self.interface_id})
         return [
             (b"MockNetwork1", b"\x00\x11\x22\x33\x44\x55", 6, -45, 3, False),
             (b"MockNetwork2", b"\xaa\xbb\xcc\xdd\xee\xff", 11, -60, 4, False),
@@ -89,7 +95,7 @@ class LAN:
     def __init__(self, *args, **kwargs):
         self._active = False
         self._connected = False
-        state.emit("lan_init", {})
+        state.emit_event("lan_init", {})
     
     def active(self, is_active: bool = None):
         if is_active is not None:

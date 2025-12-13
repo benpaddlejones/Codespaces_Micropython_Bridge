@@ -36,8 +36,16 @@ def time() -> int:
     """Returns seconds since epoch (if RTC is set)."""
     ...
 
+def time_ns() -> int:
+    """Returns nanoseconds since epoch."""
+    ...
+
 def localtime(secs: int = ...) -> tuple[int, int, int, int, int, int, int, int]:
     """Convert seconds to local time tuple."""
+    ...
+
+def gmtime(secs: int = ...) -> tuple[int, int, int, int, int, int, int, int]:
+    """Convert seconds to UTC time tuple."""
     ...
 
 def mktime(t: tuple[int, int, int, int, int, int, int, int]) -> int:

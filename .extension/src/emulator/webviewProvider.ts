@@ -159,11 +159,11 @@ export class EmulatorWebview {
     return htmlTemplate
       .replace("style.css", styleUri)
       .replace("js/main.js", scriptUri)
-      .replace(/{{nonce}}/g, nonce)
-      .replace(/{{cspSource}}/g, cspSource)
       .replace(
-        /default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{{nonce}}'; img-src {{cspSource}} data:;/g,
-        `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${cspSource} data:;`
-      );
+        /default-src 'none'; style-src https:\/\/cdn\.jsdelivr\.net 'unsafe-inline'; script-src 'nonce-\{\{nonce\}\}'; img-src \{\{cspSource\}\} data:;/g,
+        `default-src 'none'; style-src ${cspSource} https://cdn.jsdelivr.net 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${cspSource} data:;`
+      )
+      .replace(/\{\{nonce\}\}/g, nonce)
+      .replace(/\{\{cspSource\}\}/g, cspSource);
   }
 }

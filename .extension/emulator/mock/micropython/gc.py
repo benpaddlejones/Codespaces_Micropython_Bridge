@@ -1,6 +1,13 @@
 """Mock gc module for MicroPython emulation."""
 
-import gc as _gc
+import sys
+
+# Use the real gc module saved by the runner before injection
+# This avoids circular import when our gc.py is injected into sys.modules
+_gc = sys.modules.get('_real_gc')
+if _gc is None:
+    # Fallback for when running outside the emulator
+    import gc as _gc
 
 
 def collect():

@@ -22,7 +22,7 @@ class NeoPixel:
         self.bpp = bpp
         self.timing = timing
         self._pixels = [(0, 0, 0) if bpp == 3 else (0, 0, 0, 0) for _ in range(n)]
-        state.emit("neopixel_init", {"pin": str(pin), "n": n, "bpp": bpp})
+        state.emit_event("neopixel_init", {"pin": str(pin), "n": n, "bpp": bpp})
     
     def __len__(self) -> int:
         return self.n
@@ -51,7 +51,7 @@ class NeoPixel:
     def write(self):
         """Write pixel data to the strip."""
         # Emit state change for visualization
-        state.emit("neopixel_write", {
+        state.emit_event("neopixel_write", {
             "pin": str(self.pin),
             "pixels": [list(p) for p in self._pixels]
         })

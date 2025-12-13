@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 
 interface FileTreeItem extends vscode.TreeItem {
   uri: vscode.Uri;
+  resourceUri: vscode.Uri;
   isDirectory: boolean;
 }
 
@@ -71,6 +72,7 @@ export class WorkspaceFilesProvider
         const item: FileTreeItem = {
           label: name,
           uri: fileUri,
+          resourceUri: fileUri,
           isDirectory,
           collapsibleState: isDirectory
             ? vscode.TreeItemCollapsibleState.Collapsed
@@ -189,7 +191,7 @@ export class WorkspaceFilesProvider
       let entries: fs.Dirent[];
       try {
         entries = fs.readdirSync(dir, { withFileTypes: true });
-      } catch (error) {
+      } catch (_error) {
         continue;
       }
 

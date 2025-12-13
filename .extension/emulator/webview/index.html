@@ -4,10 +4,14 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{{nonce}}'; img-src {{cspSource}} data:;"
+      content="default-src 'none'; style-src https://cdn.jsdelivr.net 'unsafe-inline'; script-src 'nonce-{{nonce}}'; img-src {{cspSource}} data:;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MicroPython Emulator</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -20,105 +24,172 @@
           <option value="pico2w">Raspberry Pi Pico 2 W</option>
           <option value="esp32">ESP32 DevKit</option>
         </select>
-        <div class="status" id="status">Idle</div>
-        <button
-          id="pinoutBtn"
-          class="link-button"
-          title="View board pinout diagram"
-        >
-          📌 Pinout
+        <button id="playStopBtn" class="link-button" title="Run script">
+          ▶ Play
         </button>
-        <button id="resetBtn" class="link-button">Reset</button>
+        <button id="pauseBtn" class="link-button" title="Pause execution">
+          ⏸ Pause
+        </button>
       </div>
     </header>
-
-    <main>
-      <section class="info">
-        <div>Script: <span id="scriptName">-</span></div>
-        <div>Board: <span id="boardName">pico</span></div>
-      </section>
-
-      <!-- Board Visualization -->
-      <section class="board-section">
-        <div class="board-container" id="boardContainer">
-          <!-- SVG will be loaded here -->
-          <div class="board-loading">Loading board...</div>
-        </div>
-
-        <!-- NeoPixel Strip -->
-        <div class="neopixel-strip" id="neopixelStrip" style="display: none">
-          <div class="neopixel-header">NeoPixels</div>
-          <div class="neopixel-leds" id="neopixelLeds">
-            <!-- LEDs will be dynamically added -->
-          </div>
-        </div>
-      </section>
-
-      <div class="panels">
-        <!-- Console Output Panel -->
-        <section class="panel console-panel">
-          <div class="panel-header">
-            <span>Console Output</span>
-            <button id="clearConsoleBtn" class="link-button">Clear</button>
-          </div>
-          <pre id="consoleOutput"></pre>
-        </section>
-
-        <!-- I2C Monitor Panel -->
-        <section class="panel i2c-panel">
-          <div class="panel-header">
-            <span>I2C Monitor</span>
-            <button id="clearI2cBtn" class="link-button">Clear</button>
-          </div>
-          <div class="i2c-content">
-            <div class="i2c-section">
-              <label>Last Write:</label>
-              <pre id="i2cLastWrite">-</pre>
-            </div>
-            <div class="i2c-section">
-              <label>Read Response (hex bytes):</label>
-              <input
-                type="text"
-                id="i2cReadInput"
-                placeholder="0x00 0x01 0xFF"
-              />
-              <small
-                >Enter hex bytes separated by spaces. Press Enter to set.</small
-              >
-            </div>
-            <div class="i2c-section">
-              <label>Transaction Log:</label>
-              <pre id="i2cLog"></pre>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <section class="log">
-        <div class="log-header">
-          <span>Pin Activity</span>
-          <button id="clearLogBtn" class="link-button">Clear</button>
-        </div>
-        <pre id="eventLog"></pre>
-      </section>
-    </main>
-
-    <!-- Pinout Diagram Modal -->
-    <div id="pinoutModal" class="modal" style="display: none">
-      <div class="modal-overlay" id="modalOverlay"></div>
-      <div class="modal-content">
-        <div class="modal-header">
-          <span class="modal-title"
-            >📌 <span id="pinoutBoardName">Pico</span> Pinout Diagram</span
-          >
-          <button id="closePinoutBtn" class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body" id="pinoutContent">
-          <!-- Pinout SVG will be loaded here -->
-          <div class="pinout-loading">Loading pinout diagram...</div>
-        </div>
-      </div>
+    <div class="script-bar">
+      <span class="script-info">Script: <span id="scriptName">-</span></span>
     </div>
+
+    <main class="container-fluid">
+      <div class="row g-3">
+        <!-- Board Visualization -->
+        <div class="col-12 col-sm-4 col-md-4">
+          <section class="board-section">
+            <div class="board-container" id="boardContainer">
+              <!-- SVG will be loaded here -->
+              <div class="board-loading">Loading board...</div>
+            </div>
+
+            <!-- Pin Activity Panel -->
+            <section class="panel log-panel">
+              <div class="panel-header">
+                <span>Pin Activity</span>
+                <button id="clearLogBtn" class="link-button">Clear</button>
+              </div>
+              <pre id="eventLog"></pre>
+            </section>
+          </section>
+        </div>
+
+        <!-- I2C and Pin Activity Section (Middle Column) -->
+        <div class="col-12 col-sm-4 col-md-4">
+          <div class="terminal-section">
+            <!-- I2C Monitor Panel -->
+            <section class="panel i2c-panel collapsed">
+              <div class="panel-header">
+                <span>I2C Monitor</span>
+                <button class="link-button panel-toggle">Expand</button>
+              </div>
+              <div class="i2c-content">
+                <button id="clearI2cBtn" class="link-button clear-inside">
+                  Clear Log
+                </button>
+                <div class="i2c-section">
+                  <label>Last Write:</label>
+                  <pre id="i2cLastWrite">-</pre>
+                </div>
+                <div class="i2c-section">
+                  <label>Set Read Response (hex bytes):</label>
+                  <div class="i2c-input-row">
+                    <input
+                      type="text"
+                      id="i2cReadInput"
+                      placeholder="0x68 0x00 0xFF or 68 00 FF"
+                      class="i2c-hex-input"
+                    />
+                    <button id="i2cSetBtn" class="btn-small btn-set">
+                      Set
+                    </button>
+                    <button
+                      id="i2cClearResponseBtn"
+                      class="btn-small btn-clear"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div id="i2cValidation" class="i2c-validation"></div>
+                  <div id="i2cResponseStatus" class="i2c-response-status">
+                    Using auto-response (default)
+                  </div>
+                </div>
+                <div class="i2c-section">
+                  <label>Transaction Log:</label>
+                  <pre id="i2cLog"></pre>
+                </div>
+              </div>
+            </section>
+
+            <!-- ADC Monitor Panel -->
+            <section class="panel adc-panel collapsed">
+              <div class="panel-header">
+                <span>ADC Monitor</span>
+                <button class="link-button panel-toggle">Expand</button>
+              </div>
+              <div class="adc-content">
+                <button id="clearAdcBtn" class="link-button clear-inside">
+                  Clear Log
+                </button>
+                <div class="adc-section">
+                  <label
+                    >Override ADC Value (or leave empty for random
+                    noise):</label
+                  >
+                  <div class="adc-input-row">
+                    <select id="adcPinSelect">
+                      <option value="26">GP26 (ADC0)</option>
+                      <option value="27">GP27 (ADC1)</option>
+                      <option value="28">GP28 (ADC2)</option>
+                      <option value="29">GP29 (ADC3)</option>
+                      <option value="4">Internal Temp</option>
+                    </select>
+                    <input
+                      type="range"
+                      id="adcSlider"
+                      min="0"
+                      max="65535"
+                      value="32768"
+                      class="adc-slider"
+                    />
+                    <input
+                      type="number"
+                      id="adcValueInput"
+                      min="0"
+                      max="65535"
+                      step="1"
+                      placeholder="32768"
+                      class="adc-number-input"
+                    />
+                  </div>
+                  <div class="adc-preview">
+                    <span id="adcVoltagePreview">≈ 1.65V</span>
+                    <button id="adcSetBtn" class="btn-small btn-set">
+                      Set Override
+                    </button>
+                    <button
+                      id="adcClearOverrideBtn"
+                      class="btn-small btn-clear"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div id="adcOverrideStatus" class="adc-override-status"></div>
+                </div>
+                <div class="adc-section">
+                  <label>Last Read:</label>
+                  <div id="adcLastRead" class="adc-reading">
+                    <span class="adc-pin">-</span>
+                    <span class="adc-arrow">←</span>
+                    <span class="adc-value">-</span>
+                    <span class="adc-voltage">-</span>
+                  </div>
+                </div>
+                <div class="adc-section">
+                  <label>Read Log:</label>
+                  <pre id="adcLog"></pre>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Console Output Section (Right Column) -->
+        <div class="col-12 col-sm-4 col-md-4">
+          <section class="panel console-panel">
+            <div class="panel-header">
+              <span>Console Output</span>
+              <button id="clearConsoleBtn" class="link-button">Clear</button>
+            </div>
+            <pre id="consoleOutput"></pre>
+          </section>
+        </div>
+      </div>
+    </main>
 
     <script nonce="{{nonce}}" src="js/main.js"></script>
   </body>

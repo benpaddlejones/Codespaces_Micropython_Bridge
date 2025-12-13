@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import importlib.util
 import json
 import os
 import runpy
@@ -75,6 +76,10 @@ def configure_paths(mock_root: Path, script_path: Path, workspace_root: Path) ->
     # Provide a hint for tooling that wants stub path
     os.environ.setdefault("MICROPYTHON_TYPINGS", str(typings_path))
     
+    # Inject our mock modules into sys.modules for built-in modules that can't
+    # be overridden via path manipulation (like gc which is a C module)
+    _inject_mock_modules(micropython_path)
+    
     # Patch built-in modules with MicroPython-specific functions
     # sys.print_exception is MicroPython-specific
     import traceback as _traceback
@@ -83,6 +88,39 @@ def configure_paths(mock_root: Path, script_path: Path, workspace_root: Path) ->
             file = sys.stdout
         _traceback.print_exception(type(exc), exc, exc.__traceback__, file=file)
     sys.print_exception = print_exception
+
+
+def _inject_mock_modules(micropython_path: Path) -> None:
+    """
+    Inject mock modules into sys.modules to override built-in C modules.
+    
+    Some Python modules (like gc) are implemented in C and cannot be
+    overridden via sys.path manipulation. We must explicitly import our
+    mock versions and inject them into sys.modules.
+    """
+    # First, save references to the real built-in modules before replacing them
+    # This allows our mocks to delegate to the real implementations
+    import gc as _real_gc
+    
+    # Store the real module for our mock to use
+    sys.modules['_real_gc'] = _real_gc
+    
+    # List of modules we need to inject (modules that shadow built-ins)
+    modules_to_inject = [
+        "gc",           # Built-in garbage collector
+        "micropython",  # MicroPython-specific module (as package)
+    ]
+    
+    for module_name in modules_to_inject:
+        module_file = micropython_path / f"{module_name}.py"
+        if module_file.exists():
+            spec = importlib.util.spec_from_file_location(
+                module_name, str(module_file)
+            )
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
 
 
 def main() -> int:
@@ -135,6 +173,42 @@ def main() -> int:
     except SystemExit as exc:
         emit({"type": "exit", "code": int(exc.code) if exc.code else 0})
         return int(exc.code) if exc.code else 0
+    except KeyboardInterrupt:
+        emit({"type": "exit", "code": 130, "message": "Script interrupted by user"})
+        return 130
+    except ImportError as exc:
+        # Provide helpful message for missing modules
+        module_name = getattr(exc, 'name', str(exc))
+        emit(
+            {
+                "type": "exception",
+                "message": f"Import Error: Could not import '{module_name}'",
+                "hint": "This module may not be supported in the emulator. Check if it's a MicroPython-specific module.",
+                "traceback": traceback.format_exc(),
+            }
+        )
+        return 1
+    except SyntaxError as exc:
+        # Provide clear syntax error message with line info
+        emit(
+            {
+                "type": "exception",
+                "message": f"Syntax Error in {exc.filename or 'script'}",
+                "hint": f"Line {exc.lineno}: {exc.msg}" if exc.lineno else str(exc.msg),
+                "traceback": traceback.format_exc(),
+            }
+        )
+        return 1
+    except FileNotFoundError as exc:
+        emit(
+            {
+                "type": "exception",
+                "message": f"File Not Found: {exc.filename or str(exc)}",
+                "hint": "Check that the file path is correct and the file exists.",
+                "traceback": traceback.format_exc(),
+            }
+        )
+        return 1
     except Exception:
         emit(
             {

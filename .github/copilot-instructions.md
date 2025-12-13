@@ -95,3 +95,43 @@ Section 2: Execution & Safety Principles
    9 Commit Message Format
    When providing a commit message, use the Conventional Commits format: type(scope): summary.
    Examples: feat(auth): add password reset endpoint, fix(api): correct error status code.
+
+Section 4: MicroPython Mock Module Maintenance
+
+The emulator mock modules in `.extension/emulator/mock/micropython/` must accurately mirror the real MicroPython library APIs. When working with these mocks, follow these critical rules:
+
+10. NEVER Apply Spot Fixes or Workarounds
+
+- When a test fails due to a missing or incorrect mock implementation, ALWAYS find and fix the ROOT CAUSE.
+- NEVER add aliases, shims, or wrapper functions to work around API mismatches.
+- NEVER duplicate code to "make it work" - this creates technical debt.
+- Example of FORBIDDEN fix: Adding `state.emit = state.emit_event` as an alias.
+- Example of CORRECT fix: Change all callers to use the canonical function name.
+
+11. Mock Must Mirror Real MicroPython
+
+- Every mock module must match the real MicroPython API exactly.
+- Method signatures, return types, and behaviors must match official documentation.
+- Consult https://docs.micropython.org/ as the authoritative source.
+- When adding new methods, verify they exist in real MicroPython first.
+
+12. Root Cause Analysis Process
+    When a mock-related issue is discovered:
+1. Identify the exact error (AttributeError, TypeError, missing function, etc.)
+1. Trace back to understand WHY the error occurs (import order, module structure, naming inconsistency)
+1. Find ALL occurrences of the pattern causing the issue
+1. Fix the root cause across the entire codebase, not just the failing test
+1. Run the mock validation test to ensure no regressions
+
+1. Architecture Rules for Mocks
+
+- Use `state.emit_event()` consistently - never `state.emit()`.
+- Built-in modules (gc, sys) require `sys.modules` injection in runner.py.
+- Package `__init__.py` files must re-export module contents for proper imports.
+- Type stubs in `typings/` must stay in sync with mock implementations.
+
+14. Validation Requirements
+
+- After any mock changes, run: `python3 .extension/emulator/mock/runner.py py_scripts/mock_validation_test.py`
+- All tests must pass before considering work complete.
+- If a test fails, fix the mock - do NOT modify the test to hide the failure.

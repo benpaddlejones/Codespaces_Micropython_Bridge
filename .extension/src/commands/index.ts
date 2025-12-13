@@ -11,6 +11,51 @@ import * as vscode from "vscode";
 import { BridgeServer } from "../server";
 import { Logger } from "../utils";
 
+function isUri(value: unknown): value is vscode.Uri {
+  return value instanceof vscode.Uri;
+}
+
+function resolveUri(resource: unknown): vscode.Uri | undefined {
+  if (!resource) {
+    return undefined;
+  }
+
+  if (Array.isArray(resource)) {
+    return resolveUri(resource[0]);
+  }
+
+  if (typeof resource === "string") {
+    return vscode.Uri.file(resource);
+  }
+
+  if (isUri(resource)) {
+    return resource;
+  }
+
+  if (typeof resource === "object") {
+    const candidate = resource as {
+      uri?: unknown;
+      resourceUri?: unknown;
+      path?: unknown;
+      fsPath?: unknown;
+    };
+    if (candidate.uri && isUri(candidate.uri)) {
+      return candidate.uri;
+    }
+    if (candidate.resourceUri && isUri(candidate.resourceUri)) {
+      return candidate.resourceUri;
+    }
+    if (typeof candidate.fsPath === "string") {
+      return vscode.Uri.file(candidate.fsPath);
+    }
+    if (typeof candidate.path === "string") {
+      return vscode.Uri.file(candidate.path);
+    }
+  }
+
+  return undefined;
+}
+
 export function registerCommands(
   context: vscode.ExtensionContext,
   server: BridgeServer,
@@ -249,6 +294,100 @@ export function registerCommands(
       async () => {
         logger.info("Command: setupExistingProject");
         await setupExistingProject(logger);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "picoBridge.debugPythonFile",
+      async (resource?: unknown) => {
+        logger.info("Command: debugPythonFile");
+
+        let targetUri = resolveUri(resource);
+        if (!targetUri) {
+          const editor = vscode.window.activeTextEditor;
+          if (!editor || editor.document.languageId !== "python") {
+            vscode.window.showWarningMessage(
+              "Open a Python file to debug it in the emulator"
+            );
+            return;
+          }
+          if (editor.document.isUntitled) {
+            vscode.window.showWarningMessage(
+              "Save the Python file before debugging it in the emulator"
+            );
+            return;
+          }
+          if (editor.document.isDirty) {
+            await editor.document.save();
+          }
+          targetUri = editor.document.uri;
+        }
+
+        if (targetUri.scheme !== "file") {
+          vscode.window.showWarningMessage(
+            "Only filesystem-based Python files can be debugged"
+          );
+          return;
+        }
+
+        const document = await vscode.workspace.openTextDocument(targetUri);
+        if (document.languageId !== "python") {
+          vscode.window.showWarningMessage(
+            "The selected file is not a Python file"
+          );
+          return;
+        }
+
+        if (document.isUntitled) {
+          vscode.window.showWarningMessage(
+            "Save the Python file before debugging it in the emulator"
+          );
+          return;
+        }
+
+        if (document.isDirty) {
+          await document.save();
+        }
+
+        const config = vscode.workspace.getConfiguration("picoBridge.emulator");
+        const pythonExecutable = config.get<string>(
+          "pythonExecutable",
+          "python3"
+        );
+        const runnerPath = path.join(
+          context.extensionPath,
+          "emulator",
+          "mock",
+          "runner.py"
+        );
+
+        const debugConfiguration: vscode.DebugConfiguration = {
+          name: "Pico Bridge: Debug Emulator",
+          type: "python",
+          request: "launch",
+          program: runnerPath,
+          args: [document.uri.fsPath],
+          console: "integratedTerminal",
+          justMyCode: false,
+          cwd: path.dirname(document.uri.fsPath),
+          python: pythonExecutable,
+          env: {
+            MICROPYTHON_MOCK: "1",
+          },
+        };
+
+        const started = await vscode.debug.startDebugging(
+          undefined,
+          debugConfiguration
+        );
+
+        if (!started) {
+          vscode.window.showErrorMessage(
+            "Failed to start debugging session. Ensure the Python extension is installed."
+          );
+        }
       }
     )
   );

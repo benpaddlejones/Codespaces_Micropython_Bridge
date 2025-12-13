@@ -26,3 +26,20 @@ Available modules:
 """
 
 __version__ = "1.1.0"
+
+# Re-export micropython module contents at package level
+# This allows 'import micropython; micropython.const(42)' to work
+from .micropython import (
+    const,
+    native,
+    viper,
+    alloc_emergency_exception_buf,
+    opt_level,
+    mem_info,
+    qstr_info,
+    stack_use,
+    heap_lock,
+    heap_unlock,
+    kbd_intr,
+    schedule,
+)

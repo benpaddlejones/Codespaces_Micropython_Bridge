@@ -30,6 +30,8 @@
   "window.restoreWindows": "preserve",
   "python.analysis.extraPaths": [
     "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-1.1.0/emulator/mock/micropython",
-    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-1.1.0/emulator/mock/typings"
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-1.1.0/emulator/mock/typings",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.0.0/emulator/mock/typings",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.0.0/emulator/mock/micropython"
   ]
 }
