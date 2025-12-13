@@ -13,7 +13,7 @@
       .pin-label-right { text-anchor: start; }
       .pin-label-left { text-anchor: end; }
       .led-onboard { fill: #333; stroke: #222; stroke-width: 1; }
-      .led-onboard.on { fill: #00ff00; filter: drop-shadow(0 0 4px #00ff00); }
+      .led-onboard.on { fill: #0088ff; filter: drop-shadow(0 0 4px #0088ff); }
       .led-onboard.pwm { fill: #ffaa00; filter: drop-shadow(0 0 4px #ffaa00); animation: pwm-pulse 0.5s ease-in-out infinite; }
       @keyframes pwm-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
       .bootsel { fill: #444; stroke: #333; stroke-width: 1; rx: 2; }
@@ -24,6 +24,14 @@
       .pin-high { fill: #00ff00; }
       .pin-low { fill: #444; }
       .pin-pwm { fill: #ffaa00; }
+      .digital-mode { fill: #28a745; }
+      .digital-out { fill: #28a745; }
+      .digital-in { fill: #87ceeb; }
+      .pwm-mode { fill: #ffc107; }
+      .adc-mode { fill: #9b59b6; }
+      .i2c-mode { fill: #00d4ff; }
+      .uart-mode { fill: #e83e8c; }
+      .pin-func { fill: #e83e8c; font-family: monospace; font-size: 7px; font-weight: normal; }
     </style>
   </defs>
   
@@ -64,12 +72,14 @@
     <circle class="pin-base" cx="55" cy="60" r="2.5"/>
     <circle id="pin-0" class="pin-indicator" cx="55" cy="60" r="4.5"/>
     <text class="pin-label pin-label-right" x="63" y="64">GP0</text>
+    <text class="pin-func" x="88" y="64">TX</text>
     
     <!-- GP1 -->
     <circle class="pin-hole" cx="55" cy="80" r="6"/>
     <circle class="pin-base" cx="55" cy="80" r="2.5"/>
     <circle id="pin-1" class="pin-indicator" cx="55" cy="80" r="4.5"/>
     <text class="pin-label pin-label-right" x="63" y="84">GP1</text>
+    <text class="pin-func" x="88" y="84">RX</text>
     
     <!-- GND -->
     <circle class="pin-hole" cx="55" cy="100" r="6"/>
@@ -93,12 +103,14 @@
     <circle class="pin-base" cx="55" cy="160" r="2.5"/>
     <circle id="pin-4" class="pin-indicator" cx="55" cy="160" r="4.5"/>
     <text class="pin-label pin-label-right" x="63" y="164">GP4</text>
+    <text class="pin-func" x="88" y="164">TX</text>
     
     <!-- GP5 -->
     <circle class="pin-hole" cx="55" cy="180" r="6"/>
     <circle class="pin-base" cx="55" cy="180" r="2.5"/>
     <circle id="pin-5" class="pin-indicator" cx="55" cy="180" r="4.5"/>
     <text class="pin-label pin-label-right" x="63" y="184">GP5</text>
+    <text class="pin-func" x="88" y="184">RX</text>
     
     <!-- GND -->
     <circle class="pin-hole" cx="55" cy="200" r="6"/>

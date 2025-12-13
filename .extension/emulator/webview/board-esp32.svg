@@ -22,6 +22,14 @@
       .pin-high { fill: #00ff00; }
       .pin-low { fill: #444; }
       .pin-pwm { fill: #ffaa00; }
+      .digital-mode { fill: #28a745; }
+      .digital-out { fill: #28a745; }
+      .digital-in { fill: #87ceeb; }
+      .pwm-mode { fill: #ffc107; }
+      .adc-mode { fill: #9b59b6; }
+      .i2c-mode { fill: #00d4ff; }
+      .uart-mode { fill: #e83e8c; }
+      .pin-func { fill: #e83e8c; font-family: monospace; font-size: 7px; font-weight: normal; }
     </style>
   </defs>
   
@@ -218,12 +226,14 @@
     <circle class="pin-base" cx="285" cy="410" r="2.5"/>
     <circle id="pin-17" class="pin-indicator" cx="285" cy="410" r="4.5"/>
     <text class="pin-label pin-label-left" x="277" y="413">17</text>
+    <text class="pin-func" x="262" y="413">TX</text>
     
     <!-- GPIO16 -->
     <circle class="pin-hole" cx="285" cy="425" r="6"/>
     <circle class="pin-base" cx="285" cy="425" r="2.5"/>
     <circle id="pin-16" class="pin-indicator" cx="285" cy="425" r="4.5"/>
     <text class="pin-label pin-label-left" x="277" y="428">16</text>
+    <text class="pin-func" x="262" y="428">RX</text>
     
     <!-- GPIO4 -->
     <circle class="pin-hole" cx="285" cy="440" r="6"/>

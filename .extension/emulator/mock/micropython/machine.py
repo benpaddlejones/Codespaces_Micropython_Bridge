@@ -57,10 +57,13 @@ class Pin:
 
     def value(self, val: Optional[int] = None) -> int:
         if val is None:
-            return state.get_pin_value(self._id)
+            # Reading pin value - emit with IN mode
+            current = state.get_pin_value(self._id)
+            state.update_pin(self._id, current, "IN")
+            return current
 
         self._value = 1 if val else 0
-        state.update_pin(self._id, self._value)
+        state.update_pin(self._id, self._value, "OUT")
         return self._value
 
     def on(self) -> None:

@@ -188,46 +188,6 @@ def demo_uart():
 
 
 # =============================================================================
-# Pico NeoPixel - RGB LED strip
-# =============================================================================
-
-def demo_neopixel():
-    """Control a NeoPixel strip."""
-    announce("NeoPixel Strip (GP16)")
-    
-    print("  8 NeoPixels on GP16")
-    
-    from neopixel import NeoPixel
-    
-    np = NeoPixel(Pin(16), 8)
-    
-    colors = [
-        (255, 0, 0),    # Red
-        (255, 127, 0),  # Orange
-        (255, 255, 0),  # Yellow
-        (0, 255, 0),    # Green
-        (0, 255, 255),  # Cyan
-        (0, 0, 255),    # Blue
-        (127, 0, 255),  # Purple
-        (255, 0, 127),  # Pink
-    ]
-    
-    print("  Showing rainbow colors...")
-    for i, color in enumerate(colors):
-        np[i] = color
-        np.write()
-        utime.sleep_ms(200)
-    
-    utime.sleep_ms(500)
-    
-    print("  Clearing strip...")
-    np.fill((0, 0, 0))
-    np.write()
-    
-    print("  Done!")
-
-
-# =============================================================================
 # Main
 # =============================================================================
 
@@ -245,7 +205,6 @@ if __name__ == "__main__":
         demo_adc,
         demo_i2c,
         demo_uart,
-        demo_neopixel,
     ]
     
     for demo in demos:

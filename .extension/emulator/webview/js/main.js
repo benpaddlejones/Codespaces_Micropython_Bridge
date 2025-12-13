@@ -167,6 +167,8 @@ function setPinMode(pin, mode, active = true) {
   pinEl.classList.remove(
     "active",
     "digital-mode",
+    "digital-out",
+    "digital-in",
     "pwm-mode",
     "adc-mode",
     "i2c-mode",
@@ -273,6 +275,8 @@ function updatePinVisual(pin, value, mode = "digital") {
     pinIndicator.classList.remove(
       "active",
       "digital-mode",
+      "digital-out",
+      "digital-in",
       "pwm-mode",
       "adc-mode",
       "i2c-mode",
@@ -286,8 +290,10 @@ function updatePinVisual(pin, value, mode = "digital") {
       pinIndicator.classList.add("active");
       if (mode === "pwm") {
         pinIndicator.classList.add("pwm-mode");
+      } else if (mode === "IN") {
+        pinIndicator.classList.add("digital-in");
       } else {
-        pinIndicator.classList.add("digital-mode");
+        pinIndicator.classList.add("digital-out");
       }
     }
   }
@@ -301,13 +307,28 @@ function updatePinVisual(pin, value, mode = "digital") {
  * Called when script exits naturally.
  */
 function clearPinModes() {
+  console.log("[Emulator] clearPinModes called");
   const allPinIndicators = boardContainer?.querySelectorAll(".pin-indicator");
+  console.log("[Emulator] Found", allPinIndicators?.length, "pin indicators");
+  let clearedCount = 0;
   if (allPinIndicators) {
     allPinIndicators.forEach((pinEl) => {
+      const hadClass = pinEl.classList.contains("adc-mode") || 
+                       pinEl.classList.contains("i2c-mode") ||
+                       pinEl.classList.contains("uart-mode") ||
+                       pinEl.classList.contains("pwm-mode") ||
+                       pinEl.classList.contains("digital-out") ||
+                       pinEl.classList.contains("digital-in");
+      if (hadClass) {
+        console.log("[Emulator] Clearing pin:", pinEl.id, "classes:", pinEl.className);
+        clearedCount++;
+      }
       pinEl.classList.remove(
         "active",
         "activity-flash",
         "digital-mode",
+        "digital-out",
+        "digital-in",
         "pwm-mode",
         "adc-mode",
         "i2c-mode",
@@ -315,14 +336,7 @@ function clearPinModes() {
       );
     });
   }
-
-  // Collapse ADC and I2C panels when script ends
-  if (adcPanel) {
-    adcPanel.classList.add("collapsed");
-  }
-  if (i2cPanel) {
-    i2cPanel.classList.add("collapsed");
-  }
+  console.log("[Emulator] Cleared", clearedCount, "pins with mode classes");
 }
 
 function resetAll() {
@@ -334,6 +348,8 @@ function resetAll() {
         "active",
         "activity-flash",
         "digital-mode",
+        "digital-out",
+        "digital-in",
         "pwm-mode",
         "adc-mode",
         "i2c-mode",
@@ -608,6 +624,8 @@ window.addEventListener("message", (event) => {
       break;
 
     case "complete":
+    case "complete":
+      console.log("[Emulator] Complete event received");
       isRunning = false;
       isPaused = false;
       // Clear all pin mode indicators when script completes
@@ -625,6 +643,7 @@ window.addEventListener("message", (event) => {
       break;
 
     case "exit":
+      console.log("[Emulator] Exit event received");
       isRunning = false;
       isPaused = false;
       // Clear all pin mode indicators on exit

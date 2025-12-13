@@ -189,46 +189,6 @@ def demo_adc():
 
 
 # =============================================================================
-# Pico 2 W NeoPixel
-# =============================================================================
-
-def demo_neopixel():
-    """Control NeoPixels."""
-    announce("Pico 2 W NeoPixel (GP16)")
-    
-    print("  8 NeoPixels on GP16")
-    
-    from neopixel import NeoPixel
-    
-    np = NeoPixel(Pin(16), 8)
-    
-    colors = [
-        (255, 0, 0),
-        (255, 127, 0),
-        (255, 255, 0),
-        (0, 255, 0),
-        (0, 255, 255),
-        (0, 0, 255),
-        (127, 0, 255),
-        (255, 0, 127),
-    ]
-    
-    print("  Rainbow colors...")
-    for i, color in enumerate(colors):
-        np[i] = color
-        np.write()
-        utime.sleep_ms(200)
-    
-    utime.sleep_ms(500)
-    
-    print("  Clearing...")
-    np.fill((0, 0, 0))
-    np.write()
-    
-    print("  Done!")
-
-
-# =============================================================================
 # Main
 # =============================================================================
 
@@ -246,7 +206,6 @@ if __name__ == "__main__":
         demo_pwm,
         demo_i2c,
         demo_adc,
-        demo_neopixel,
     ]
     
     for demo in demos:

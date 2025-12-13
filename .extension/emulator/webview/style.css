@@ -508,6 +508,62 @@ main {
   color: var(--accent-orange);
 }
 
+/* ===== Pin Color Legend ===== */
+.legend-panel .panel-header span::before {
+  content: "🎨";
+}
+
+.legend-content {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-color.digital-out {
+  background-color: #28a745;
+}
+.legend-color.digital-in {
+  background-color: #87ceeb;
+}
+.legend-color.pwm {
+  background-color: #ffc107;
+}
+.legend-color.adc {
+  background-color: #9b59b6;
+}
+.legend-color.i2c {
+  background-color: #00d4ff;
+}
+.legend-color.uart {
+  background-color: #e83e8c;
+}
+
+.legend-arrow {
+  font-size: 12px;
+  color: var(--text-secondary);
+  width: 14px;
+  text-align: center;
+}
+
+.legend-label {
+  color: var(--text-primary);
+}
+
 /* ===== ADC Monitor Panel ===== */
 .adc-panel .panel-header span::before {
   content: "📊";
