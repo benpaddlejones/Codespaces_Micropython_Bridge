@@ -332,26 +332,9 @@ function updatePinVisual(pin, value, mode = "digital") {
  * Called when script exits naturally.
  */
 function clearPinModes() {
-  console.log("[Emulator] clearPinModes called");
   const allPinIndicators = boardContainer?.querySelectorAll(".pin-indicator");
-  console.log("[Emulator] Found", allPinIndicators?.length, "pin indicators");
-  let clearedCount = 0;
   if (allPinIndicators) {
     allPinIndicators.forEach((pinEl) => {
-      // Check if pin has any active styling
-      if (
-        pinEl.classList.contains("active") ||
-        pinEl.className.baseVal?.includes("-mode") ||
-        pinEl.className.baseVal?.includes("pin-")
-      ) {
-        console.log(
-          "[Emulator] Clearing pin:",
-          pinEl.id,
-          "classes:",
-          pinEl.className.baseVal || pinEl.className
-        );
-        clearedCount++;
-      }
       // Remove ALL possible mode classes (both old and new naming conventions)
       pinEl.classList.remove(
         "active",
@@ -371,7 +354,6 @@ function clearPinModes() {
       );
     });
   }
-  console.log("[Emulator] Cleared", clearedCount, "pins with mode classes");
 }
 
 function resetAll() {
@@ -678,8 +660,6 @@ window.addEventListener("message", (event) => {
       break;
 
     case "complete":
-    case "complete":
-      console.log("[Emulator] Complete event received");
       isRunning = false;
       isPaused = false;
       // Clear all pin mode indicators when script completes
@@ -697,7 +677,6 @@ window.addEventListener("message", (event) => {
       break;
 
     case "exit":
-      console.log("[Emulator] Exit event received");
       isRunning = false;
       isPaused = false;
       // Clear all pin mode indicators on exit

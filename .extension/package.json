@@ -5,6 +5,13 @@
   "version": "2.0.0",
   "publisher": "benpaddlejones",
   "license": "GPL-3.0",
+  "extensionDependencies": [
+    "ms-python.python"
+  ],
+  "extensionPack": [
+    "ms-python.debugpy",
+    "ms-python.vscode-pylance"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge"
@@ -140,6 +147,12 @@
         "title": "Setup Existing Project",
         "category": "Pico Bridge",
         "icon": "$(folder)"
+      },
+      {
+        "command": "picoBridge.switchProject",
+        "title": "Switch Active Project",
+        "category": "Pico Bridge",
+        "icon": "$(folder-active)"
       },
       {
         "command": "picoBridge.openEmulator",
@@ -376,13 +389,52 @@
       },
       {
         "view": "picoBridge.workspaceFiles",
-        "contents": "No MicroPython project detected.\n\n[$(new-folder) Create Basic Project](command:picoBridge.createBasicProject)\n\n[$(beaker) Create Advanced Project](command:picoBridge.createProject)\n\n[$(folder) Setup Existing Project](command:picoBridge.setupExistingProject)",
+        "contents": "No MicroPython project detected.\n\n[$(new-folder) Create Basic Project](command:picoBridge.createBasicProject)\n\n[$(beaker) Create Project with Adv Debugging](command:picoBridge.createProject)\n\n[$(folder) Setup Existing Project](command:picoBridge.setupExistingProject)",
         "when": "!picoBridge.projectDetected"
       },
       {
         "view": "picoBridge.workspaceFiles",
         "contents": "No Python files found in project.\n\nCreate a main.py file to get started with MicroPython development.",
         "when": "picoBridge.projectDetected"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "micropython-emulator",
+        "label": "MicroPython (Emulator)",
+        "languages": [
+          "python"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "The Python file to debug"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "name": "MicroPython (Emulator)",
+            "type": "micropython-emulator",
+            "request": "launch",
+            "program": "${file}"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "MicroPython (Emulator): Debug Current File",
+            "description": "Debug a MicroPython file in the emulator",
+            "body": {
+              "name": "MicroPython (Emulator)",
+              "type": "micropython-emulator",
+              "request": "launch",
+              "program": "^\"\\${file}\""
+            }
+          }
+        ]
       }
     ],
     "configuration": {

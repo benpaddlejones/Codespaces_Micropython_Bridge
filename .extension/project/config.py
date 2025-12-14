@@ -4,7 +4,7 @@ STUDENTS: Edit FILE_NAME below to run a different script.
 """
 
 # File name of the script to import (without .py extension)
-FILE_NAME = "plotter_demo"
+FILE_NAME = "v01"
 
 # Directories
 SCRIPT_DIRECTORY = "/py_scripts"

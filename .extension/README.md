@@ -130,21 +130,39 @@ The bridge interface will open in your default browser. This is required because
 
 ## 🏗️ Architecture
 
-```
-            WebSocket                          Web Serial (USB)
-┌───────────────────────────┐        ┌─────────────────────────────────┐        ┌──────────────────────────┐
-│ GitHub Codespaces / VS Code│◄──────►│ Pico Bridge Browser UI          │◄──────►│  MicroPython Device      │
-│ (Extension backend + server)│        │ (Chrome / Edge with Web Serial)│        │  (Pico / Pico W / ESP32) │
-└──────────────┬─────────────┘        └──────────────┬─────────────────┘        └──────────────────────────┘
-           │                                     │
-           │ Node.js bridge server               │ Serial commands, REPL, plotter
-           │                                     │
-           ▼                                     ▼
-    Extension commands & status           File manager, terminal, telemetry UI
-```
+### VS Code Extension Components
 
-**Why External Browser?**
-The Web Serial API is not available in VS Code webviews. The bridge interface must run in an external browser (Chrome/Edge) to access serial ports.
+- **Commands & Views** - UI panels, menus, and command palette integration
+- **Project Manager** - Tracks active project via `.micropico` marker files
+- **Emulator Manager** - Spawns Python process with mock MicroPython modules
+- **Bridge Server** - Express.js server for browser communication
+
+### Two Development Paths
+
+**EMULATOR PATH** (No hardware needed)
+
+1. Extension runs `runner.py` with your script
+2. Mock modules simulate `machine`, `utime`, `network`, `neopixel`, `rp2`, `gc`
+3. Emulator webview shows pin states, PWM, ADC values
+4. debugpy enables VS Code debugging (breakpoints, stepping, variables)
+
+**HARDWARE PATH** (Real device)
+
+1. Bridge server starts on port 3000
+2. Browser UI opens (Chrome/Edge required for Web Serial API)
+3. Connect to Pico/ESP32 via USB
+4. REPL terminal, file sync, and data plotter available
+
+### Why External Browser?
+
+The Web Serial API is not available in VS Code webviews. The bridge interface must run in Chrome or Edge to access serial ports.
+
+### Path Comparison
+
+| Path         | Use Case                    | Requirements                        |
+| ------------ | --------------------------- | ----------------------------------- |
+| **Emulator** | Test logic without hardware | Python 3.8+, debugpy                |
+| **Hardware** | Deploy to real device       | Chrome/Edge browser, USB connection |
 
 ## 🎮 MicroPython Emulator (No Hardware Required!)
 

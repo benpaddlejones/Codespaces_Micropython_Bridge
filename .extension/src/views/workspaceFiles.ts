@@ -34,17 +34,30 @@ export class WorkspaceFilesProvider
   constructor() {
     this.detectProject();
 
+    // Watch for Python file changes
     const pyWatcher = vscode.workspace.createFileSystemWatcher("**/*.py");
     this.disposables.push(pyWatcher);
     this.disposables.push(pyWatcher.onDidCreate(() => this.refresh()));
     this.disposables.push(pyWatcher.onDidDelete(() => this.refresh()));
     this.disposables.push(pyWatcher.onDidChange(() => this.refresh()));
 
+    // Watch for .micropico marker changes (project detection)
     const markerWatcher =
       vscode.workspace.createFileSystemWatcher("**/.micropico");
     this.disposables.push(markerWatcher);
     this.disposables.push(markerWatcher.onDidCreate(() => this.refresh()));
     this.disposables.push(markerWatcher.onDidDelete(() => this.refresh()));
+
+    // Watch for any folder changes (project creation/deletion)
+    const folderWatcher = vscode.workspace.createFileSystemWatcher(
+      "**/*",
+      false,
+      true,
+      false
+    );
+    this.disposables.push(folderWatcher);
+    this.disposables.push(folderWatcher.onDidCreate(() => this.refresh()));
+    this.disposables.push(folderWatcher.onDidDelete(() => this.refresh()));
   }
 
   refresh(): void {

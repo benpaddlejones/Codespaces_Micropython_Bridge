@@ -10,6 +10,13 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { BridgeServer } from "../server";
 import { Logger, resolveUri } from "../utils";
+import {
+  ensureSingleActiveProject,
+  findAllProjectMarkers,
+  findAllProjects,
+  promptForActiveProject,
+  setActiveProject,
+} from "../utils/projectUtils";
 
 /**
  * Register all Pico Bridge commands with VS Code.
@@ -417,6 +424,48 @@ export function registerCommands(
     })
   );
 
+  // Switch Active Project command
+  context.subscriptions.push(
+    vscode.commands.registerCommand("picoBridge.switchProject", async () => {
+      logger.info("Command: switchProject");
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage("No workspace folder open");
+        return;
+      }
+
+      const workspaceRoot = workspaceFolders[0].uri.fsPath;
+      const projects = findAllProjects(workspaceRoot);
+
+      if (projects.length === 0) {
+        vscode.window.showInformationMessage(
+          "No MicroPython projects found. Use 'Create Project' to create one."
+        );
+        return;
+      }
+
+      if (projects.length === 1) {
+        const projectName =
+          path.relative(workspaceRoot, projects[0].path) || "(workspace root)";
+        vscode.window.showInformationMessage(
+          `Only one project exists: ${projectName}`
+        );
+        return;
+      }
+
+      const selected = await promptForActiveProject(projects, workspaceRoot);
+      if (selected) {
+        await setActiveProject(selected, projects);
+        const projectName =
+          path.relative(workspaceRoot, selected) || "(workspace root)";
+        vscode.window.showInformationMessage(
+          `Active project set to: ${projectName}`
+        );
+        logger.info(`Switched active project to: ${selected}`);
+      }
+    })
+  );
+
   logger.info("All commands registered");
 }
 
@@ -449,6 +498,13 @@ function getNextProjectFolderName(workspaceRoot: string): string {
  * - Starter `main.py` file
  * - `.micropico` marker file to identify as MicroPython project
  *
+ * If other projects exist, prompts user to choose whether the new project
+ * should become active. Only one project can be active at a time.
+ * If user declines or dismisses the prompt, the new project is marked
+ * as inactive (`.micropico.inactive`) to preserve the current active project.
+ *
+ * Resolves any duplicate active projects before creation.
+ *
  * @param logger - Logger instance for status messages
  */
 async function createBasicProject(logger: Logger): Promise<void> {
@@ -459,6 +515,18 @@ async function createBasicProject(logger: Logger): Promise<void> {
   }
 
   const workspaceRoot = workspaceFolders[0].uri.fsPath;
+
+  // Resolve any duplicate active projects first
+  const allProjects = findAllProjects(workspaceRoot);
+  const activeProjects = allProjects.filter((p) => p.isActive);
+  if (activeProjects.length > 1) {
+    // Multiple active projects detected - resolve before continuing
+    await ensureSingleActiveProject(workspaceRoot);
+  }
+
+  // Get current active projects (after resolution)
+  const existingActiveProjects = findAllProjectMarkers(workspaceRoot);
+
   const projectName = getNextProjectFolderName(workspaceRoot);
   const projectPath = path.join(workspaceRoot, projectName);
 
@@ -480,6 +548,37 @@ async function createBasicProject(logger: Logger): Promise<void> {
       path.join(projectPath, ".micropico"),
       "This folder contains a MicroPython project\n"
     );
+
+    // If other active projects exist, ask user which should be active
+    if (existingActiveProjects.length > 0) {
+      const choice = await vscode.window.showInformationMessage(
+        `Project '${projectName}' created. Make it the active project?`,
+        "Yes, make it active",
+        "No, just create files"
+      );
+      if (choice === "Yes, make it active") {
+        // Deactivate other projects, keep new one active
+        const allProjectsNow = [
+          ...existingActiveProjects.map((p) => ({ path: p, isActive: true })),
+          { path: projectPath, isActive: true },
+        ];
+        await setActiveProject(projectPath, allProjectsNow);
+        logger.info(`Set ${projectName} as active project`);
+      } else {
+        // Default: keep old project active (including when dialog is dismissed/times out)
+        const newMarkerPath = path.join(projectPath, ".micropico");
+        const inactiveMarkerPath = path.join(
+          projectPath,
+          ".micropico.inactive"
+        );
+        if (fs.existsSync(newMarkerPath)) {
+          fs.renameSync(newMarkerPath, inactiveMarkerPath);
+          logger.info(
+            `Marked ${projectName} as inactive - keeping previous project active`
+          );
+        }
+      }
+    }
 
     logger.info(`Basic project created at: ${projectPath}`);
     vscode.window.showInformationMessage(
@@ -510,13 +609,21 @@ async function createBasicProject(logger: Logger): Promise<void> {
  * - `lib/launcher/` directory with debugging utilities
  * - `py_scripts/` directory for user scripts
  * - `main.py` and `config.py` files
+ * - `.vscode/launch.json` with debugpy configuration
  * - `.micropico` marker file
  *
- * @param _context - Extension context (currently unused but available for future use)
+ * If other projects exist, prompts user to choose whether the new project
+ * should become active. Only one project can be active at a time.
+ * If user declines or dismisses the prompt, the new project is marked
+ * as inactive (`.micropico.inactive`) to preserve the current active project.
+ *
+ * Resolves any duplicate active projects before creation.
+ *
+ * @param context - Extension context for accessing bundled resources
  * @param logger - Logger instance for status messages
  */
 async function createAdvancedProject(
-  _context: vscode.ExtensionContext,
+  context: vscode.ExtensionContext,
   logger: Logger
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -526,28 +633,47 @@ async function createAdvancedProject(
   }
 
   const workspaceRoot = workspaceFolders[0].uri.fsPath;
+
+  // Resolve any duplicate active projects first
+  const allProjects = findAllProjects(workspaceRoot);
+  const activeProjects = allProjects.filter((p) => p.isActive);
+  if (activeProjects.length > 1) {
+    // Multiple active projects detected - resolve before continuing
+    await ensureSingleActiveProject(workspaceRoot);
+  }
+
+  // Get current active projects (after resolution)
+  const existingActiveProjects = findAllProjectMarkers(workspaceRoot);
+
   const projectName = getNextProjectFolderName(workspaceRoot);
   const projectPath = path.join(workspaceRoot, projectName);
+
+  // Use bundled project template from extension
+  const extensionProjectDir = path.join(context.extensionPath, "project");
 
   try {
     // Create project folder
     fs.mkdirSync(projectPath, { recursive: true });
 
-    // Copy lib/launcher from workspace
-    const libLauncherSource = path.join(workspaceRoot, "lib", "launcher");
+    // Copy lib/launcher from extension's bundled project template
+    const libLauncherSource = path.join(extensionProjectDir, "lib", "launcher");
     const libLauncherDest = path.join(projectPath, "lib", "launcher");
     if (fs.existsSync(libLauncherSource)) {
       await copyDirectory(libLauncherSource, libLauncherDest, logger);
+      logger.info("Copied lib/launcher from extension bundle");
     } else {
       // Fallback: create empty lib folder
       fs.mkdirSync(path.join(projectPath, "lib"), { recursive: true });
+      logger.warn(
+        "lib/launcher not found in extension bundle, created empty lib folder"
+      );
     }
 
-    // Copy main.py from workspace root
-    const mainPySource = path.join(workspaceRoot, "main.py");
+    // Copy main.py from extension's bundled project template
+    const mainPySource = path.join(extensionProjectDir, "main.py");
     if (fs.existsSync(mainPySource)) {
       fs.copyFileSync(mainPySource, path.join(projectPath, "main.py"));
-      logger.info("Copied main.py");
+      logger.info("Copied main.py from extension bundle");
     } else {
       // Create default main.py
       fs.writeFileSync(
@@ -556,28 +682,105 @@ async function createAdvancedProject(
       );
     }
 
-    // Copy config.py from workspace root
-    const configPySource = path.join(workspaceRoot, "config.py");
+    // Copy config.py from extension's bundled project template
+    const configPySource = path.join(extensionProjectDir, "config.py");
     if (fs.existsSync(configPySource)) {
       fs.copyFileSync(configPySource, path.join(projectPath, "config.py"));
-      logger.info("Copied config.py");
+      logger.info("Copied config.py from extension bundle");
     }
 
-    // Create py_scripts folder with v01.py only
+    // Create py_scripts folder with v01.py
     const pyScriptsDir = path.join(projectPath, "py_scripts");
     fs.mkdirSync(pyScriptsDir, { recursive: true });
 
-    const v01Source = path.join(workspaceRoot, "py_scripts", "v01.py");
+    const v01Source = path.join(extensionProjectDir, "py_scripts", "v01.py");
     if (fs.existsSync(v01Source)) {
       fs.copyFileSync(v01Source, path.join(pyScriptsDir, "v01.py"));
-      logger.info("Copied v01.py");
+      logger.info("Copied v01.py from extension bundle");
     }
+
+    // Create .vscode folder with launch.json for debugpy configuration
+    // We generate this dynamically so the path to runner.py is correct
+    const vscodeDest = path.join(projectPath, ".vscode");
+    fs.mkdirSync(vscodeDest, { recursive: true });
+
+    const runnerPath = path.join(
+      context.extensionPath,
+      "emulator",
+      "mock",
+      "runner.py"
+    );
+
+    const launchConfig = {
+      version: "0.2.0",
+      configurations: [
+        {
+          name: "MicroPython (Emulator)",
+          type: "debugpy",
+          request: "launch",
+          program: runnerPath,
+          args: ["${file}"],
+          console: "integratedTerminal",
+          justMyCode: false,
+          env: {
+            MICROPYTHON_MOCK: "1",
+            MOCK_BOARD: "raspberry-pi-pico",
+          },
+        },
+        {
+          name: "Python: Current File",
+          type: "debugpy",
+          request: "launch",
+          program: "${file}",
+          console: "integratedTerminal",
+        },
+      ],
+    };
+
+    fs.writeFileSync(
+      path.join(vscodeDest, "launch.json"),
+      JSON.stringify(launchConfig, null, 4)
+    );
+    logger.info(
+      "Created .vscode/launch.json with emulator debug configuration"
+    );
 
     // Create .micropico marker
     fs.writeFileSync(
       path.join(projectPath, ".micropico"),
       "This folder contains a MicroPython project\n"
     );
+
+    // If other active projects exist, ask user which should be active
+    if (existingActiveProjects.length > 0) {
+      const choice = await vscode.window.showInformationMessage(
+        `Project '${projectName}' created. Make it the active project?`,
+        "Yes, make it active",
+        "No, just create files"
+      );
+      if (choice === "Yes, make it active") {
+        // Deactivate other projects, keep new one active
+        const allProjectsNow = [
+          ...existingActiveProjects.map((p) => ({ path: p, isActive: true })),
+          { path: projectPath, isActive: true },
+        ];
+        await setActiveProject(projectPath, allProjectsNow);
+        logger.info(`Set ${projectName} as active project`);
+      } else {
+        // Default: keep old project active (including when dialog is dismissed/times out)
+        const newMarkerPath = path.join(projectPath, ".micropico");
+        const inactiveMarkerPath = path.join(
+          projectPath,
+          ".micropico.inactive"
+        );
+        if (fs.existsSync(newMarkerPath)) {
+          fs.renameSync(newMarkerPath, inactiveMarkerPath);
+          logger.info(
+            `Marked ${projectName} as inactive - keeping previous project active`
+          );
+        }
+      }
+    }
 
     logger.info(`Advanced project created at: ${projectPath}`);
     vscode.window.showInformationMessage(
@@ -608,6 +811,16 @@ async function createAdvancedProject(
  * to identify it as a MicroPython project. This enables project-specific
  * features like file filtering and upload capabilities.
  *
+ * If the folder is already a project (has `.micropico` or `.micropico.inactive`),
+ * shows an info message directing user to use 'Switch Active Project' instead.
+ *
+ * If other projects exist, prompts user to choose whether the new project
+ * should become active. Only one project can be active at a time.
+ * If user declines or dismisses the prompt, the new project is marked
+ * as inactive (`.micropico.inactive`) to preserve the current active project.
+ *
+ * Resolves any duplicate active projects before setup.
+ *
  * @param logger - Logger instance for status messages
  */
 async function setupExistingProject(logger: Logger): Promise<void> {
@@ -618,6 +831,17 @@ async function setupExistingProject(logger: Logger): Promise<void> {
   }
 
   const workspaceRoot = workspaceFolders[0].uri.fsPath;
+
+  // Resolve any duplicate active projects first
+  const allProjects = findAllProjects(workspaceRoot);
+  const activeProjects = allProjects.filter((p) => p.isActive);
+  if (activeProjects.length > 1) {
+    // Multiple active projects detected - resolve before continuing
+    await ensureSingleActiveProject(workspaceRoot);
+  }
+
+  // Get current active projects (after resolution)
+  const existingActiveProjects = findAllProjectMarkers(workspaceRoot);
 
   // Ask user to select a folder (default to workspace root)
   const folderUri = await vscode.window.showOpenDialog({
@@ -635,20 +859,59 @@ async function setupExistingProject(logger: Logger): Promise<void> {
   }
 
   const selectedPath = folderUri[0].fsPath;
+  const projectName = path.basename(selectedPath);
 
   try {
-    // Create .micropico marker in selected folder
-    const markerPath = path.join(selectedPath, ".micropico");
-    fs.writeFileSync(
-      markerPath,
-      "This folder contains a MicroPython project\n"
-    );
+    // Check if this folder is already a project (active or inactive)
+    const activeMarker = path.join(selectedPath, ".micropico");
+    const inactiveMarker = path.join(selectedPath, ".micropico.inactive");
+
+    if (fs.existsSync(activeMarker) || fs.existsSync(inactiveMarker)) {
+      vscode.window.showInformationMessage(
+        `'${projectName}' is already a MicroPython project. Use 'Switch Active Project' to change the active project.`
+      );
+      return;
+    }
+
+    // If other active projects exist, ask user which should be active BEFORE creating marker
+    if (existingActiveProjects.length > 0) {
+      const choice = await vscode.window.showInformationMessage(
+        `Make '${projectName}' the active project?`,
+        "Yes, make it active",
+        "No, just mark as project"
+      );
+
+      if (choice === "Yes, make it active") {
+        // Create active marker and deactivate others
+        fs.writeFileSync(
+          activeMarker,
+          "This folder contains a MicroPython project\n"
+        );
+        const allProjectsNow = [
+          ...existingActiveProjects.map((p) => ({ path: p, isActive: true })),
+          { path: selectedPath, isActive: true },
+        ];
+        await setActiveProject(selectedPath, allProjectsNow);
+        logger.info(`Set ${projectName} as active project`);
+      } else {
+        // Default: create inactive marker (keeps existing project active)
+        fs.writeFileSync(
+          inactiveMarker,
+          "This folder contains a MicroPython project (inactive)\n"
+        );
+        logger.info(`Marked ${projectName} as inactive project`);
+      }
+    } else {
+      // No other projects - this becomes the active project
+      fs.writeFileSync(
+        activeMarker,
+        "This folder contains a MicroPython project\n"
+      );
+    }
 
     logger.info(`Setup MicroPython project at: ${selectedPath}`);
     vscode.window.showInformationMessage(
-      `Setup complete! "${path.basename(
-        selectedPath
-      )}" is now a MicroPython project.`
+      `Setup complete! "${projectName}" is now a MicroPython project.`
     );
 
     // Refresh workspace
@@ -707,12 +970,23 @@ async function copyDirectory(
 }
 
 /**
- * Add sample MicroPython scripts to the workspace.
+ * Add sample MicroPython scripts to the active project.
  *
- * Creates a `sample-scripts` folder in the workspace and populates it
+ * Creates a `sample-scripts` folder in the active project and populates it
  * with example scripts for various board types (Pico, Pico W, ESP32).
  * Scripts are copied from the extension's bundled samples, with a
  * fallback to workspace directories for development mode.
+ *
+ * Requires an active project (folder with `.micropico` marker).
+ * If multiple active projects are detected, prompts user to select one.
+ * If no active project exists, shows an error message.
+ *
+ * Sample scripts include:
+ * - debugpy_demo.py - Debugging demonstration
+ * - pico_demo.py, pico_w_demo.py, pico2w_demo.py - Board-specific demos
+ * - esp32_demo.py - ESP32 demonstration
+ * - assembly_blink_explained.py - Low-level blink example
+ * - plotter_demo.py - Data plotter demonstration
  *
  * @param context - Extension context for accessing bundled resources
  * @param logger - Logger instance for status messages
@@ -728,7 +1002,18 @@ async function addSampleScripts(
   }
 
   const workspaceRoot = workspaceFolders[0].uri.fsPath;
-  const sampleScriptsDir = path.join(workspaceRoot, "sample-scripts");
+
+  // Ensure single active project (prompts user if multiple exist)
+  const projectRoot = await ensureSingleActiveProject(workspaceRoot);
+  if (!projectRoot) {
+    vscode.window.showErrorMessage(
+      "No active project found. Create a project first using 'Create Project' or 'Setup Existing Project'."
+    );
+    return;
+  }
+
+  // Put sample-scripts inside the project folder
+  const sampleScriptsDir = path.join(projectRoot, "sample-scripts");
 
   // Check if folder already exists
   if (fs.existsSync(sampleScriptsDir)) {
@@ -755,6 +1040,7 @@ async function addSampleScripts(
 
     // List of sample scripts to copy
     const sampleFiles = [
+      "debugpy_demo.py",
       "pico_demo.py",
       "pico_w_demo.py",
       "pico2w_demo.py",
@@ -818,9 +1104,14 @@ async function addSampleScripts(
       return;
     }
 
+    // No need to create .micropico here - sample-scripts is inside the project folder
+    // which already has a .micropico marker
+
     logger.info(`Added ${copiedCount} sample scripts to sample-scripts folder`);
     vscode.window.showInformationMessage(
-      `Added ${copiedCount} sample scripts to 'sample-scripts' folder!`
+      `Added ${copiedCount} sample scripts to '${path.basename(
+        projectRoot
+      )}/sample-scripts' folder!`
     );
 
     // Refresh file explorer

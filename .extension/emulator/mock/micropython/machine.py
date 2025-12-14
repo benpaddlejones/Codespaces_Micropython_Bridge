@@ -33,6 +33,16 @@ class Pin:
         PULL_DOWN: "PULL_DOWN",
     }
 
+    # Map special pin names to their GPIO numbers for different boards
+    # MicroPython allows Pin("LED", Pin.OUT) to access the onboard LED
+    # See: https://docs.micropython.org/en/latest/library/machine.Pin.html
+    _SPECIAL_PINS = {
+        # Raspberry Pi Pico (non-W) - onboard LED is GPIO25
+        "LED": "LED",  # Keep as "LED" for display, but mark as special
+        # Alternative names that MicroPython accepts
+        "led": "LED",
+    }
+
     def __init__(
         self,
         id: Union[int, str],
@@ -40,7 +50,11 @@ class Pin:
         pull: Optional[int] = None,
         value: Optional[int] = None,
     ) -> None:
-        self._id = str(id)
+        # Handle special pin names like "LED"
+        if isinstance(id, str):
+            self._id = self._SPECIAL_PINS.get(id, id)
+        else:
+            self._id = str(id)
         self._mode = mode
         self._pull = pull
         self._value = 0
