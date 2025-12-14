@@ -15,6 +15,8 @@ const pauseBtn = document.getElementById("pauseBtn");
 // Console panel elements
 const consoleOutputEl = document.getElementById("consoleOutput");
 const clearConsoleBtn = document.getElementById("clearConsoleBtn");
+const copyLogBtn = document.getElementById("copyLogBtn");
+const copyConsoleBtn = document.getElementById("copyConsoleBtn");
 
 // I2C panel elements
 const i2cLastWriteEl = document.getElementById("i2cLastWrite");
@@ -163,9 +165,14 @@ function setPinMode(pin, mode, active = true) {
   const pinEl = boardContainer?.querySelector(`#pin-${pin}`);
   if (!pinEl) return;
 
-  // Remove all mode classes first
+  // Remove ALL mode classes first (both old and new naming conventions)
   pinEl.classList.remove(
     "active",
+    // Old naming convention
+    "pin-high",
+    "pin-low",
+    "pin-pwm",
+    // New naming convention
     "digital-mode",
     "digital-out",
     "digital-in",
@@ -313,19 +320,29 @@ function clearPinModes() {
   let clearedCount = 0;
   if (allPinIndicators) {
     allPinIndicators.forEach((pinEl) => {
-      const hadClass = pinEl.classList.contains("adc-mode") || 
-                       pinEl.classList.contains("i2c-mode") ||
-                       pinEl.classList.contains("uart-mode") ||
-                       pinEl.classList.contains("pwm-mode") ||
-                       pinEl.classList.contains("digital-out") ||
-                       pinEl.classList.contains("digital-in");
-      if (hadClass) {
-        console.log("[Emulator] Clearing pin:", pinEl.id, "classes:", pinEl.className);
+      // Check if pin has any active styling
+      if (
+        pinEl.classList.contains("active") ||
+        pinEl.className.baseVal?.includes("-mode") ||
+        pinEl.className.baseVal?.includes("pin-")
+      ) {
+        console.log(
+          "[Emulator] Clearing pin:",
+          pinEl.id,
+          "classes:",
+          pinEl.className.baseVal || pinEl.className
+        );
         clearedCount++;
       }
+      // Remove ALL possible mode classes (both old and new naming conventions)
       pinEl.classList.remove(
         "active",
         "activity-flash",
+        // Old naming convention
+        "pin-high",
+        "pin-low",
+        "pin-pwm",
+        // New naming convention
         "digital-mode",
         "digital-out",
         "digital-in",
@@ -475,7 +492,9 @@ window.addEventListener("message", (event) => {
       break;
 
     case "start":
-      scriptNameEl.textContent = message.script || "-";
+      scriptNameEl.textContent =
+        message.script ||
+        "Right-click a file in Project Files → Run in Emulator";
       isRunning = true;
       isPaused = false;
       updatePlayStopButton();
@@ -754,6 +773,42 @@ if (clearConsoleBtn) {
   clearConsoleBtn.addEventListener("click", () => {
     if (consoleOutputEl) {
       consoleOutputEl.textContent = "";
+    }
+  });
+}
+
+// Copy button handlers
+async function copyToClipboard(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const originalText = button.textContent;
+    button.textContent = "Copied!";
+    button.classList.add("copied");
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove("copied");
+    }, 1500);
+  } catch (err) {
+    console.error("Failed to copy:", err);
+    button.textContent = "Failed";
+    setTimeout(() => {
+      button.textContent = "Copy";
+    }, 1500);
+  }
+}
+
+if (copyLogBtn) {
+  copyLogBtn.addEventListener("click", () => {
+    if (eventLogEl) {
+      copyToClipboard(eventLogEl.textContent, copyLogBtn);
+    }
+  });
+}
+
+if (copyConsoleBtn) {
+  copyConsoleBtn.addEventListener("click", () => {
+    if (consoleOutputEl) {
+      copyToClipboard(consoleOutputEl.textContent, copyConsoleBtn);
     }
   });
 }

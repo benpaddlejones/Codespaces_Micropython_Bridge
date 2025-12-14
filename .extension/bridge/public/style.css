@@ -762,3 +762,241 @@ select:focus {
 .btn-pinout:hover {
   background-color: #ff1a6c !important;
 }
+
+/* Docs button style - MicroPython blue */
+.btn-docs {
+  background-color: #2b5b84 !important;
+  text-decoration: none !important;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-docs:hover {
+  background-color: #3a7ab3 !important;
+  color: white;
+}
+
+/* Debugpy button style - Debug green */
+.btn-debugpy {
+  background-color: #388e3c !important;
+  text-decoration: none !important;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-debugpy:hover {
+  background-color: #4caf50 !important;
+  color: white;
+}
+
+/* Emulator button style - Purple */
+.btn-emulator {
+  background-color: #7b1fa2 !important;
+  text-decoration: none !important;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-emulator:hover {
+  background-color: #9c27b0 !important;
+  color: white;
+}
+
+/* =============================================
+   Responsive Design with Bootstrap Integration
+   ============================================= */
+
+/* Mobile-first responsive toolbar */
+@media (max-width: 1200px) {
+  .tools-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .tool-group {
+    flex: 0 0 auto;
+  }
+
+  .tool-separator {
+    display: none;
+  }
+
+  .device-info-group {
+    margin-left: 0;
+    width: 100%;
+    order: -1;
+    margin-bottom: 8px;
+  }
+
+  .device-info {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+@media (max-width: 992px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .branding {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #333;
+    padding: 10px;
+    justify-content: flex-start;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+  }
+
+  .toolbar .spacer {
+    flex: 0 0 100%;
+    height: 0;
+  }
+
+  .server-status {
+    order: -1;
+    margin-bottom: 8px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tool-group {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .toolbar {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .branding span {
+    font-size: 12px;
+  }
+
+  .branding-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .tool-btn {
+    font-size: 10px;
+    padding: 4px 6px;
+  }
+
+  .group-label {
+    font-size: 8px;
+  }
+
+  .file-picker {
+    min-width: 100px;
+    max-width: 150px;
+  }
+
+  .input-bar {
+    flex-wrap: wrap;
+  }
+
+  .input-bar input[type="text"] {
+    min-width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .input-bar select {
+    flex: 1;
+  }
+
+  /* Hide text labels on small screens, show only icons */
+  .tool-group .group-buttons .tool-btn {
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 576px) {
+  .toolbar {
+    padding: 4px 6px;
+    gap: 4px;
+  }
+
+  .branding {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .branding-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .branding span {
+    font-size: 11px;
+  }
+
+  button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  select {
+    font-size: 12px;
+    padding: 4px 6px;
+  }
+
+  .tool-group {
+    flex: 1 1 45%;
+    min-width: 0;
+  }
+
+  .group-buttons {
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  .device-info-group {
+    flex: 1 1 100%;
+  }
+
+  /* Collapsible toolbar groups on very small screens */
+  .tools-bar .tool-group {
+    margin-bottom: 4px;
+  }
+
+  .pinout-modal-content {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+}
+
+/* Ensure Bootstrap doesn't override our dark theme */
+.btn-close {
+  filter: invert(1);
+}
+
+/* Responsive utility classes for tool visibility */
+.hide-on-mobile {
+  display: inline-flex;
+}
+
+@media (max-width: 768px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+.show-on-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .show-on-mobile {
+    display: inline-flex !important;
+  }
+}

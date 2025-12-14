@@ -2,5 +2,6 @@
  * Utilities index - exports all utility modules
  */
 
-export { Logger } from './logger';
-export { getConfig, updateConfig, onConfigChange } from './config';
+export { getConfig, onConfigChange, updateConfig } from "./config";
+export { Logger } from "./logger";
+export { isUri, resolveUri } from "./uri";

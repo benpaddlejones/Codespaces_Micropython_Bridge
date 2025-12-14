@@ -6,10 +6,23 @@ import { Logger } from "../utils";
 
 type PanelMessageHandler = (message: unknown) => void;
 
-export class EmulatorWebview {
+/**
+ * Manages the MicroPython Emulator webview panel.
+ *
+ * This class handles creating, showing, and communicating with the
+ * emulator webview that displays the virtual board and its state.
+ */
+export class EmulatorWebview implements vscode.Disposable {
   private panel: vscode.WebviewPanel | undefined;
   private currentBoard: string = "pico";
 
+  /**
+   * Create a new EmulatorWebview instance.
+   *
+   * @param context - The extension context for resource paths
+   * @param logger - Logger instance for debugging
+   * @param onMessage - Callback for handling messages from the webview
+   */
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly logger: Logger,
@@ -128,6 +141,20 @@ export class EmulatorWebview {
     return path.join(pinoutsRoot, pinoutFile);
   }
 
+  /**
+   * Get the currently selected board type.
+   *
+   * @returns The current board type (e.g., 'pico', 'pico-w', 'esp32')
+   */
+  public getCurrentBoard(): string {
+    return this.currentBoard;
+  }
+
+  /**
+   * Post a message to the webview panel.
+   *
+   * @param message - The message to send to the webview
+   */
   public postMessage(message: unknown): void {
     if (!this.panel) {
       return;
@@ -165,5 +192,15 @@ export class EmulatorWebview {
       )
       .replace(/\{\{nonce\}\}/g, nonce)
       .replace(/\{\{cspSource\}\}/g, cspSource);
+  }
+
+  /**
+   * Dispose the webview panel and release resources.
+   */
+  public dispose(): void {
+    if (this.panel) {
+      this.panel.dispose();
+      this.panel = undefined;
+    }
   }
 }

@@ -45,9 +45,9 @@ export class StatusViewProvider
     const status = this.server.status;
     const items: StatusItem[] = [];
 
-    // Server status
+    // === STATUS SECTION ===
     const serverStatus = new vscode.TreeItem(
-      status.running ? "Server: Running" : "Server: Stopped",
+      status.running ? "Server: Running ✓" : "Server: Stopped",
       vscode.TreeItemCollapsibleState.None
     ) as StatusItem;
     serverStatus.iconPath = new vscode.ThemeIcon(
@@ -58,10 +58,7 @@ export class StatusViewProvider
     );
     serverStatus.tooltip = status.running
       ? `Running on port ${status.port}`
-      : "Click to start server";
-    serverStatus.command = status.running
-      ? { command: "picoBridge.stopServer", title: "Stop Server" }
-      : { command: "picoBridge.startServer", title: "Start Server" };
+      : "Server is not running";
     items.push(serverStatus);
 
     // Port info (when running)
@@ -88,42 +85,58 @@ export class StatusViewProvider
         };
         items.push(urlItem);
       }
+    }
 
-      // Uptime
-      if (status.startTime) {
-        const uptime = this.formatUptime(status.startTime);
-        const uptimeItem = new vscode.TreeItem(
-          `Uptime: ${uptime}`,
-          vscode.TreeItemCollapsibleState.None
-        ) as StatusItem;
-        uptimeItem.iconPath = new vscode.ThemeIcon("clock");
-        items.push(uptimeItem);
-      }
+    // Separator before buttons
+    const sep2 = new vscode.TreeItem(
+      "───────────────",
+      vscode.TreeItemCollapsibleState.None
+    ) as StatusItem;
+    items.push(sep2);
+
+    // === BUTTONS AT BOTTOM ===
+    if (status.running) {
+      // Open Browser button
+      const openBrowserBtn = new vscode.TreeItem(
+        "Open in Browser",
+        vscode.TreeItemCollapsibleState.None
+      ) as StatusItem;
+      openBrowserBtn.iconPath = new vscode.ThemeIcon("globe");
+      openBrowserBtn.tooltip = "Open bridge interface in browser";
+      openBrowserBtn.command = {
+        command: "picoBridge.openBrowser",
+        title: "Open Browser",
+      };
+      items.push(openBrowserBtn);
+
+      // Stop Server button
+      const stopServerBtn = new vscode.TreeItem(
+        "Stop Server",
+        vscode.TreeItemCollapsibleState.None
+      ) as StatusItem;
+      stopServerBtn.iconPath = new vscode.ThemeIcon("debug-stop");
+      stopServerBtn.tooltip = "Stop the bridge server";
+      stopServerBtn.command = {
+        command: "picoBridge.stopServer",
+        title: "Stop Server",
+      };
+      items.push(stopServerBtn);
+    } else {
+      // Start Server button
+      const startServerBtn = new vscode.TreeItem(
+        "Start Server",
+        vscode.TreeItemCollapsibleState.None
+      ) as StatusItem;
+      startServerBtn.iconPath = new vscode.ThemeIcon("play");
+      startServerBtn.tooltip = "Start the bridge server";
+      startServerBtn.command = {
+        command: "picoBridge.startServer",
+        title: "Start Server",
+      };
+      items.push(startServerBtn);
     }
 
     return Promise.resolve(items);
-  }
-
-  private formatUptime(startTime: Date): string {
-    const now = new Date();
-    const diffMs = now.getTime() - startTime.getTime();
-    const diffSecs = Math.floor(diffMs / 1000);
-
-    if (diffSecs < 60) {
-      return `${diffSecs}s`;
-    }
-
-    const diffMins = Math.floor(diffSecs / 60);
-    const secs = diffSecs % 60;
-
-    if (diffMins < 60) {
-      return `${diffMins}m ${secs}s`;
-    }
-
-    const diffHours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-
-    return `${diffHours}h ${mins}m`;
   }
 
   /**

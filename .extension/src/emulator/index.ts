@@ -1,7 +1,7 @@
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import * as path from "path";
 import * as vscode from "vscode";
-import { Logger } from "../utils";
+import { Logger, resolveUri } from "../utils";
 import { EmulatorWebview } from "./webviewProvider";
 
 // Re-export Pylance configuration functions
@@ -17,57 +17,30 @@ interface PanelMessage {
 
 const EVENT_PREFIX = "__EMU__";
 
-function isUri(value: unknown): value is vscode.Uri {
-  return value instanceof vscode.Uri;
-}
-
-function getUriFromResource(resource?: unknown): vscode.Uri | undefined {
-  if (!resource) {
-    return undefined;
-  }
-
-  if (Array.isArray(resource)) {
-    return getUriFromResource(resource[0]);
-  }
-
-  if (typeof resource === "string") {
-    return vscode.Uri.file(resource);
-  }
-
-  if (isUri(resource)) {
-    return resource;
-  }
-
-  if (typeof resource === "object") {
-    const candidate = resource as {
-      uri?: unknown;
-      resourceUri?: unknown;
-      path?: unknown;
-      fsPath?: unknown;
-    };
-    if (candidate.uri && isUri(candidate.uri)) {
-      return candidate.uri;
-    }
-    if (candidate.resourceUri && isUri(candidate.resourceUri)) {
-      return candidate.resourceUri;
-    }
-    if (typeof candidate.fsPath === "string") {
-      return vscode.Uri.file(candidate.fsPath);
-    }
-    if (typeof candidate.path === "string") {
-      return vscode.Uri.file(candidate.path);
-    }
-  }
-
-  return undefined;
-}
-
+/**
+ * Manages the MicroPython emulator functionality.
+ *
+ * This class handles:
+ * - Running Python scripts through the mock MicroPython environment
+ * - Communication between the emulator process and webview
+ * - Process lifecycle (start, stop, restart)
+ * - Parsing emulator events from stdout
+ *
+ * The emulator allows testing MicroPython code without physical hardware
+ * by using Python mock modules that simulate hardware behavior.
+ */
 export class EmulatorManager {
   private webview: EmulatorWebview;
   private process: ChildProcessWithoutNullStreams | undefined;
   private stdoutBuffer = "";
   private lastScriptPath: string | undefined;
 
+  /**
+   * Create a new EmulatorManager instance.
+   *
+   * @param context - The extension context for resource paths and subscriptions
+   * @param logger - Logger instance for debugging and status messages
+   */
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly logger: Logger
@@ -91,11 +64,9 @@ export class EmulatorManager {
       "picoBridge.runActiveFileInEmulator",
       async (resource?: unknown) => {
         this.logger.info("Command: runActiveFileInEmulator");
-        this.logger.info(`Resource type: ${typeof resource}`);
-        this.logger.info(`Resource: ${JSON.stringify(resource, null, 2)}`);
 
-        let targetUri = getUriFromResource(resource);
-        this.logger.info(`Resolved targetUri: ${targetUri?.toString()}`);
+        let targetUri = resolveUri(resource);
+        this.logger.debug(`Resolved targetUri: ${targetUri?.toString()}`);
         if (!targetUri) {
           const editor = vscode.window.activeTextEditor;
           if (!editor || editor.document.languageId !== "python") {
@@ -150,7 +121,42 @@ export class EmulatorManager {
       }
     );
 
-    this.context.subscriptions.push(openDisposable, runDisposable);
+    // Command to get the mock runner path (used by external tools/integrations)
+    const getRunnerPathDisposable = vscode.commands.registerCommand(
+      "picoBridge.getMockRunnerPath",
+      () => {
+        return path.join(
+          this.context.extensionPath,
+          "emulator",
+          "mock",
+          "runner.py"
+        );
+      }
+    );
+
+    // Command to get the mock module path (used by external tools/integrations)
+    const getMockPathDisposable = vscode.commands.registerCommand(
+      "picoBridge.getMockPath",
+      () => {
+        return path.join(this.context.extensionPath, "emulator", "mock");
+      }
+    );
+
+    // Command to get the currently selected board type
+    const getSelectedBoardDisposable = vscode.commands.registerCommand(
+      "picoBridge.getSelectedBoard",
+      () => {
+        return this.webview.getCurrentBoard();
+      }
+    );
+
+    this.context.subscriptions.push(
+      openDisposable,
+      runDisposable,
+      getRunnerPathDisposable,
+      getMockPathDisposable,
+      getSelectedBoardDisposable
+    );
   }
 
   public dispose(): void {
@@ -310,30 +316,30 @@ export class EmulatorManager {
         break;
       case "board_change":
         this.logger.info(`Board changed to: ${message.board}`);
-        // Board change is handled by the panel itself for now
+        // Board changes update the webview's visual representation
         break;
       case "i2c_read_response":
-        this.logger.info(
-          `I2C read response set: ${JSON.stringify(message.data)}`
+        this.logger.debug(
+          `I2C read response set: ${message.data?.length} bytes`
         );
-        // TODO: Send to Python process via stdin when we implement bidirectional comm
+        // Future: Implement stdin communication for bidirectional I2C simulation
         break;
       case "i2c_clear_response":
-        this.logger.info("I2C read response cleared - using auto-response");
-        // TODO: Send to Python process via stdin when we implement bidirectional comm
+        this.logger.debug("I2C read response cleared - using auto-response");
+        // Future: Implement stdin communication for bidirectional I2C simulation
         break;
       case "adc_set_value":
-        this.logger.info(
+        this.logger.debug(
           `ADC value set: pin=${message.pin}, value=${message.value}`
         );
-        // TODO: Send to Python process via stdin when we implement bidirectional comm
+        // Future: Implement stdin communication for ADC value injection
         break;
       case "adc_clear_override":
-        this.logger.info(`ADC override cleared: pin=${message.pin}`);
-        // TODO: Send to Python process via stdin when we implement bidirectional comm
+        this.logger.debug(`ADC override cleared: pin=${message.pin}`);
+        // Future: Implement stdin communication for ADC value injection
         break;
       default:
-        this.logger.warn(`Unhandled panel message: ${JSON.stringify(message)}`);
+        this.logger.debug(`Unhandled panel message type: ${message.type}`);
         break;
     }
   }

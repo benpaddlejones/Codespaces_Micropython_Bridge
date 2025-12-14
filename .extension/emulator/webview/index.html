@@ -33,7 +33,12 @@
       </div>
     </header>
     <div class="script-bar">
-      <span class="script-info">Script: <span id="scriptName">-</span></span>
+      <span class="script-info"
+        >Script:
+        <span id="scriptName"
+          >Right-click a file in Project Files → Run in Emulator</span
+        ></span
+      >
     </div>
 
     <main class="container-fluid">
@@ -50,7 +55,10 @@
             <section class="panel log-panel">
               <div class="panel-header">
                 <span>Pin Activity</span>
-                <button id="clearLogBtn" class="link-button">Clear</button>
+                <div class="header-buttons">
+                  <button id="clearLogBtn" class="link-button">Clear</button>
+                  <button id="copyLogBtn" class="link-button">Copy</button>
+                </div>
               </div>
               <pre id="eventLog"></pre>
             </section>
@@ -222,7 +230,10 @@
           <section class="panel console-panel">
             <div class="panel-header">
               <span>Console Output</span>
-              <button id="clearConsoleBtn" class="link-button">Clear</button>
+              <div class="header-buttons">
+                <button id="clearConsoleBtn" class="link-button">Clear</button>
+                <button id="copyConsoleBtn" class="link-button">Copy</button>
+              </div>
             </div>
             <pre id="consoleOutput"></pre>
           </section>

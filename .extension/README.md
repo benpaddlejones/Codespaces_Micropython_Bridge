@@ -1,14 +1,17 @@
 # Pi Pico to Codespaces Bridge
 
+[![Version](https://img.shields.io/badge/Version-2.0.0-green)](CHANGELOG.md)
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/items?itemName=pico-bridge.pico-bridge)
 [![MicroPython](https://img.shields.io/badge/MicroPython-1.20%2B-00b2a9?logo=python&logoColor=white)](https://micropython.org/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Pico%20Ready-c51a4a?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/documentation/microcontrollers/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/benpaddlejones/Codespaces_Micropython_Bridge)
 [![GitHub Codespaces](https://img.shields.io/badge/GitHub%20Codespaces-Cloud%20IDE-24292e?logo=github)](https://github.com/features/codespaces)
 
-Code entirely in the cloud and push updates to your Pi Pico in real time. This bridge lets you build MicroPython projects for **RP2040**, **RP2035**, **Teensy**, **ESP32** and **BBC:MicroBit** boards (including Raspberry Pi Pico, Pi Pico 2 and Pico W) from **GitHub Codespaces** or any VS Code environment with Web Serial API support, then upload instantly to your hardware.
+Code entirely in the cloud and push updates to your Pi Pico in real time. This bridge lets you build MicroPython projects for **RP2040**, **RP2035**, **Teensy**, **ESP32** and **BBC:MicroBit** boards (including Raspberry Pi Pico, Pi Pico 2 and Pico W) from **GitHub Codespaces** or any VS Code environment with Web Serial API support, then upload instantly to your hardware. Features a **built-in MicroPython emulator** for testing without hardware and full **debugpy integration** for breakpoints, stepping, and variable inspection.
 
 ## 🚀 Features
+
+### Core Features
 
 - **Cloud-to-Device Bridge**: Connect your local microcontroller to cloud-based development environments
 - **Web Serial Integration**: Uses the browser's Web Serial API for device communication
@@ -17,7 +20,14 @@ Code entirely in the cloud and push updates to your Pi Pico in real time. This b
 - **Code Execution**: Run Python scripts directly on your microcontroller
 - **Project Sync**: Synchronize entire project folders to the device
 - **Data Plotter**: Visualize sensor data in real-time
-- **Enhanced Template Template**: Designed for beginner developers, providing more detailed error feedback
+
+### v2.0.0 New Features
+
+- **🎮 MicroPython Emulator**: Test code without hardware using simulated hardware APIs
+- **🐛 Debugpy Integration**: Full VS Code debugging with breakpoints and variable inspection
+- **📝 Pylance IntelliSense**: Auto-configured type stubs for MicroPython modules
+- **📦 Sample Scripts**: Board-specific demo scripts for Pico, Pico W, and ESP32
+- **🔧 API Commands**: External tool integration for custom workflows
 
 ## 📋 Requirements
 
@@ -30,6 +40,14 @@ This extension requires a browser with **Web Serial API** support:
 - ✅ Opera
 - ❌ Firefox (not supported)
 - ❌ Safari (not supported)
+
+### Emulator Requirements (v2.0.0+)
+
+To use the MicroPython emulator and debugger:
+
+- **Python 3.8+** installed and available in PATH
+- **debugpy** package for debugging (`pip install debugpy`)
+- The extension will prompt to configure Python if needed
 
 ### Device Support
 
@@ -74,12 +92,16 @@ The bridge interface will open in your default browser. This is required because
 
 ## ⚙️ Configuration
 
-| Setting                         | Description                        | Default   |
-| ------------------------------- | ---------------------------------- | --------- |
-| `picoBridge.server.port`        | Server port number                 | `3000`    |
-| `picoBridge.autoStart`          | Auto-start server on activation    | `false`   |
-| `picoBridge.openBrowserOnStart` | Open browser when server starts    | `true`    |
-| `picoBridge.projectPath`        | Path to MicroPython project folder | `project` |
+| Setting                                | Description                     | Default   |
+| -------------------------------------- | ------------------------------- | --------- |
+| `picoBridge.server.port`               | Server port number              | `3000`    |
+| `picoBridge.server.autoStart`          | Auto-start server on activation | `false`   |
+| `picoBridge.server.openBrowserOnStart` | Open browser when server starts | `true`    |
+| `picoBridge.emulator.pythonExecutable` | Python executable for emulator  | `python3` |
+| `picoBridge.project.excludeFolders`    | Folders to exclude from upload  | See below |
+| `picoBridge.serial.baudRate`           | Serial communication baud rate  | `115200`  |
+
+**Default exclude folders**: `examples`, `.git`, `__pycache__`, `node_modules`
 
 ## ⌨️ Keyboard Shortcuts
 
@@ -272,6 +294,282 @@ The emulator is great for logic testing, but has some limitations:
 - **Interrupts**: Simulated, may not match exact hardware timing
 
 For production code, always test on real hardware!
+
+---
+
+## 🐛 Debugpy Integration
+
+The extension provides full VS Code debugging support for MicroPython code running in the emulator. This allows you to set breakpoints, step through code, inspect variables, and use all standard debugging features.
+
+### Quick Start: Debug a Script
+
+1. **Open a Python file** in your workspace
+2. **Set breakpoints** by clicking in the gutter (left of line numbers)
+3. **Start debugging** using one of these methods:
+   - Click the **🐛 Debug** button next to the file in Project Files view
+   - Right-click the file → "Debug Python File"
+   - Press `F5` with the MicroPython launch config selected
+
+### Launch Configuration
+
+The extension automatically provides a debug configuration. You can also add it manually to `.vscode/launch.json`:
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MicroPython (Emulator)",
+      "type": "python",
+      "request": "launch",
+      "program": "${command:picoBridge.getMockRunnerPath}",
+      "args": ["${file}"],
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${fileDirname}",
+      "env": {
+        "MICROPYTHON_MOCK": "1"
+      }
+    }
+  ]
+}
+```
+
+### Debugging Features
+
+| Feature               | Support | Notes                                  |
+| --------------------- | ------- | -------------------------------------- |
+| Breakpoints           | ✅ Full | Line, conditional, and logpoints       |
+| Step Over/Into/Out    | ✅ Full | Standard F10/F11/Shift+F11             |
+| Variable Inspection   | ✅ Full | Locals, globals, and watch expressions |
+| Call Stack            | ✅ Full | Navigate through function calls        |
+| Debug Console         | ✅ Full | Evaluate expressions at breakpoint     |
+| Exception Breakpoints | ✅ Full | Break on raised/uncaught exceptions    |
+
+### Debugging Example
+
+```python
+from machine import Pin, PWM
+import utime
+
+def setup_led(pin_num):
+    """Set up an LED with PWM control."""
+    pin = Pin(pin_num, Pin.OUT)  # Set breakpoint here
+    pwm = PWM(pin)
+    pwm.freq(1000)
+    return pwm
+
+def fade_led(pwm, steps=100):
+    """Fade LED in and out."""
+    for duty in range(0, 65535, 65535 // steps):
+        pwm.duty_u16(duty)  # Inspect 'duty' value here
+        utime.sleep_ms(10)
+
+    for duty in range(65535, 0, -65535 // steps):
+        pwm.duty_u16(duty)
+        utime.sleep_ms(10)
+
+# Main program
+led_pwm = setup_led(25)
+while True:
+    fade_led(led_pwm)
+```
+
+### Debugging Tips
+
+1. **Use `justMyCode: false`** to step into MicroPython mock modules
+2. **Set `MICROPYTHON_MOCK=1`** environment variable for proper module loading
+3. **Check the Debug Console** to evaluate MicroPython expressions
+4. **Use conditional breakpoints** for loop debugging (right-click breakpoint → Edit)
+
+### Troubleshooting Debugpy
+
+#### Debugger doesn't start
+
+- Ensure the Python extension is installed and activated
+- Check that `python3` is available in your PATH
+- Try setting `picoBridge.emulator.pythonExecutable` to full Python path
+
+#### Breakpoints not hit
+
+- Verify the file is saved before starting debug
+- Check you're using the emulator launch config, not regular Python
+- Ensure `justMyCode` is set to `false` in launch config
+
+#### Import errors during debug
+
+- The emulator sets up paths automatically; don't modify `PYTHONPATH` manually
+- If issues persist, check the Debug Console for specific error messages
+
+---
+
+## 🖥️ Emulator Architecture
+
+The MicroPython emulator is a Python-based simulation layer that mimics MicroPython's hardware APIs, allowing you to test code without physical hardware.
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    VS Code Extension                         │
+├─────────────────────────────────────────────────────────────┤
+│  EmulatorManager                                             │
+│  ├── Spawns Python process with runner.py                   │
+│  ├── Captures stdout for events (__EMU__ prefix)            │
+│  └── Sends state updates to EmulatorWebview                 │
+├─────────────────────────────────────────────────────────────┤
+│  runner.py (Mock Runner)                                     │
+│  ├── Injects mock modules into sys.modules                  │
+│  ├── Executes user script with mocked imports               │
+│  └── Emits hardware state as JSON events                    │
+├─────────────────────────────────────────────────────────────┤
+│  Mock Modules (micropython/)                                 │
+│  ├── machine.py  → Pin, PWM, ADC, I2C, SPI, Timer, etc.    │
+│  ├── utime.py    → sleep, ticks_ms, ticks_diff             │
+│  ├── network.py  → WLAN simulation                          │
+│  ├── neopixel.py → NeoPixel LED strip simulation           │
+│  └── ...         → gc, uos, uio, rp2, etc.                  │
+├─────────────────────────────────────────────────────────────┤
+│  EmulatorWebview (Visual Display)                            │
+│  ├── Board SVG with pin visualization                       │
+│  ├── Real-time state updates                                 │
+│  └── Interactive controls (play/pause/stop)                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Supported Modules Reference
+
+#### `machine` Module
+
+| Class   | Methods                                               | Notes                |
+| ------- | ----------------------------------------------------- | -------------------- |
+| `Pin`   | `value()`, `on()`, `off()`, `toggle()`, `irq()`       | Full GPIO simulation |
+| `PWM`   | `freq()`, `duty_u16()`, `duty_ns()`, `deinit()`       | Duty cycle tracking  |
+| `ADC`   | `read_u16()`, `read_uv()`                             | Configurable values  |
+| `I2C`   | `scan()`, `readfrom()`, `writeto()`, `readfrom_mem()` | Device simulation    |
+| `SPI`   | `read()`, `write()`, `readinto()`                     | Loopback support     |
+| `UART`  | `read()`, `write()`, `any()`, `readline()`            | Loopback mode        |
+| `Timer` | `init()`, `deinit()`                                  | Callback execution   |
+| `WDT`   | `feed()`                                              | Watchdog simulation  |
+| `RTC`   | `datetime()`                                          | Real-time clock      |
+
+#### `utime` / `time` Module
+
+| Function             | Description            |
+| -------------------- | ---------------------- |
+| `sleep(s)`           | Sleep for seconds      |
+| `sleep_ms(ms)`       | Sleep for milliseconds |
+| `sleep_us(us)`       | Sleep for microseconds |
+| `ticks_ms()`         | Millisecond counter    |
+| `ticks_us()`         | Microsecond counter    |
+| `ticks_diff(t1, t2)` | Time difference        |
+| `time()`             | Unix timestamp         |
+| `localtime()`        | Local time tuple       |
+
+#### `network` Module
+
+| Class  | Methods                                                          | Notes          |
+| ------ | ---------------------------------------------------------------- | -------------- |
+| `WLAN` | `active()`, `connect()`, `isconnected()`, `ifconfig()`, `scan()` | Simulated WiFi |
+
+#### `neopixel` Module
+
+| Class      | Methods                                               | Notes            |
+| ---------- | ----------------------------------------------------- | ---------------- |
+| `NeoPixel` | `__setitem__()`, `__getitem__()`, `write()`, `fill()` | RGB/RGBW support |
+
+#### `rp2` Module (RP2040-specific)
+
+| Class          | Methods                                | Notes                |
+| -------------- | -------------------------------------- | -------------------- |
+| `PIO`          | `state_machine()`, `remove_program()`  | Basic PIO simulation |
+| `StateMachine` | `init()`, `active()`, `put()`, `get()` | Limited simulation   |
+| `asm_pio`      | Decorator for PIO assembly             | Parsing only         |
+
+#### Other Modules
+
+| Module        | Purpose                                                       |
+| ------------- | ------------------------------------------------------------- |
+| `gc`          | Garbage collection (`collect()`, `mem_free()`, `mem_alloc()`) |
+| `uos` / `os`  | File system operations                                        |
+| `uio` / `io`  | I/O streams                                                   |
+| `sys`         | System info, `print_exception()`                              |
+| `ubinascii`   | Binary/ASCII conversions                                      |
+| `ujson`       | JSON encoding/decoding                                        |
+| `ure`         | Regular expressions                                           |
+| `ustruct`     | Struct packing/unpacking                                      |
+| `uhashlib`    | Hashing (SHA256, etc.)                                        |
+| `micropython` | `mem_info()`, `stack_use()`                                   |
+
+### Board Support
+
+The emulator supports multiple board types with appropriate pinouts:
+
+| Board             | Pins         | Special Features      |
+| ----------------- | ------------ | --------------------- |
+| Raspberry Pi Pico | GP0-GP28     | Built-in LED on GP25  |
+| Pico W            | GP0-GP28     | CYW43 WiFi simulation |
+| Pico 2 / 2W       | GP0-GP28     | RP2350 features       |
+| ESP32             | GPIO0-GPIO39 | ADC1, ADC2, Touch     |
+
+### Event Protocol
+
+The emulator communicates hardware state changes via stdout using a JSON protocol:
+
+```
+__EMU__{"type": "pin_change", "pin": 25, "value": 1}
+__EMU__{"type": "pwm_change", "pin": 25, "freq": 1000, "duty": 32768}
+__EMU__{"type": "i2c_write", "addr": 60, "data": [0, 1, 2]}
+__EMU__{"type": "neopixel", "pin": 0, "pixels": [[255, 0, 0], [0, 255, 0]]}
+```
+
+### Writing Emulator-Compatible Code
+
+For best compatibility between emulator and real hardware:
+
+```python
+# ✅ Good: Use standard MicroPython patterns
+from machine import Pin
+import utime
+
+led = Pin(25, Pin.OUT)
+led.toggle()
+utime.sleep_ms(100)
+
+# ✅ Good: Check for emulator if needed
+import os
+if os.getenv('MICROPYTHON_MOCK'):
+    print("Running in emulator")
+
+# ❌ Avoid: Hardware-specific timing loops
+while True:  # This will consume 100% CPU in emulator
+    pass
+
+# ✅ Better: Use sleep for timing
+while True:
+    do_something()
+    utime.sleep_ms(10)  # Allows emulator to process events
+```
+
+### API Commands for External Tools
+
+The extension provides commands for external tool integration:
+
+| Command                        | Returns              | Use Case              |
+| ------------------------------ | -------------------- | --------------------- |
+| `picoBridge.getMockRunnerPath` | Path to `runner.py`  | Custom launch configs |
+| `picoBridge.getMockPath`       | Path to mock modules | PYTHONPATH setup      |
+| `picoBridge.getSelectedBoard`  | Current board type   | Board-specific logic  |
+
+Example usage in a task or script:
+
+```bash
+# Get runner path via VS Code command
+RUNNER=$(code --command picoBridge.getMockRunnerPath)
+python3 "$RUNNER" my_script.py
+```
+
+---
 
 ## 🐛 Troubleshooting
 

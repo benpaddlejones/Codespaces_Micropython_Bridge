@@ -11,16 +11,13 @@
       .pin-label-left { text-anchor: end; }
       .led-onboard { fill: #333; stroke: #222; stroke-width: 1; }
       .led-onboard.on { fill: #0088ff; filter: drop-shadow(0 0 4px #0088ff); }
-      .led-onboard.pwm { fill: #ffaa00; filter: drop-shadow(0 0 4px #ffaa00); animation: pwm-pulse 0.5s ease-in-out infinite; }
+      .led-onboard.pwm { fill: #ffc107; filter: drop-shadow(0 0 4px #ffc107); animation: pwm-pulse 0.5s ease-in-out infinite; }
       @keyframes pwm-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
       .bootsel { fill: #444; stroke: #333; stroke-width: 1; rx: 2; }
       .debug-header { fill: #b8860b; stroke: #8b6914; stroke-width: 0.5; }
       .pin-base { fill: #666; opacity: 1; }
       .pin-indicator { fill: none; opacity: 0; transition: opacity 0.2s; }
       .pin-indicator.active { opacity: 0.8; }
-      .pin-high { fill: #00ff00; }
-      .pin-low { fill: #444; }
-      .pin-pwm { fill: #ffaa00; }
       .digital-mode { fill: #28a745; }
       .digital-out { fill: #28a745; }
       .digital-in { fill: #87ceeb; }

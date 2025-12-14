@@ -17,7 +17,11 @@ import { registerCommands } from "./commands";
 import { configurePylanceForMock, EmulatorManager } from "./emulator";
 import { BridgeServer } from "./server";
 import { Logger } from "./utils";
-import { StatusViewProvider, WorkspaceFilesProvider } from "./views";
+import {
+  BridgeToolsProvider,
+  StatusViewProvider,
+  WorkspaceFilesProvider,
+} from "./views";
 
 // Global instances
 let logger: Logger | undefined;
@@ -69,6 +73,14 @@ export async function activate(
     vscode.window.registerTreeDataProvider(
       "picoBridge.workspaceFiles",
       workspaceFilesProvider
+    );
+
+    // Register bridge tools provider
+    const bridgeToolsProvider = new BridgeToolsProvider();
+    context.subscriptions.push(bridgeToolsProvider);
+    vscode.window.registerTreeDataProvider(
+      "picoBridge.deviceExplorer",
+      bridgeToolsProvider
     );
 
     // Register refresh command for workspace files

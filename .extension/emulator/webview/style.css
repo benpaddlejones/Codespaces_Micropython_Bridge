@@ -260,19 +260,36 @@ main {
   opacity: 1;
 }
 
-.board-container .pin-high {
-  fill: #00ff00;
-  filter: drop-shadow(0 0 4px #00ff00);
+/* New mode classes - these are the active ones */
+.board-container .digital-out {
+  fill: #28a745;
+  filter: drop-shadow(0 0 4px #28a745);
 }
 
-.board-container .pin-low {
-  fill: #333;
+.board-container .digital-in {
+  fill: #87ceeb;
+  filter: drop-shadow(0 0 4px #87ceeb);
 }
 
-.board-container .pin-pwm {
-  fill: #ffaa00;
-  filter: drop-shadow(0 0 4px #ffaa00);
+.board-container .pwm-mode {
+  fill: #ffc107;
+  filter: drop-shadow(0 0 4px #ffc107);
   animation: pwm-pulse 0.5s ease-in-out infinite;
+}
+
+.board-container .adc-mode {
+  fill: #9b59b6;
+  filter: drop-shadow(0 0 4px #9b59b6);
+}
+
+.board-container .i2c-mode {
+  fill: #00d4ff;
+  filter: drop-shadow(0 0 4px #00d4ff);
+}
+
+.board-container .uart-mode {
+  fill: #e83e8c;
+  filter: drop-shadow(0 0 4px #e83e8c);
 }
 
 @keyframes pwm-pulse {
@@ -286,13 +303,13 @@ main {
 }
 
 .board-container .led-onboard.on {
-  fill: #00ff00;
-  filter: drop-shadow(0 0 8px #00ff00);
+  fill: #0088ff;
+  filter: drop-shadow(0 0 8px #0088ff);
 }
 
 .board-container .led-onboard.pwm {
-  fill: #ffaa00;
-  filter: drop-shadow(0 0 8px #ffaa00);
+  fill: #ffc107;
+  filter: drop-shadow(0 0 8px #ffc107);
   animation: pwm-pulse 0.5s ease-in-out infinite;
 }
 
@@ -318,6 +335,11 @@ main {
   border-bottom: 2px solid var(--accent-cyan);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.panel-header .header-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 .panel-header span {
@@ -853,6 +875,11 @@ main {
   background: rgba(79, 193, 255, 0.2);
 }
 
+.link-button.copied {
+  color: var(--accent-green);
+  background: rgba(78, 201, 176, 0.15);
+}
+
 /* ===== Scrollbar Styling ===== */
 ::-webkit-scrollbar {
   width: 8px;
@@ -1026,58 +1053,72 @@ main {
 
 /* Different colors for different protocols */
 .pin-indicator.i2c-activity {
-  fill: #00ffff !important;
-  filter: drop-shadow(0 0 6px #00ffff);
+  fill: #00d4ff !important;
+  filter: drop-shadow(0 0 6px #00d4ff);
 }
 
 .pin-indicator.uart-activity {
-  fill: #ff00ff !important;
-  filter: drop-shadow(0 0 6px #ff00ff);
+  fill: #e83e8c !important;
+  filter: drop-shadow(0 0 6px #e83e8c);
 }
 
 .pin-indicator.spi-activity {
-  fill: #00ff00 !important;
-  filter: drop-shadow(0 0 6px #00ff00);
+  fill: #28a745 !important;
+  filter: drop-shadow(0 0 6px #28a745);
 }
 
 .pin-indicator.adc-activity {
-  fill: #ffa500 !important;
-  filter: drop-shadow(0 0 6px #ffa500);
+  fill: #9b59b6 !important;
+  filter: drop-shadow(0 0 6px #9b59b6);
 }
 
 /* ===== Persistent Pin Mode Colors ===== */
-/* Digital mode - Green */
-.pin-indicator.digital-mode {
-  fill: #00ff00 !important;
+/* Digital Output - Green */
+.pin-indicator.digital-out {
+  fill: #28a745 !important;
   opacity: 0.9 !important;
-  filter: drop-shadow(0 0 4px #00ff00);
+  filter: drop-shadow(0 0 4px #28a745);
 }
 
-/* PWM mode - Yellow/Gold pulsing */
-.pin-indicator.pwm-mode {
-  fill: #ffaa00 !important;
+/* Digital Input - Light Blue */
+.pin-indicator.digital-in {
+  fill: #87ceeb !important;
   opacity: 0.9 !important;
-  filter: drop-shadow(0 0 4px #ffaa00);
+  filter: drop-shadow(0 0 4px #87ceeb);
+}
+
+/* Digital mode (legacy) - Green */
+.pin-indicator.digital-mode {
+  fill: #28a745 !important;
+  opacity: 0.9 !important;
+  filter: drop-shadow(0 0 4px #28a745);
+}
+
+/* PWM mode - Yellow */
+.pin-indicator.pwm-mode {
+  fill: #ffc107 !important;
+  opacity: 0.9 !important;
+  filter: drop-shadow(0 0 4px #ffc107);
   animation: pwm-pulse 0.5s ease-in-out infinite;
 }
 
-/* ADC mode - Orange */
+/* ADC mode - Purple */
 .pin-indicator.adc-mode {
-  fill: #ffa500 !important;
+  fill: #9b59b6 !important;
   opacity: 0.9 !important;
-  filter: drop-shadow(0 0 4px #ffa500);
+  filter: drop-shadow(0 0 4px #9b59b6);
 }
 
-/* I2C mode - Cyan */
+/* I2C mode - Bright Cyan */
 .pin-indicator.i2c-mode {
-  fill: #00ffff !important;
+  fill: #00d4ff !important;
   opacity: 0.9 !important;
-  filter: drop-shadow(0 0 4px #00ffff);
+  filter: drop-shadow(0 0 4px #00d4ff);
 }
 
 /* UART mode - Magenta */
 .pin-indicator.uart-mode {
-  fill: #ff00ff !important;
+  fill: #e83e8c !important;
   opacity: 0.9 !important;
-  filter: drop-shadow(0 0 4px #ff00ff);
+  filter: drop-shadow(0 0 4px #e83e8c);
 }

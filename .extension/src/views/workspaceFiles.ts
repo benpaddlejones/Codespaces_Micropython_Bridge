@@ -8,6 +8,18 @@ interface FileTreeItem extends vscode.TreeItem {
   isDirectory: boolean;
 }
 
+/**
+ * Tree data provider for displaying MicroPython project files.
+ *
+ * This provider:
+ * - Detects MicroPython projects by looking for `.micropico` marker files
+ * - Displays Python files and directories in a tree view
+ * - Watches for file system changes and auto-refreshes
+ * - Filters out non-Python files and common ignored directories
+ *
+ * Projects are identified by the presence of a `.micropico` file,
+ * which can be created using the project setup commands.
+ */
 export class WorkspaceFilesProvider
   implements vscode.TreeDataProvider<FileTreeItem>, vscode.Disposable
 {
@@ -107,8 +119,8 @@ export class WorkspaceFilesProvider
       });
 
       return items;
-    } catch (error) {
-      console.error("Error reading directory:", error);
+    } catch {
+      // Error reading directory - return empty list
       return [];
     }
   }
