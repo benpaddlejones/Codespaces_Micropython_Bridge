@@ -64,6 +64,55 @@ def test_machine_pin():
     led.irq(handler=callback, trigger=1)  # 1 = rising edge
 
 
+def test_machine_pin_input():
+    """Test digital input pin configurations and reading."""
+    from machine import Pin
+    
+    print("  Testing digital input modes...")
+    
+    # Test Pin.IN (floating input)
+    pin_floating = Pin(10, Pin.IN)
+    val = pin_floating.value()
+    assert isinstance(val, int), "Pin.value() should return int"
+    assert val in (0, 1), f"Pin value should be 0 or 1, got {val}"
+    print(f"    GP10 (IN): {val}")
+    
+    # Test Pin.IN with PULL_UP
+    pin_pullup = Pin(11, Pin.IN, Pin.PULL_UP)
+    val = pin_pullup.value()
+    assert isinstance(val, int), "Pin.value() should return int"
+    assert val in (0, 1), f"Pin value should be 0 or 1, got {val}"
+    print(f"    GP11 (PULL_UP): {val}")
+    
+    # Test Pin.IN with PULL_DOWN
+    pin_pulldown = Pin(12, Pin.IN, Pin.PULL_DOWN)
+    val = pin_pulldown.value()
+    assert isinstance(val, int), "Pin.value() should return int"
+    assert val in (0, 1), f"Pin value should be 0 or 1, got {val}"
+    print(f"    GP12 (PULL_DOWN): {val}")
+    
+    # Test reading multiple times (should emit pin_update events with mode=IN)
+    print("  Testing multiple reads...")
+    for i in range(3):
+        _ = pin_floating.value()
+        _ = pin_pullup.value()
+        _ = pin_pulldown.value()
+    print("    3 read cycles completed")
+    
+    # Test init() method to change pin mode
+    print("  Testing pin.init() mode change...")
+    test_pin = Pin(13, Pin.OUT)
+    test_pin.value(1)
+    assert test_pin.value() == 1
+    test_pin.init(mode=Pin.IN, pull=Pin.PULL_UP)
+    # After init to input, read should work
+    val = test_pin.value()
+    assert val in (0, 1)
+    print(f"    GP13 changed to INPUT: {val}")
+    
+    print("  All digital input tests passed!")
+
+
 def test_machine_pwm():
     """Test machine.PWM class."""
     from machine import Pin, PWM
@@ -608,6 +657,7 @@ if __name__ == "__main__":
     
     # machine module
     run_test("machine.Pin", test_machine_pin)
+    run_test("machine.Pin Input", test_machine_pin_input)
     run_test("machine.PWM", test_machine_pwm)
     run_test("machine.ADC", test_machine_adc)
     run_test("machine.I2C", test_machine_i2c)

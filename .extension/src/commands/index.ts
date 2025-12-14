@@ -401,7 +401,7 @@ export function registerCommands(
     vscode.commands.registerCommand("picoBridge.openDebugpyDocs", async () => {
       logger.info("Command: openDebugpyDocs");
       const url = vscode.Uri.parse(
-        "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge#-debugpy-integration"
+        "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/tree/main/.extension#-debugpy-integration"
       );
       await vscode.env.openExternal(url);
     })
@@ -411,7 +411,7 @@ export function registerCommands(
     vscode.commands.registerCommand("picoBridge.openEmulatorDocs", async () => {
       logger.info("Command: openEmulatorDocs");
       const url = vscode.Uri.parse(
-        "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge#-emulator-documentation"
+        "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/tree/main/.extension#-micropython-emulator-no-hardware-required"
       );
       await vscode.env.openExternal(url);
     })

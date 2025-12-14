@@ -327,6 +327,8 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 8px;
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 700;
@@ -339,13 +341,25 @@ main {
 
 .panel-header .header-buttons {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.panel-header .header-buttons .link-button {
+  display: block;
+  text-align: right;
+  padding: 2px 6px;
+  font-size: 10px;
 }
 
 .panel-header span {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 1;
+  flex-grow: 1;
 }
 
 .log-panel .panel-header span::before {

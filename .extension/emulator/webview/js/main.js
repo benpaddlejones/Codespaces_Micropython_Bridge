@@ -191,24 +191,38 @@ function setPinMode(pin, mode, active = true) {
  * Flash a communication activity indicator on a pin (brief highlight).
  * @param {number} pin - The GPIO pin number
  * @param {string} protocol - 'i2c', 'uart', 'adc' for color coding
+ * @param {boolean} persistent - Whether to keep mode color after flash (default: true for I2C/UART, false for ADC)
  */
-function flashPinActivity(pin, protocol = "i2c") {
+function flashPinActivity(pin, protocol = "i2c", persistent = null) {
   if (pin === null || pin === undefined) return;
 
   const pinEl = boardContainer?.querySelector(`#pin-${pin}`);
   if (!pinEl) return;
 
-  // Set persistent mode color
-  setPinMode(pin, protocol, true);
+  // Determine if mode should persist after flash
+  // ADC reads are transient (just sampling), I2C/UART are bus connections that persist
+  const shouldPersist = persistent !== null ? persistent : protocol !== "adc";
+
+  if (shouldPersist) {
+    // Set persistent mode color for bus protocols
+    setPinMode(pin, protocol, true);
+  } else {
+    // For ADC, just add the mode class temporarily for the flash
+    pinEl.classList.add("active", `${protocol}-mode`);
+  }
 
   // Add flash animation
   pinEl.classList.remove("activity-flash");
   void pinEl.offsetWidth; // Force reflow
   pinEl.classList.add("activity-flash");
 
-  // Remove just the flash animation (keep mode color)
+  // Remove flash animation after animation completes
   setTimeout(() => {
     pinEl.classList.remove("activity-flash");
+    // For non-persistent modes (like ADC), also remove the mode class
+    if (!shouldPersist) {
+      pinEl.classList.remove("active", `${protocol}-mode`);
+    }
   }, 200);
 }
 
@@ -293,7 +307,11 @@ function updatePinVisual(pin, value, mode = "digital") {
       "pin-pwm"
     );
 
-    if (isActive) {
+    // For input mode, always show as active (reading a pin indicates it's in use)
+    // For output/PWM, only show as active when the value is non-zero
+    const shouldShowActive = mode === "IN" || isActive;
+
+    if (shouldShowActive) {
       pinIndicator.classList.add("active");
       if (mode === "pwm") {
         pinIndicator.classList.add("pwm-mode");
@@ -493,8 +511,7 @@ window.addEventListener("message", (event) => {
 
     case "start":
       scriptNameEl.textContent =
-        message.script ||
-        "Right-click a file in Project Files → Run in Emulator";
+        message.script || "Click ▶ button next to a file in Project Files";
       isRunning = true;
       isPaused = false;
       updatePlayStopButton();
@@ -502,7 +519,25 @@ window.addEventListener("message", (event) => {
       break;
 
     case "pin_update":
-      updatePinVisual(message.pin, message.value, message.mode || "digital");
+      // For digital input reads, just flash temporarily (don't persist like output)
+      if (message.mode === "IN") {
+        const pinNum = String(message.pin).replace(/^GP/i, "");
+        const pinEl = boardContainer?.querySelector(`#pin-${pinNum}`);
+        if (pinEl) {
+          // Temporarily add digital-in styling
+          pinEl.classList.add("active", "digital-in");
+          pinEl.classList.remove("activity-flash");
+          void pinEl.offsetWidth; // Force reflow
+          pinEl.classList.add("activity-flash");
+          // Remove both flash and mode after animation
+          setTimeout(() => {
+            pinEl.classList.remove("activity-flash", "active", "digital-in");
+          }, 300);
+        }
+      } else {
+        // For output modes, use persistent visual
+        updatePinVisual(message.pin, message.value, message.mode || "digital");
+      }
       logEvent(`Pin ${message.pin} -> ${message.value}`);
       break;
 
