@@ -12,12 +12,5 @@
       ]
     }
   },
-  "postCreateCommand": "",
-  "forwardPorts": [3000],
-  "portsAttributes": {
-    "3000": {
-      "label": "Pico Bridge",
-      "onAutoForward": "openBrowser"
-    }
-  }
+  "postCreateCommand": ""
 }

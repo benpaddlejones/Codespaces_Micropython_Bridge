@@ -5,6 +5,19 @@ All notable changes to the Pi Pico to Codespaces Bridge extension will be docume
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2025-12-16
+
+### Fixed
+
+- **Port Cleanup** - Bridge server now kills processes on ports 3000 and 3001 before starting
+- **Port Forwarding** - Extension automatically registers port forwarding with VS Code/Codespaces via `vscode.env.asExternalUri()`
+- Removed devcontainer.json port forwarding settings (now handled by extension)
+
+### Changed
+
+- Improved server startup reliability with enhanced port conflict resolution
+- Added pre-startup port cleanup to prevent stale process conflicts
+
 ## [2.0.0] - 2025-12-14
 
 ### Added

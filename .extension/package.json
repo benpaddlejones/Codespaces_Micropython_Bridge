@@ -2,7 +2,7 @@
   "name": "pico-bridge",
   "displayName": "Pi Pico to Codespaces Bridge",
   "description": "MicroPython development for Raspberry Pi Pico/ESP32 with built-in emulator, debugpy debugging, and Web Serial API bridge to GitHub Codespaces",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "publisher": "benpaddlejones",
   "license": "GPL-3.0",
   "extensionDependencies": [

@@ -8,13 +8,51 @@
  * NOT webviews, because Web Serial API requires a real browser context.
  */
 
-import { ChildProcess, spawn } from "child_process";
+import { ChildProcess, exec, spawn } from "child_process";
 import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
+import { promisify } from "util";
 import * as vscode from "vscode";
 import { ServerStatus } from "../types";
 import { Logger, getConfig } from "../utils";
+
+const execAsync = promisify(exec);
+
+/**
+ * Kill any processes running on the specified ports.
+ * This ensures the bridge server can start cleanly.
+ */
+async function killProcessesOnPorts(
+  ports: number[],
+  logger: Logger
+): Promise<void> {
+  for (const port of ports) {
+    try {
+      // Find PIDs using the port
+      const { stdout } = await execAsync(
+        `lsof -ti :${port} 2>/dev/null || true`
+      );
+      const pids = stdout.trim().split("\n").filter(Boolean);
+
+      if (pids.length > 0) {
+        logger.info(`Found processes on port ${port}: ${pids.join(", ")}`);
+        for (const pid of pids) {
+          try {
+            await execAsync(`kill -9 ${pid} 2>/dev/null || true`);
+            logger.info(`Killed process ${pid} on port ${port}`);
+          } catch {
+            // Process may have already exited
+          }
+        }
+        // Wait for ports to be released
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      logger.warn(`Could not check/kill processes on port ${port}: ${error}`);
+    }
+  }
+}
 
 export class BridgeServer implements vscode.Disposable {
   private serverProcess: ChildProcess | undefined;
@@ -99,6 +137,12 @@ export class BridgeServer implements vscode.Disposable {
       this.updateStatusBar("starting");
       this.logger.info(`Starting bridge server on port ${this._port}...`);
 
+      // Kill any existing processes on ports 3000 and 3001
+      this.logger.info(
+        "Killing any existing processes on ports 3000 and 3001..."
+      );
+      await killProcessesOnPorts([3000, 3001], this.logger);
+
       // Determine workspace root for project access
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -177,6 +221,18 @@ export class BridgeServer implements vscode.Disposable {
       this.logger.info(
         `Bridge server started successfully on port ${this._port}`
       );
+
+      // Ensure port is forwarded in Codespaces/Remote environments
+      // This triggers VS Code to register the port forwarding
+      try {
+        const localUri = vscode.Uri.parse(`http://localhost:${this._port}`);
+        const externalUri = await vscode.env.asExternalUri(localUri);
+        this.logger.info(
+          `Port ${this._port} forwarded to: ${externalUri.toString()}`
+        );
+      } catch (error) {
+        this.logger.warn(`Could not set up port forwarding: ${error}`);
+      }
 
       // Show notification with option to open browser
       const selection = await vscode.window.showInformationMessage(
