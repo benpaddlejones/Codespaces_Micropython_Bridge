@@ -28,8 +28,17 @@ PROJECT_MARKERS = [
 
 def find_workspace_root(script_path: Path) -> Path:
     """
-    Search upward from script location for project root.
-    Returns the first directory containing a project marker.
+    Search upward from script location for the project root.
+
+    Walks parent directories (up to 10 levels) looking for any of the
+    PROJECT_MARKERS files/directories.
+
+    Args:
+        script_path: Resolved Path to the user's MicroPython script.
+
+    Returns:
+        Path: The first directory containing a project marker, or the
+            script's parent directory as fallback.
     """
     current = script_path.parent
     
@@ -50,12 +59,27 @@ def find_workspace_root(script_path: Path) -> Path:
 
 
 def emit(event: Dict[str, object]) -> None:
-    """Send an event to stdout for the host extension to consume."""
+    """Send a JSON event to stdout for the VS Code extension to consume.
+
+    Args:
+        event: Dictionary with at least a "type" key, serialized as JSON
+            and prefixed with EVENT_PREFIX.
+    """
     print(f"{EVENT_PREFIX}{json.dumps(event)}", flush=True)
 
 
 def configure_paths(mock_root: Path, script_path: Path, workspace_root: Path) -> None:
-    """Ensure our mock modules are importable ahead of user code."""
+    """Configure sys.path and inject mock modules so user code resolves emulator modules.
+
+    Prepends mock module directories to sys.path, adds workspace-relative
+    MicroPython directories (py_scripts, lib), injects mock built-in modules
+    into sys.modules, and patches sys.print_exception.
+
+    Args:
+        mock_root: Path to the emulator/mock directory.
+        script_path: Resolved Path to the user script.
+        workspace_root: Resolved Path to the project workspace root.
+    """
     micropython_path = mock_root / "micropython"
     typings_path = mock_root / "typings"
 
@@ -124,6 +148,11 @@ def _inject_mock_modules(micropython_path: Path) -> None:
 
 
 def main() -> int:
+    """CLI entry point: parse arguments and run a MicroPython script in the emulator.
+
+    Returns:
+        int: Exit code (0 for success, non-zero for errors).
+    """
     parser = argparse.ArgumentParser(description="Run MicroPython script in emulator")
     parser.add_argument("script", help="Path to the MicroPython script to execute")
     parser.add_argument(

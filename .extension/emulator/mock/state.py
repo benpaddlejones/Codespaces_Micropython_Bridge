@@ -24,6 +24,13 @@ EventCallback = Callable[[Dict[str, Any]], None]
 
 @dataclass
 class PinState:
+    """Represents the current state of a single GPIO pin.
+
+    Attributes:
+        identifier: Pin name/number as a string (e.g., "25", "LED").
+        mode: Current mode string ("IN" or "OUT").
+        value: Current digital value (0 or 1).
+    """
     identifier: str
     mode: str
     value: int
@@ -65,7 +72,13 @@ def reset() -> None:
 
 
 def register_pin(identifier: str, mode: str, initial: Optional[int] = None) -> None:
-    """Register a pin in the state table."""
+    """Register a pin in the state table and emit a pin_register event.
+
+    Args:
+        identifier: Pin name/number string (e.g., "25", "LED").
+        mode: Mode string ("IN" or "OUT").
+        initial: Optional initial value (0 or 1).
+    """
     value = 1 if initial else 0
     _pins[identifier] = PinState(identifier=identifier, mode=mode, value=value)
     _emit({
@@ -107,6 +120,14 @@ def update_pin(identifier: str, value: int, mode: Optional[str] = None) -> None:
 
 
 def get_pin_value(identifier: str) -> int:
+    """Return the current digital value of a pin.
+
+    Args:
+        identifier: Pin name/number string.
+
+    Returns:
+        int: Pin value (0 or 1). Returns 0 if the pin is unknown.
+    """
     state = _pins.get(identifier)
     return state.value if state else 0
 
@@ -236,13 +257,24 @@ def set_i2c_response(
 # Generic event emission
 
 def emit_event(event_type: str, data: Dict[str, Any]) -> None:
-    """Emit a generic event with type and data."""
+    """Emit a generic event with type and data.
+
+    Args:
+        event_type: Event type string (becomes the "type" key in the payload).
+        data: Dictionary of event data merged into the payload.
+    """
     event = {"type": event_type, **data}
     _emit(event)
 
 
 def emit_pwm_update(pin_id: str, freq: int, duty: int) -> None:
-    """Emit a PWM update event."""
+    """Emit a PWM update event.
+
+    Args:
+        pin_id: Pin identifier string.
+        freq: PWM frequency in Hz.
+        duty: 16-bit duty cycle value (0-65535).
+    """
     _emit({"type": "pwm_update", "pin": pin_id, "freq": freq, "duty": duty})
 
 

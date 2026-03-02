@@ -1,6 +1,6 @@
 # Pi Pico to Codespaces Bridge
 
-[![Version](https://img.shields.io/badge/Version-2.0.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.1.0-green)](CHANGELOG.md)
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/items?itemName=pico-bridge.pico-bridge)
 [![MicroPython](https://img.shields.io/badge/MicroPython-1.20%2B-00b2a9?logo=python&logoColor=white)](https://micropython.org/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Pico%20Ready-c51a4a?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/documentation/microcontrollers/)
@@ -429,29 +429,29 @@ The MicroPython emulator is a Python-based simulation layer that mimics MicroPyt
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    VS Code Extension                         │
+│                    VS Code Extension                        │
 ├─────────────────────────────────────────────────────────────┤
-│  EmulatorManager                                             │
+│  EmulatorManager                                            │
 │  ├── Spawns Python process with runner.py                   │
 │  ├── Captures stdout for events (__EMU__ prefix)            │
 │  └── Sends state updates to EmulatorWebview                 │
 ├─────────────────────────────────────────────────────────────┤
-│  runner.py (Mock Runner)                                     │
+│  runner.py (Mock Runner)                                    │
 │  ├── Injects mock modules into sys.modules                  │
 │  ├── Executes user script with mocked imports               │
 │  └── Emits hardware state as JSON events                    │
 ├─────────────────────────────────────────────────────────────┤
-│  Mock Modules (micropython/)                                 │
+│  Mock Modules (micropython/)                                │
 │  ├── machine.py  → Pin, PWM, ADC, I2C, SPI, Timer, etc.    │
-│  ├── utime.py    → sleep, ticks_ms, ticks_diff             │
+│  ├── utime.py    → sleep, ticks_ms, ticks_diff              │
 │  ├── network.py  → WLAN simulation                          │
-│  ├── neopixel.py → NeoPixel LED strip simulation           │
-│  └── ...         → gc, uos, uio, rp2, etc.                  │
+│  ├── neopixel.py → NeoPixel LED strip simulation            │
+│  └── ...         → gc, uos, uio, rp2, etc.                 │
 ├─────────────────────────────────────────────────────────────┤
-│  EmulatorWebview (Visual Display)                            │
+│  EmulatorWebview (Visual Display)                           │
 │  ├── Board SVG with pin visualization                       │
-│  ├── Real-time state updates                                 │
-│  └── Interactive controls (play/pause/stop)                  │
+│  ├── Real-time state updates                                │
+│  └── Interactive controls (play/pause/stop)                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 

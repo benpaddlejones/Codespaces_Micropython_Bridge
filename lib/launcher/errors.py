@@ -44,5 +44,13 @@ ERROR_GUIDANCE = {
 
 
 def get_guidance(error_type):
-    """Get guidance messages for a specific error type."""
+    """Get guidance messages for a specific error type.
+
+    Args:
+        error_type: Error title string (e.g., "IMPORT ERROR").
+
+    Returns:
+        list[str]: Guidance messages. Falls back to "UNEXPECTED ERROR"
+            guidance if the error type is not recognized.
+    """
     return ERROR_GUIDANCE.get(error_type, ERROR_GUIDANCE.get("UNEXPECTED ERROR", []))

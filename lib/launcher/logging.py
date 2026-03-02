@@ -12,11 +12,14 @@ def open_log_file():
     """
     Open the log file for writing.
 
+    Appends to existing log until it exceeds MAX_LOG_BYTES,
+    then rotates (truncates) the file.
+
     Returns:
         file handle or None if logging should be skipped
     """
     try:
-        current_size = None
+        current_size = 0
         try:
             with open(config.LOG_FILE, "r") as existing:
                 existing.seek(0, 2)
@@ -24,13 +27,11 @@ def open_log_file():
         except OSError:
             current_size = 0
 
-        # Skip if log already has content
-        if current_size is not None and current_size > 0:
-            return None
-
-        mode = "a"
-        if current_size is not None and current_size >= config.MAX_LOG_BYTES:
+        # Rotate (truncate) if log exceeds max size
+        if current_size >= config.MAX_LOG_BYTES:
             mode = "w"
+        else:
+            mode = "a"
 
         return open(config.LOG_FILE, mode)
     except OSError:

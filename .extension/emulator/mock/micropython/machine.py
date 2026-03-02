@@ -50,6 +50,14 @@ class Pin:
         pull: Optional[int] = None,
         value: Optional[int] = None,
     ) -> None:
+        """Create a Pin object for GPIO control.
+
+        Args:
+            id: GPIO pin number or special name (e.g., "LED").
+            mode: Pin.IN or Pin.OUT.
+            pull: Optional pull resistor: Pin.PULL_UP or Pin.PULL_DOWN.
+            value: Optional initial output value (0 or 1).
+        """
         # Handle special pin names like "LED"
         if isinstance(id, str):
             self._id = self._SPECIAL_PINS.get(id, id)
@@ -70,6 +78,14 @@ class Pin:
         return self._MODE_NAMES.get(self._mode, "OUT")
 
     def value(self, val: Optional[int] = None) -> int:
+        """Get or set the pin value.
+
+        Args:
+            val: If provided, set pin to 0 or 1. If None, read current value.
+
+        Returns:
+            int: The current pin value (0 or 1).
+        """
         if val is None:
             # Reading pin value - emit with IN mode
             current = state.get_pin_value(self._id)
@@ -81,9 +97,11 @@ class Pin:
         return self._value
 
     def on(self) -> None:
+        """Set pin output to high (1)."""
         self.value(1)
 
     def off(self) -> None:
+        """Set pin output to low (0)."""
         self.value(0)
 
     def low(self) -> None:
@@ -95,7 +113,8 @@ class Pin:
         self.value(1)
 
     def toggle(self) -> None:
-        self.value(0 if self.value() else 1)
+        """Toggle pin output between high and low."""
+        self.value(0 if self._value else 1)
 
     def init(
         self,
@@ -137,7 +156,12 @@ class Pin:
         handler: Optional[Callable[["Pin"], None]] = None,
         trigger: int = IRQ_RISING | IRQ_FALLING,
     ) -> None:
-        """Register an interrupt handler."""
+        """Register an interrupt handler for pin state changes.
+
+        Args:
+            handler: Callback receiving the Pin instance, or None to clear.
+            trigger: Bitmask of Pin.IRQ_RISING and/or Pin.IRQ_FALLING.
+        """
         self._irq_handler = handler
         self._irq_trigger = trigger
 
@@ -157,6 +181,13 @@ class PWM:
         freq: int = 1000,
         duty_u16: int = 0,
     ) -> None:
+        """Create a PWM object on a pin.
+
+        Args:
+            pin: Pin object to attach PWM to.
+            freq: PWM frequency in Hz.
+            duty_u16: 16-bit duty cycle value (0-65535).
+        """
         self._pin = pin
         self._freq = freq
         self._duty_u16 = duty_u16
@@ -181,6 +212,14 @@ class PWM:
         state.emit_pwm_update(self._pin._id, self._freq, self._duty_u16)
 
     def freq(self, value: Optional[int] = None) -> Optional[int]:
+        """Get or set the PWM frequency.
+
+        Args:
+            value: Frequency in Hz. If None, return current frequency.
+
+        Returns:
+            int or None: Current frequency when reading, None when setting.
+        """
         if value is None:
             return self._freq
         self._freq = value
@@ -188,6 +227,14 @@ class PWM:
         return None
 
     def duty_u16(self, value: Optional[int] = None) -> Optional[int]:
+        """Get or set the 16-bit duty cycle (0-65535).
+
+        Args:
+            value: Duty cycle value. If None, return current value.
+
+        Returns:
+            int or None: Current duty cycle when reading, None when setting.
+        """
         if value is None:
             return self._duty_u16
         self._duty_u16 = max(0, min(65535, value))
@@ -195,6 +242,14 @@ class PWM:
         return None
 
     def duty_ns(self, value: Optional[int] = None) -> Optional[int]:
+        """Get or set the duty cycle in nanoseconds.
+
+        Args:
+            value: Duty in nanoseconds. If None, return current value.
+
+        Returns:
+            int or None: Current duty in ns when reading, None when setting.
+        """
         if value is None:
             period_ns = 1_000_000_000 // self._freq if self._freq > 0 else 0
             return (self._duty_u16 * period_ns) // 65535
@@ -204,6 +259,7 @@ class PWM:
         return None
 
     def deinit(self) -> None:
+        """Disable the PWM output and release the pin."""
         self._active = False
         self._duty_u16 = 0
         state.emit_pwm_update(self._pin._id, self._freq, 0)
@@ -219,6 +275,11 @@ class ADC:
     TEMP_SENSOR = 4
 
     def __init__(self, pin: Union[Pin, int]) -> None:
+        """Create an ADC object for analog reading.
+
+        Args:
+            pin: Pin object or integer pin/channel number.
+        """
         if isinstance(pin, Pin):
             self._pin_id = pin._id
         else:
@@ -300,6 +361,14 @@ class I2C:
         sda: Optional[Pin] = None,
         freq: int = 400000,
     ) -> None:
+        """Create an I2C bus object.
+
+        Args:
+            id: I2C bus identifier (0 or 1).
+            scl: Pin object for the SCL (clock) line.
+            sda: Pin object for the SDA (data) line.
+            freq: SCL clock frequency in Hz.
+        """
         self._id = id
         self._scl = scl
         self._sda = sda
@@ -481,6 +550,19 @@ class SPI:
         mosi: Optional[Pin] = None,
         miso: Optional[Pin] = None,
     ) -> None:
+        """Create an SPI bus object.
+
+        Args:
+            id: SPI bus identifier.
+            baudrate: Clock rate in Hz.
+            polarity: Idle state of SCK (0 or 1).
+            phase: Data sampling edge (0 or 1).
+            bits: Number of bits per transfer.
+            firstbit: SPI.MSB or SPI.LSB.
+            sck: Pin for SCK.
+            mosi: Pin for MOSI.
+            miso: Pin for MISO.
+        """
         self._id = id
         self._baudrate = baudrate
         self._polarity = polarity
@@ -503,6 +585,7 @@ class SPI:
         bits: int = 8,
         firstbit: int = 0,
     ) -> None:
+        """Reinitialize the SPI bus with updated parameters."""
         self._baudrate = baudrate
         self._polarity = polarity
         self._phase = phase
@@ -510,20 +593,47 @@ class SPI:
         self._firstbit = firstbit
 
     def deinit(self) -> None:
+        """Deinitialize the SPI bus."""
         state.emit_event("spi_deinit", {"id": self._id})
 
     def read(self, nbytes: int, write: int = 0x00) -> bytes:
+        """Read nbytes while continuously writing the write byte.
+
+        Args:
+            nbytes: Number of bytes to read.
+            write: Byte value to write during read (default 0x00).
+
+        Returns:
+            bytes: The data read from the bus.
+        """
         state.emit_event("spi_read", {"id": self._id, "nbytes": nbytes})
         return bytes([0] * nbytes)
 
     def readinto(self, buf: bytearray, write: int = 0x00) -> None:
+        """Read into an existing buffer while writing the write byte.
+
+        Args:
+            buf: Buffer to read into.
+            write: Byte value to write during read (default 0x00).
+        """
         for i in range(len(buf)):
             buf[i] = 0
 
     def write(self, buf: bytes) -> None:
+        """Write bytes to the SPI bus.
+
+        Args:
+            buf: Data bytes to write.
+        """
         state.emit_event("spi_write", {"id": self._id, "data": buf.hex()})
 
     def write_readinto(self, write_buf: bytes, read_buf: bytearray) -> None:
+        """Simultaneously write and read SPI data.
+
+        Args:
+            write_buf: Data to write.
+            read_buf: Buffer to read into.
+        """
         self.write(write_buf)
         self.readinto(read_buf)
 
@@ -556,6 +666,11 @@ class Timer:
     PERIODIC = 1
 
     def __init__(self, id: int = -1) -> None:
+        """Create a Timer object.
+
+        Args:
+            id: Timer ID. -1 selects a virtual timer.
+        """
         self._id = id
         self._mode = self.PERIODIC
         self._freq = 0
@@ -571,6 +686,14 @@ class Timer:
         period: int = 0,
         callback: Optional[Callable[["Timer"], None]] = None,
     ) -> None:
+        """Initialize the timer with mode, frequency or period, and callback.
+
+        Args:
+            mode: Timer.ONE_SHOT or Timer.PERIODIC.
+            freq: Timer frequency in Hz (mutually exclusive with period).
+            period: Timer period in ms (mutually exclusive with freq).
+            callback: Function called on each timer tick, receives the Timer.
+        """
         self._mode = mode
         self._freq = freq
         self._period = period
@@ -584,6 +707,7 @@ class Timer:
         })
 
     def deinit(self) -> None:
+        """Stop and deinitialize the timer."""
         self._active = False
         self._callback = None
         state.emit_event("timer_deinit", {"id": self._id})
@@ -619,6 +743,17 @@ class UART:
         tx: Optional[Pin] = None,
         rx: Optional[Pin] = None,
     ) -> None:
+        """Create a UART serial port object.
+
+        Args:
+            id: UART peripheral identifier.
+            baudrate: Baud rate.
+            bits: Data bits per character (7, 8, or 9).
+            parity: Parity (None, 0=even, 1=odd).
+            stop: Number of stop bits (1 or 2).
+            tx: Pin object for TX line.
+            rx: Pin object for RX line.
+        """
         self._id = id
         self._baudrate = baudrate
         self._tx = tx
@@ -648,15 +783,30 @@ class UART:
         parity: Optional[int] = None,
         stop: int = 1,
     ) -> None:
+        """Reinitialize the UART with new parameters."""
         self._baudrate = baudrate
 
     def deinit(self) -> None:
+        """Deinitialize the UART."""
         state.emit_event("uart_deinit", {"id": self._id})
 
     def any(self) -> int:
+        """Return the number of bytes available to read.
+
+        Returns:
+            int: Number of bytes waiting in the receive buffer.
+        """
         return len(self._rx_buffer)
 
     def read(self, nbytes: Optional[int] = None) -> Optional[bytes]:
+        """Read up to nbytes from the UART.
+
+        Args:
+            nbytes: Maximum bytes to read. If None, read all available.
+
+        Returns:
+            bytes or None: Data read, or None if no data available.
+        """
         if nbytes is None:
             data = bytes(self._rx_buffer)
             self._rx_buffer.clear()
@@ -668,6 +818,15 @@ class UART:
     def readinto(
         self, buf: bytearray, nbytes: Optional[int] = None
     ) -> Optional[int]:
+        """Read bytes into the given buffer.
+
+        Args:
+            buf: Buffer to read into.
+            nbytes: Max bytes to read. If None, fill buf.
+
+        Returns:
+            int or None: Number of bytes read, or None if no data available.
+        """
         data = self.read(nbytes or len(buf))
         if data:
             buf[:len(data)] = data
@@ -675,6 +834,11 @@ class UART:
         return None
 
     def readline(self) -> Optional[bytes]:
+        """Read a line terminated by a newline character.
+
+        Returns:
+            bytes or None: Line including the newline, or None if none available.
+        """
         idx = self._rx_buffer.find(b'\n')
         if idx >= 0:
             line = bytes(self._rx_buffer[:idx + 1])
@@ -683,6 +847,16 @@ class UART:
         return None
 
     def write(self, buf: bytes) -> Optional[int]:
+        """Write bytes to the UART.
+
+        In loopback mode, written data is echoed to the receive buffer.
+
+        Args:
+            buf: Data bytes to write.
+
+        Returns:
+            int: Number of bytes written.
+        """
         state.emit_event("uart_write", {
             "id": self._id,
             "data": buf.hex(),
@@ -716,10 +890,16 @@ class WDT:
     """Watchdog timer stub."""
 
     def __init__(self, timeout: int = 5000) -> None:
+        """Create a Watchdog Timer.
+
+        Args:
+            timeout: Timeout in milliseconds before reset.
+        """
         self._timeout = timeout
         state.emit_event("wdt_init", {"timeout": timeout})
 
     def feed(self) -> None:
+        """Feed the watchdog to prevent a reset."""
         state.emit_event("wdt_feed", {})
 
 
@@ -727,6 +907,11 @@ class RTC:
     """Real-time clock stub."""
 
     def __init__(self, id: int = 0) -> None:
+        """Create a Real-Time Clock object.
+
+        Args:
+            id: RTC peripheral identifier (default 0).
+        """
         import time
         self._id = id
         self._datetime = time.localtime()
@@ -743,6 +928,15 @@ class RTC:
         self,
         datetimetuple: Optional[tuple] = None,
     ) -> tuple:
+        """Get or set the RTC datetime.
+
+        Args:
+            datetimetuple: If provided, set RTC to this (year, month, day,
+                weekday, hours, minutes, seconds, subseconds) tuple.
+
+        Returns:
+            tuple: Current datetime tuple.
+        """
         if datetimetuple is not None:
             self._datetime = datetimetuple
             state.emit_event("rtc_set", {"datetime": list(datetimetuple)})
@@ -787,17 +981,29 @@ def reset() -> None:
 
 
 def soft_reset() -> None:
-    """Soft reset."""
+    """Perform a soft reset (ends emulation via SystemExit)."""
     state.emit_event("soft_reset", {})
     raise SystemExit("Soft reset requested")
 
 
+# Module-level CPU frequency state
+_cpu_freq = 125_000_000
+
+
 def freq(hz: Optional[int] = None) -> int:
-    """Get or set CPU frequency."""
-    # RP2040 runs at 125MHz by default
+    """Get or set the CPU frequency.
+
+    Args:
+        hz: Frequency in Hz. If None, return current frequency.
+
+    Returns:
+        int: Current CPU frequency in Hz.
+    """
+    global _cpu_freq
     if hz is not None:
+        _cpu_freq = hz
         state.emit_event("freq", {"hz": hz})
-    return 125_000_000
+    return _cpu_freq
 
 
 def unique_id() -> bytes:
@@ -811,25 +1017,42 @@ def idle() -> None:
 
 
 def lightsleep(time_ms: Optional[int] = None) -> None:
-    """Light sleep mode."""
+    """Enter light sleep mode (simulated via time.sleep).
+
+    Args:
+        time_ms: Duration in milliseconds. If None, sleep indefinitely.
+    """
     import time
     if time_ms:
         time.sleep(time_ms / 1000)
 
 
 def deepsleep(time_ms: Optional[int] = None) -> None:
-    """Deep sleep mode (ends emulation)."""
+    """Enter deep sleep mode (ends emulation via SystemExit).
+
+    Args:
+        time_ms: Duration in ms after which the device would wake.
+            If None, sleep until an external wake source triggers.
+    """
     state.emit_event("deepsleep", {"time_ms": time_ms})
     raise SystemExit("Deep sleep requested")
 
 
 def disable_irq() -> int:
-    """Disable interrupts."""
+    """Disable interrupts.
+
+    Returns:
+        int: Previous IRQ state to pass to enable_irq().
+    """
     return 0
 
 
 def enable_irq(state_val: int) -> None:
-    """Enable interrupts."""
+    """Re-enable interrupts.
+
+    Args:
+        state_val: IRQ state value returned by disable_irq().
+    """
     pass
 
 
@@ -924,9 +1147,14 @@ def bitstream(
 
 # Memory access classes
 class _MemoryAccess:
-    """Base class for memory-mapped register access."""
+    """Base class for memory-mapped register access (mem8/mem16/mem32)."""
     
     def __init__(self, size: int) -> None:
+        """Initialize memory accessor.
+
+        Args:
+            size: Width of each access in bytes (1, 2, or 4).
+        """
         self._size = size
         self._memory: dict[int, int] = {}
     

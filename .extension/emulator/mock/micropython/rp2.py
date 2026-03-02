@@ -91,11 +91,25 @@ class PIO:
     IRQ_SM3 = 0x800
     
     def __init__(self, id: int):
+        """Create a PIO peripheral object.
+
+        Args:
+            id: PIO block ID (0 or 1).
+        """
         self.id = id
         state.emit_event("pio_init", {"id": id})
     
     def state_machine(self, id: int, prog=None, **kwargs):
-        """Get or create a state machine."""
+        """Get or create a state machine within this PIO block.
+
+        Args:
+            id: State machine index within the PIO block (0-3).
+            prog: Assembled PIO program (optional).
+            **kwargs: Additional configuration (in_base, out_base, etc.).
+
+        Returns:
+            StateMachine: The configured state machine instance.
+        """
         return StateMachine(self.id * 4 + id, prog, **kwargs)
     
     def irq(self, handler=None, trigger: int = 0, hard: bool = False):
@@ -109,7 +123,18 @@ class PIO:
 
 # PIO assembly decorator
 def asm_pio(**kwargs):
-    """Decorator for PIO assembly programs."""
+    """Decorator for PIO assembly programs.
+
+    In the emulator, the decorated function is replaced with an empty
+    list (placeholder program) since PIO instructions cannot be
+    executed on the host.
+
+    Args:
+        **kwargs: PIO configuration (out_init, set_init, sideset_init, etc.).
+
+    Returns:
+        Callable: Decorator that returns an empty list as the assembled program.
+    """
     def decorator(func):
         # In mock, just return a placeholder
         return []
@@ -119,22 +144,51 @@ def asm_pio(**kwargs):
 # Flash storage
 class Flash:
     """Mock internal flash storage."""
-    
+
+    _FLASH_SIZE = 2 * 1024 * 1024  # 2MB
+
     def __init__(self):
-        self._data = bytearray(2 * 1024 * 1024)  # 2MB mock flash
+        """Create a Flash storage object (2 MB simulated)."""
+        self.__data = None  # Lazy allocation
+
+    @property
+    def _data(self):
+        if self.__data is None:
+            self.__data = bytearray(self._FLASH_SIZE)
+        return self.__data
     
     def readblocks(self, block_num: int, buf, offset: int = 0):
-        """Read blocks from flash."""
+        """Read blocks from flash into a buffer.
+
+        Args:
+            block_num: Starting block number (4096 bytes per block).
+            buf: Buffer to read into.
+            offset: Byte offset within the starting block.
+        """
         start = block_num * 4096 + offset
         buf[:] = self._data[start:start + len(buf)]
     
     def writeblocks(self, block_num: int, buf, offset: int = 0):
-        """Write blocks to flash."""
+        """Write blocks to flash from a buffer.
+
+        Args:
+            block_num: Starting block number (4096 bytes per block).
+            buf: Data to write.
+            offset: Byte offset within the starting block.
+        """
         start = block_num * 4096 + offset
         self._data[start:start + len(buf)] = buf
     
     def ioctl(self, op: int, arg: int = 0):
-        """Control operations."""
+        """Block device control operations.
+
+        Args:
+            op: Operation code (4=block count, 5=block size).
+            arg: Operation argument.
+
+        Returns:
+            int: Result of the operation.
+        """
         if op == 4:  # Block count
             return len(self._data) // 4096
         if op == 5:  # Block size
@@ -144,7 +198,7 @@ class Flash:
 
 # DMA (mock)
 class DMA:
-    """Mock DMA controller."""
+    """Mock DMA controller (stub, no-op in emulator)."""
     
     def __init__(self):
         pass

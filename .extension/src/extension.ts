@@ -23,6 +23,17 @@ import {
   WorkspaceFilesProvider,
 } from "./views";
 
+import * as fs from "fs";
+import * as path from "path";
+
+/** Default debug configuration for MicroPython Emulator */
+const DEFAULT_DEBUG_CONFIG: vscode.DebugConfiguration = {
+  name: "MicroPython (Emulator)",
+  type: "micropython-emulator",
+  request: "launch",
+  program: "${file}",
+};
+
 // Global instances
 let logger: Logger | undefined;
 let server: BridgeServer | undefined;
@@ -32,7 +43,7 @@ let emulatorManager: EmulatorManager | undefined;
  * Called when the extension is activated
  */
 export async function activate(
-  context: vscode.ExtensionContext
+  context: vscode.ExtensionContext,
 ): Promise<void> {
   // Initialize logger
   logger = new Logger("Pico Bridge");
@@ -73,22 +84,15 @@ export async function activate(
       {
         // Provide initial configurations when user has no launch.json
         provideDebugConfigurations(
-          _folder: vscode.WorkspaceFolder | undefined
+          _folder: vscode.WorkspaceFolder | undefined,
         ): vscode.ProviderResult<vscode.DebugConfiguration[]> {
-          return [
-            {
-              name: "MicroPython (Emulator)",
-              type: "micropython-emulator",
-              request: "launch",
-              program: "${file}",
-            },
-          ];
+          return [{ ...DEFAULT_DEBUG_CONFIG }];
         },
 
         // Resolve the configuration before debugging starts
         resolveDebugConfiguration(
           _folder: vscode.WorkspaceFolder | undefined,
-          config: vscode.DebugConfiguration
+          config: vscode.DebugConfiguration,
         ): vscode.ProviderResult<vscode.DebugConfiguration> {
           // If no program specified, use current file
           if (!config.program) {
@@ -98,20 +102,19 @@ export async function activate(
             }
           }
 
-          // Transform to Python debugger config with emulator mock
-          const runnerPath = require("path").join(
+          const runnerPath = path.join(
             context.extensionPath,
             "emulator",
             "mock",
-            "runner.py"
+            "runner.py",
           );
 
           const emulatorConfig = vscode.workspace.getConfiguration(
-            "picoBridge.emulator"
+            "picoBridge.emulator",
           );
           const pythonExecutable = emulatorConfig.get<string>(
             "pythonExecutable",
-            "python3"
+            "python3",
           );
 
           return {
@@ -122,16 +125,14 @@ export async function activate(
             args: [config.program],
             console: "integratedTerminal",
             justMyCode: false,
-            cwd: config.program
-              ? require("path").dirname(config.program)
-              : undefined,
+            cwd: config.program ? path.dirname(config.program) : undefined,
             python: pythonExecutable,
             env: {
               MICROPYTHON_MOCK: "1",
             },
           };
         },
-      }
+      },
     );
     context.subscriptions.push(debugProvider);
 
@@ -141,19 +142,12 @@ export async function activate(
         "micropython-emulator",
         {
           provideDebugConfigurations(
-            _folder: vscode.WorkspaceFolder | undefined
+            _folder: vscode.WorkspaceFolder | undefined,
           ): vscode.ProviderResult<vscode.DebugConfiguration[]> {
-            return [
-              {
-                name: "MicroPython (Emulator)",
-                type: "micropython-emulator",
-                request: "launch",
-                program: "${file}",
-              },
-            ];
+            return [{ ...DEFAULT_DEBUG_CONFIG }];
           },
         },
-        vscode.DebugConfigurationProviderTriggerKind.Initial
+        vscode.DebugConfigurationProviderTriggerKind.Initial,
       );
     context.subscriptions.push(initialDebugProvider);
 
@@ -163,19 +157,12 @@ export async function activate(
         "micropython-emulator",
         {
           provideDebugConfigurations(
-            _folder: vscode.WorkspaceFolder | undefined
+            _folder: vscode.WorkspaceFolder | undefined,
           ): vscode.ProviderResult<vscode.DebugConfiguration[]> {
-            return [
-              {
-                name: "MicroPython (Emulator)",
-                type: "micropython-emulator",
-                request: "launch",
-                program: "${file}",
-              },
-            ];
+            return [{ ...DEFAULT_DEBUG_CONFIG }];
           },
         },
-        vscode.DebugConfigurationProviderTriggerKind.Dynamic
+        vscode.DebugConfigurationProviderTriggerKind.Dynamic,
       );
     context.subscriptions.push(dynamicDebugProvider);
 
@@ -188,7 +175,7 @@ export async function activate(
     context.subscriptions.push(workspaceFilesProvider);
     vscode.window.registerTreeDataProvider(
       "picoBridge.workspaceFiles",
-      workspaceFilesProvider
+      workspaceFilesProvider,
     );
 
     // Register bridge tools provider
@@ -196,7 +183,7 @@ export async function activate(
     context.subscriptions.push(bridgeToolsProvider);
     vscode.window.registerTreeDataProvider(
       "picoBridge.deviceExplorer",
-      bridgeToolsProvider
+      bridgeToolsProvider,
     );
 
     // Register refresh command for workspace files
@@ -205,15 +192,15 @@ export async function activate(
         "picoBridge.refreshWorkspaceFiles",
         () => {
           workspaceFilesProvider.refresh();
-        }
-      )
+        },
+      ),
     );
 
     // Set initial context values
     await vscode.commands.executeCommand(
       "setContext",
       "picoBridge.serverRunning",
-      false
+      false,
     );
 
     // Check if we should auto-start (using correct config key: server.autoStart)
@@ -232,7 +219,7 @@ export async function activate(
         } catch (error) {
           logger?.error(
             "Auto-start failed: " +
-              (error instanceof Error ? error.message : String(error))
+              (error instanceof Error ? error.message : String(error)),
           );
         }
       }, 2000);
@@ -248,14 +235,14 @@ export async function activate(
     // Show welcome message on first activation
     const hasShownWelcome = context.globalState.get<boolean>(
       "hasShownWelcome",
-      false
+      false,
     );
     if (!hasShownWelcome) {
       const selection = await vscode.window.showInformationMessage(
         "Welcome to Pico Bridge! This extension enables MicroPython development for Raspberry Pi Pico and ESP32.",
         "Start Server",
         "Open Walkthrough",
-        "Dismiss"
+        "Dismiss",
       );
 
       if (selection === "Start Server") {
@@ -264,7 +251,7 @@ export async function activate(
         // Use correct walkthrough ID from package.json
         await vscode.commands.executeCommand(
           "workbench.action.openWalkthrough",
-          "benpaddlejones.pico-bridge#picoBridge.gettingStarted"
+          "benpaddlejones.pico-bridge#picoBridge.gettingStarted",
         );
       }
 
@@ -274,7 +261,7 @@ export async function activate(
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger?.error(`Failed to activate extension: ${errorMessage}`);
     vscode.window.showErrorMessage(
-      `Pico Bridge failed to activate: ${errorMessage}`
+      `Pico Bridge failed to activate: ${errorMessage}`,
     );
     throw error;
   }
@@ -286,7 +273,7 @@ export async function activate(
  */
 async function ensureLaunchJson(
   context: vscode.ExtensionContext,
-  logger: Logger
+  logger: Logger,
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -295,9 +282,8 @@ async function ensureLaunchJson(
   }
 
   const workspaceRoot = workspaceFolders[0].uri.fsPath;
-  const vscodeDir = require("path").join(workspaceRoot, ".vscode");
-  const launchJsonPath = require("path").join(vscodeDir, "launch.json");
-  const fs = require("fs");
+  const vscodeDir = path.join(workspaceRoot, ".vscode");
+  const launchJsonPath = path.join(vscodeDir, "launch.json");
 
   // Check if launch.json already exists
   if (fs.existsSync(launchJsonPath)) {
@@ -314,18 +300,58 @@ async function ensureLaunchJson(
         return;
       }
 
-      // Parse existing launch.json and add our config
-      // Remove comments for JSON parsing (simple approach)
-      const jsonContent = content
-        .replace(/\/\/.*$/gm, "")
-        .replace(/\/\*[\s\S]*?\*\//g, "");
+      // Parse existing launch.json (JSONC format — may contain comments)
+      // Use a state-aware approach to strip comments only outside strings
+      let jsonContent = "";
+      let inString = false;
+      let escape = false;
+      for (let i = 0; i < content.length; i++) {
+        const ch = content[i];
+        if (escape) {
+          jsonContent += ch;
+          escape = false;
+          continue;
+        }
+        if (inString) {
+          if (ch === "\\") {
+            escape = true;
+          } else if (ch === '"') {
+            inString = false;
+          }
+          jsonContent += ch;
+          continue;
+        }
+        // Outside string
+        if (ch === '"') {
+          inString = true;
+          jsonContent += ch;
+        } else if (ch === "/" && content[i + 1] === "/") {
+          // Skip single-line comment
+          while (i < content.length && content[i] !== "\n") {
+            i++;
+          }
+          jsonContent += "\n";
+        } else if (ch === "/" && content[i + 1] === "*") {
+          // Skip block comment
+          i += 2;
+          while (
+            i < content.length - 1 &&
+            !(content[i] === "*" && content[i + 1] === "/")
+          ) {
+            i++;
+          }
+          i++; // skip closing '/'
+        } else {
+          jsonContent += ch;
+        }
+      }
       const launchConfig = JSON.parse(jsonContent);
 
-      const runnerPath = require("path").join(
+      const runnerPath = path.join(
         context.extensionPath,
         "emulator",
         "mock",
-        "runner.py"
+        "runner.py",
       );
 
       const micropythonConfig = {
@@ -347,12 +373,12 @@ async function ensureLaunchJson(
 
       fs.writeFileSync(launchJsonPath, JSON.stringify(launchConfig, null, 4));
       logger.info(
-        "Added MicroPython debug configuration to existing launch.json"
+        "Added MicroPython debug configuration to existing launch.json",
       );
     } catch (error) {
       logger.warn(
         "Could not modify existing launch.json: " +
-          (error instanceof Error ? error.message : String(error))
+          (error instanceof Error ? error.message : String(error)),
       );
     }
     return;
@@ -364,11 +390,11 @@ async function ensureLaunchJson(
   }
 
   // Create launch.json with our debug configuration
-  const runnerPath = require("path").join(
+  const runnerPath = path.join(
     context.extensionPath,
     "emulator",
     "mock",
-    "runner.py"
+    "runner.py",
   );
 
   const launchConfig = {
@@ -399,7 +425,7 @@ async function ensureLaunchJson(
 
   fs.writeFileSync(launchJsonPath, JSON.stringify(launchConfig, null, 4));
   logger.info(
-    "Created .vscode/launch.json with MicroPython debug configuration"
+    "Created .vscode/launch.json with MicroPython debug configuration",
   );
 }
 
@@ -419,7 +445,7 @@ export async function deactivate(): Promise<void> {
     // Log but don't throw during deactivation
     logger?.error(
       "Error stopping server during deactivation: " +
-        (error instanceof Error ? error.message : String(error))
+        (error instanceof Error ? error.message : String(error)),
     );
   }
 

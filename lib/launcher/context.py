@@ -22,8 +22,9 @@ def get_error_location(error, traceback_module):
     tb_filename, tb_line = traceback_module.get_traceback_location(error)
     arg_filename, arg_line = traceback_module.parse_location_from_args(error)
 
+    # Use consistent precedence: prefer args, fall back to traceback
     filename = arg_filename or tb_filename or get_script_path()
-    line_no = tb_line or arg_line
+    line_no = arg_line or tb_line
 
     return filename, line_no
 
@@ -119,7 +120,16 @@ def _print_syntax_error_context(
     syntax_column,
     syntax_source,
 ):
-    """Print context for syntax errors with source line available."""
+    """Print context for syntax errors when the source line is in the exception.
+
+    Args:
+        resolved_filename: Filename resolved from earlier lookup.
+        syntax_filename: Filename extracted from SyntaxError args.
+        line_no: Line number from the error location.
+        syntax_line: Line number from SyntaxError details.
+        syntax_column: Column offset (1-based) for the caret indicator.
+        syntax_source: The offending source line text.
+    """
     target_filename = resolved_filename or syntax_filename or "dynamic source"
     target_line = line_no or syntax_line or "?"
     line_label_value = syntax_line or line_no
@@ -139,7 +149,21 @@ def _print_syntax_error_context(
 
 
 def _try_trace_frames_fallback(trace_frames, resolved_filename, line_no):
-    """Try to find source from trace frames as fallback."""
+    """Try to find readable source from traceback frames as a fallback.
+
+    Iterates traceback frames in reverse, attempting to load source
+    from an alternate file when the primary file could not be opened.
+
+    Args:
+        trace_frames: List of (filename, line_number) tuples.
+        resolved_filename: Primary filename that could not be opened.
+        line_no: Current best-known line number.
+
+    Returns:
+        tuple: (lines, resolved_path, line_no, fallback_display) where
+            lines is a list of source lines or None, and fallback_display
+            is True if an alternate source was used.
+    """
     for idx in range(len(trace_frames) - 1, -1, -1):
         alt_filename, alt_line = trace_frames[idx]
 
@@ -169,7 +193,18 @@ def _try_trace_frames_fallback(trace_frames, resolved_filename, line_no):
 
 
 def _display_context(lines, resolved_path, resolved_filename, line_no, context_radius):
-    """Display the actual code context."""
+    """Display the code context around the error line.
+
+    Prints a window of source lines centered on line_no with >> markers
+    on the error line.
+
+    Args:
+        lines: List of source line strings.
+        resolved_path: Path that was actually opened.
+        resolved_filename: Original filename from the error.
+        line_no: 1-based line number of the error.
+        context_radius: Number of lines to show above and below the error line.
+    """
     path_to_show = resolved_path or resolved_filename or get_script_path()
     total_lines = len(lines)
 

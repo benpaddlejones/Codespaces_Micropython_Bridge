@@ -22,17 +22,39 @@ class NeoPixel:
         self.bpp = bpp
         self.timing = timing
         self._pixels = [(0, 0, 0) if bpp == 3 else (0, 0, 0, 0) for _ in range(n)]
-        state.emit_event("neopixel_init", {"pin": str(pin), "n": n, "bpp": bpp})
+        state.emit_event("neopixel_init", {"pin": pin._id, "n": n, "bpp": bpp})
     
     def __len__(self) -> int:
+        """Return the number of LEDs in the strip."""
         return self.n
     
     def __getitem__(self, index: int):
+        """Get the color tuple of the LED at the given index.
+
+        Args:
+            index: LED index (0-based).
+
+        Returns:
+            tuple: RGB or RGBW color tuple.
+
+        Raises:
+            IndexError: If index is out of range.
+        """
         if 0 <= index < self.n:
             return self._pixels[index]
         raise IndexError("NeoPixel index out of range")
     
     def __setitem__(self, index: int, value: tuple):
+        """Set the color of the LED at the given index.
+
+        Args:
+            index: LED index (0-based).
+            value: RGB or RGBW color tuple.
+
+        Raises:
+            IndexError: If index is out of range.
+            ValueError: If tuple size doesn't match bpp.
+        """
         if 0 <= index < self.n:
             # Validate tuple size
             if len(value) != self.bpp:
@@ -42,7 +64,14 @@ class NeoPixel:
             raise IndexError("NeoPixel index out of range")
     
     def fill(self, color: tuple):
-        """Fill all pixels with the same color."""
+        """Fill all pixels with the same color.
+
+        Args:
+            color: RGB or RGBW color tuple.
+
+        Raises:
+            ValueError: If tuple size doesn't match bpp.
+        """
         if len(color) != self.bpp:
             raise ValueError(f"Expected {self.bpp} values, got {len(color)}")
         for i in range(self.n):
@@ -52,6 +81,6 @@ class NeoPixel:
         """Write pixel data to the strip."""
         # Emit state change for visualization
         state.emit_event("neopixel_write", {
-            "pin": str(self.pin),
+            "pin": self.pin._id,
             "pixels": [list(p) for p in self._pixels]
         })

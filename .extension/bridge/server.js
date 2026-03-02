@@ -108,7 +108,7 @@ app.get(
         recent: errorHandler.getRecentErrors(10),
       },
     });
-  })
+  }),
 );
 
 app.get(
@@ -118,7 +118,7 @@ app.get(
     res.json({
       errors: errorHandler.getRecentErrors(count),
     });
-  })
+  }),
 );
 
 app.post(
@@ -126,7 +126,7 @@ app.post(
   errorHandler.safeRoute((req, res) => {
     errorHandler.clearErrors();
     res.json({ success: true, message: "Error log cleared" });
-  })
+  }),
 );
 
 app.get(
@@ -138,7 +138,7 @@ app.get(
       history: healthMonitor.getHistory(history),
       healthy: healthMonitor.isHealthy(),
     });
-  })
+  }),
 );
 
 // Error handling middleware (must be after routes)
@@ -188,7 +188,7 @@ io.on("connection", (socket) => {
     errorHandler.safeSocketHandler((data) => {
       processGuard.recordActivity();
       ptyBridge.write(data);
-    }, "serial-data")
+    }, "serial-data"),
   );
 
   // Data from PTY (mpremote in Codespace) -> Browser -> Pico
@@ -284,12 +284,12 @@ async function initializePtyWithRecovery(retryCount = 0) {
       console.log(
         `[server] PTY init failed, retrying in ${RETRY_DELAY}ms (${
           retryCount + 1
-        }/${MAX_RETRIES})`
+        }/${MAX_RETRIES})`,
       );
       setTimeout(() => initializePtyWithRecovery(retryCount + 1), RETRY_DELAY);
     } else {
       console.log(
-        "[server] PTY bridge failed after retries - running without PTY forwarding"
+        "[server] PTY bridge failed after retries - running without PTY forwarding",
       );
       ptyInitialized = false;
     }
@@ -368,7 +368,7 @@ async function startServer() {
     serverReady = true;
     console.log(`[server] ✅ Bridge server running on port ${actualPort}`);
     console.log(
-      `[server] Open the 'Ports' tab in VS Code to access the web interface.`
+      `[server] Open the 'Ports' tab in VS Code to access the web interface.`,
     );
 
     // Initialize PTY bridge with recovery
@@ -391,15 +391,27 @@ async function startServer() {
   });
 
   // Handle server errors
+  let serverRetryCount = 0;
+  const MAX_SERVER_RETRIES = 3;
+
   server.on("error", (err) => {
     errorHandler.logError("SERVER_ERROR", err);
 
     if (err.code === "EADDRINUSE") {
-      console.log(`[server] Port ${actualPort} in use - will retry...`);
-      setTimeout(() => {
-        server.close();
-        startServer();
-      }, 5000);
+      serverRetryCount++;
+      if (serverRetryCount <= MAX_SERVER_RETRIES) {
+        console.log(
+          `[server] Port ${actualPort} in use - retry ${serverRetryCount}/${MAX_SERVER_RETRIES}...`,
+        );
+        setTimeout(() => {
+          server.close();
+          startServer();
+        }, 5000);
+      } else {
+        console.error(
+          `[server] Port ${actualPort} still in use after ${MAX_SERVER_RETRIES} retries - giving up`,
+        );
+      }
     }
   });
 }

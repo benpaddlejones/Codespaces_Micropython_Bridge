@@ -12,7 +12,11 @@ LAUNCHER_FILENAME = None
 
 
 def set_launcher_filename(filename):
-    """Set the launcher filename for filtering."""
+    """Set the launcher filename so its frames are filtered from tracebacks.
+
+    Args:
+        filename: Absolute path to the launcher script (e.g., "/main.py").
+    """
     global LAUNCHER_FILENAME
     LAUNCHER_FILENAME = filename
 
@@ -106,7 +110,14 @@ def get_syntax_error_details(error):
 
 
 def capture_trace_text(error):
-    """Capture the traceback as a string."""
+    """Capture the full traceback of an exception as a string.
+
+    Args:
+        error: The exception whose traceback to capture.
+
+    Returns:
+        str: The formatted traceback text.
+    """
     buf = uio.StringIO()
     try:
         sys.print_exception(error, buf)

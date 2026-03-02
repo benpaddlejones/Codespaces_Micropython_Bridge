@@ -1,5 +1,7 @@
 """Mock network module for MicroPython emulation."""
 
+from typing import Optional
+
 import state
 
 # Network modes
@@ -18,6 +20,11 @@ class WLAN:
     """Mock WLAN interface."""
     
     def __init__(self, interface_id: int):
+        """Create a WLAN interface object.
+
+        Args:
+            interface_id: network.STA_IF (station) or network.AP_IF (access point).
+        """
         self.interface_id = interface_id
         self._active = False
         self._connected = False
@@ -28,14 +35,14 @@ class WLAN:
         self._dns = "8.8.8.8"
         state.emit_event("wlan_init", {"interface": interface_id})
     
-    def active(self, is_active: bool = None):
+    def active(self, is_active: Optional[bool] = None):
         """Activate or deactivate the network interface."""
         if is_active is not None:
             self._active = is_active
             state.emit_event("wlan_active", {"interface": self.interface_id, "active": is_active})
         return self._active
     
-    def connect(self, ssid: str, password: str = None):
+    def connect(self, ssid: str, password: Optional[str] = None):
         """Connect to a wireless access point."""
         self._ssid = ssid
         self._connected = True
@@ -57,13 +64,13 @@ class WLAN:
         """Check if connected to a wireless access point."""
         return self._connected
     
-    def status(self, param: str = None):
+    def status(self, param: Optional[str] = None):
         """Get the status of the wireless interface."""
         if param == "rssi":
             return -50  # Mock signal strength
         return STAT_GOT_IP if self._connected else STAT_IDLE
     
-    def ifconfig(self, config: tuple = None):
+    def ifconfig(self, config: Optional[tuple] = None):
         """Get or set IP-level network interface parameters."""
         if config is not None:
             self._ip, self._subnet, self._gateway, self._dns = config
@@ -93,30 +100,41 @@ class LAN:
     """Mock LAN interface (Ethernet)."""
     
     def __init__(self, *args, **kwargs):
+        """Create a mock LAN (Ethernet) interface."""
         self._active = False
         self._connected = False
         state.emit_event("lan_init", {})
     
-    def active(self, is_active: bool = None):
+    def active(self, is_active: Optional[bool] = None):
+        """Activate or deactivate the LAN interface."""
         if is_active is not None:
             self._active = is_active
         return self._active
     
     def isconnected(self) -> bool:
+        """Return True if the LAN interface is connected."""
         return self._connected
     
-    def ifconfig(self, config: tuple = None):
+    def ifconfig(self, config: Optional[tuple] = None):
+        """Get or set the IP-level network configuration.
+
+        Args:
+            config: Optional (ip, subnet, gateway, dns) tuple to set.
+
+        Returns:
+            tuple: Current (ip, subnet, gateway, dns) configuration.
+        """
         if config:
             return None
         return ("0.0.0.0", "0.0.0.0", "0.0.0.0", "0.0.0.0")
 
 
 # Helper functions
-def hostname(name: str = None) -> str:
+def hostname(name: Optional[str] = None) -> str:
     """Get or set the network hostname."""
     return "micropython" if name is None else name
 
 
-def country(code: str = None) -> str:
+def country(code: Optional[str] = None) -> str:
     """Get or set the two-letter country code."""
     return "US" if code is None else code
