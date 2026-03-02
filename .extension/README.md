@@ -1,6 +1,6 @@
 # Pi Pico to Codespaces Bridge
 
-[![Version](https://img.shields.io/badge/Version-2.1.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.1.3-green)](CHANGELOG.md)
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/items?itemName=pico-bridge.pico-bridge)
 [![MicroPython](https://img.shields.io/badge/MicroPython-1.20%2B-00b2a9?logo=python&logoColor=white)](https://micropython.org/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Pico%20Ready-c51a4a?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/documentation/microcontrollers/)
@@ -15,19 +15,33 @@ Code entirely in the cloud and push updates to your Pi Pico in real time. This b
 
 - **Cloud-to-Device Bridge**: Connect your local microcontroller to cloud-based development environments
 - **Web Serial Integration**: Uses the browser's Web Serial API for device communication
-- **REPL Terminal**: Interactive Python shell for real-time debugging
-- **File Management**: Upload, download, and manage files on your device
+- **[REPL Terminal](#repl-terminal)**: Interactive Python shell for real-time debugging
+- **[File Management](#file-upload)**: Upload, download, and manage files on your device
 - **Code Execution**: Run Python scripts directly on your microcontroller
 - **Project Sync**: Synchronize entire project folders to the device
 - **Data Plotter**: Visualize sensor data in real-time
 
 ### v2.0.0 New Features
 
-- **🎮 MicroPython Emulator**: Test code without hardware using simulated hardware APIs
+- **[🎮 MicroPython Emulator](#micropython-emulator)**: Test code without hardware using simulated hardware APIs
 - **🐛 Debugpy Integration**: Full VS Code debugging with breakpoints and variable inspection
 - **📝 Pylance IntelliSense**: Auto-configured type stubs for MicroPython modules
 - **📦 Sample Scripts**: Board-specific demo scripts for Pico, Pico W, and ESP32
 - **🔧 API Commands**: External tool integration for custom workflows
+
+## 🎬 Demos
+
+### MicroPython Emulator
+
+![MicroPython Emulator demo](media/emulator.gif)
+
+### REPL Terminal
+
+![REPL Terminal demo](media/terminal.gif)
+
+### File Upload
+
+![File Upload demo](media/upload.gif)
 
 ## 📋 Requirements
 

@@ -5,6 +5,14 @@ All notable changes to the Pi Pico to Codespaces Bridge extension will be docume
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.3] - 2026-03-02
+
+### Added
+
+- **Demo GIFs** - Moved `emulator.gif`, `terminal.gif`, and `upload.gif` into the extension package under `media/`
+- **Demos section** - Added `## 🎬 Demos` section to README showcasing the emulator, terminal, and upload workflows
+- **README internal links** - Feature bullets for MicroPython Emulator, REPL Terminal, and File Management now link directly to their demo subsections
+
 ## [2.1.0] - 2026-03-02
 
 ### Fixed
