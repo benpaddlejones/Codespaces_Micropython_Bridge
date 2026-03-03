@@ -33,15 +33,15 @@ Code entirely in the cloud and push updates to your Pi Pico in real time. This b
 
 ### MicroPython Emulator
 
-![MicroPython Emulator demo](media/emulator.gif)
+![MicroPython Emulator demo](https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/raw/HEAD/.extension/media/emulator.gif)
 
 ### REPL Terminal
 
-![REPL Terminal demo](media/terminal.gif)
+![REPL Terminal demo](https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/raw/HEAD/.extension/media/terminal.gif)
 
 ### File Upload
 
-![File Upload demo](media/upload.gif)
+![File Upload demo](https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/raw/HEAD/.extension/media/upload.gif)
 
 ## 📋 Requirements
 
