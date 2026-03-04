@@ -21,17 +21,22 @@ const execAsync = promisify(exec);
 
 /**
  * Kill any processes running on the specified ports.
- * This ensures the bridge server can start cleanly.
+ *
+ * Runs `lsof` to discover PIDs bound to each port and sends `SIGKILL`
+ * to free them. Waits briefly after killing to let the OS release the port.
+ *
+ * @param ports - Array of port numbers to clear
+ * @param logger - Logger instance for status messages
  */
 async function killProcessesOnPorts(
   ports: number[],
-  logger: Logger
+  logger: Logger,
 ): Promise<void> {
   for (const port of ports) {
     try {
       // Find PIDs using the port
       const { stdout } = await execAsync(
-        `lsof -ti :${port} 2>/dev/null || true`
+        `lsof -ti :${port} 2>/dev/null || true`,
       );
       const pids = stdout.trim().split("\n").filter(Boolean);
 
@@ -54,6 +59,21 @@ async function killProcessesOnPorts(
   }
 }
 
+/**
+ * Manages the Pico Bridge server lifecycle.
+ *
+ * The bridge server is a Node.js child process that serves the web
+ * interface for serial communication with MicroPython devices.
+ * It must run in an external browser (not a webview) because the
+ * Web Serial API is not available inside VS Code webviews.
+ *
+ * Responsibilities:
+ * - Starting and stopping the bridge server process
+ * - Port conflict resolution
+ * - Status bar updates
+ * - Opening the bridge UI in an external browser
+ * - Health-check polling during startup
+ */
 export class BridgeServer implements vscode.Disposable {
   private serverProcess: ChildProcess | undefined;
   private _isRunning: boolean = false;
@@ -69,6 +89,15 @@ export class BridgeServer implements vscode.Disposable {
   private readonly _onStatusChange = new vscode.EventEmitter<ServerStatus>();
   public readonly onStatusChange = this._onStatusChange.event;
 
+  /**
+   * Create a new BridgeServer instance.
+   *
+   * Initialises the status bar item and reads the configured server port.
+   * Does **not** start the server — call `start()` explicitly.
+   *
+   * @param context - Extension context used for subscriptions and asset paths
+   * @param logger - Logger instance for server lifecycle messages
+   */
   constructor(context: vscode.ExtensionContext, logger: Logger) {
     this.logger = logger;
     this._port = getConfig().server.port;
@@ -78,16 +107,14 @@ export class BridgeServer implements vscode.Disposable {
     this.statusBarItem = vscode.window.createStatusBarItem(
       "picoBridge.status",
       vscode.StatusBarAlignment.Left,
-      100
+      100,
     );
     this.updateStatusBar();
     this.statusBarItem.show();
     context.subscriptions.push(this.statusBarItem);
   }
 
-  /**
-   * Get current server status
-   */
+  /** Get the current server status snapshot. */
   get status(): ServerStatus {
     return {
       running: this._isRunning,
@@ -97,22 +124,24 @@ export class BridgeServer implements vscode.Disposable {
     };
   }
 
-  /**
-   * Check if server is running
-   */
+  /** Whether the bridge server process is currently running. */
   get isRunning(): boolean {
     return this._isRunning;
   }
 
-  /**
-   * Get the server port
-   */
+  /** The port number the server is configured to listen on. */
   get port(): number {
     return this._port;
   }
 
   /**
-   * Start the bridge server
+   * Start the bridge server.
+   *
+   * Kills any existing processes on the configured port, spawns the
+   * server as a child process, waits for the health endpoint to respond,
+   * and sets up port forwarding for Codespaces/Remote environments.
+   *
+   * @throws Error if no workspace folder is open or the server fails to start
    */
   async start(): Promise<void> {
     if (this.disposed) {
@@ -128,7 +157,7 @@ export class BridgeServer implements vscode.Disposable {
     if (this._isStopping) {
       this.logger.warn("Bridge server is currently stopping, please wait");
       vscode.window.showWarningMessage(
-        "Pico Bridge server is stopping, please wait..."
+        "Pico Bridge server is stopping, please wait...",
       );
       return;
     }
@@ -139,7 +168,7 @@ export class BridgeServer implements vscode.Disposable {
 
       // Kill any existing processes on ports 3000 and 3001
       this.logger.info(
-        "Killing any existing processes on ports 3000 and 3001..."
+        "Killing any existing processes on ports 3000 and 3001...",
       );
       await killProcessesOnPorts([3000, 3001], this.logger);
 
@@ -192,7 +221,7 @@ export class BridgeServer implements vscode.Disposable {
       // Handle process exit
       this.serverProcess.on("exit", (code, signal) => {
         this.logger.info(
-          `Server process exited with code ${code}, signal ${signal}`
+          `Server process exited with code ${code}, signal ${signal}`,
         );
         this._isRunning = false;
         this._startTime = undefined;
@@ -219,7 +248,7 @@ export class BridgeServer implements vscode.Disposable {
       this._onStatusChange.fire(this.status);
 
       this.logger.info(
-        `Bridge server started successfully on port ${this._port}`
+        `Bridge server started successfully on port ${this._port}`,
       );
 
       // Ensure port is forwarded in Codespaces/Remote environments
@@ -228,7 +257,7 @@ export class BridgeServer implements vscode.Disposable {
         const localUri = vscode.Uri.parse(`http://localhost:${this._port}`);
         const externalUri = await vscode.env.asExternalUri(localUri);
         this.logger.info(
-          `Port ${this._port} forwarded to: ${externalUri.toString()}`
+          `Port ${this._port} forwarded to: ${externalUri.toString()}`,
         );
       } catch (error) {
         this.logger.warn(`Could not set up port forwarding: ${error}`);
@@ -237,7 +266,7 @@ export class BridgeServer implements vscode.Disposable {
       // Show notification with option to open browser
       const selection = await vscode.window.showInformationMessage(
         `Pico Bridge started on port ${this._port}`,
-        "Open in Browser"
+        "Open in Browser",
       );
 
       if (selection === "Open in Browser") {
@@ -250,14 +279,17 @@ export class BridgeServer implements vscode.Disposable {
         error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to start bridge server: ${errorMessage}`);
       vscode.window.showErrorMessage(
-        `Failed to start Pico Bridge: ${errorMessage}`
+        `Failed to start Pico Bridge: ${errorMessage}`,
       );
       throw error;
     }
   }
 
   /**
-   * Stop the bridge server
+   * Stop the bridge server.
+   *
+   * Sends `SIGTERM` and waits up to 5 seconds for a graceful shutdown
+   * before force-killing the process with `SIGKILL`.
    */
   async stop(): Promise<void> {
     if (!this._isRunning || !this.serverProcess) {
@@ -311,7 +343,7 @@ export class BridgeServer implements vscode.Disposable {
         error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to stop bridge server: ${errorMessage}`);
       vscode.window.showErrorMessage(
-        `Failed to stop Pico Bridge: ${errorMessage}`
+        `Failed to stop Pico Bridge: ${errorMessage}`,
       );
     } finally {
       this._isStopping = false;
@@ -319,13 +351,19 @@ export class BridgeServer implements vscode.Disposable {
   }
 
   /**
-   * Open the bridge interface in external browser
-   * CRITICAL: Must use openExternal, NOT webview, for Web Serial API
+   * Open the bridge interface in an external browser.
+   *
+   * Uses `vscode.env.asExternalUri` for proper port forwarding in
+   * Codespaces and Remote SSH environments, then opens the resulting
+   * URL via `vscode.env.openExternal`.
+   *
+   * CRITICAL: Must use `openExternal`, NOT a webview, because the
+   * Web Serial API is only available in a real browser context.
    */
   async openInBrowser(): Promise<void> {
     if (!this._isRunning) {
       vscode.window.showWarningMessage(
-        "Bridge server is not running. Start it first."
+        "Bridge server is not running. Start it first.",
       );
       return;
     }
@@ -348,7 +386,7 @@ export class BridgeServer implements vscode.Disposable {
         this.logger.warn("Failed to open browser");
         vscode.window.showWarningMessage(
           "Could not open browser. Please manually navigate to: " +
-            externalUri.toString()
+            externalUri.toString(),
         );
       }
     } catch (error) {
@@ -360,7 +398,13 @@ export class BridgeServer implements vscode.Disposable {
   }
 
   /**
-   * Wait for the server to be ready by checking the health endpoint
+   * Wait for the server to become ready by polling the health endpoint.
+   *
+   * Sends HTTP GET requests to `/api/health` at regular intervals until
+   * a 200 response is received or the timeout is exceeded.
+   *
+   * @param timeout - Maximum time to wait in milliseconds (default: 10 000)
+   * @throws Error if the server does not respond within the timeout
    */
   private async waitForServer(timeout: number = 10000): Promise<void> {
     const startTime = Date.now();
@@ -388,7 +432,7 @@ export class BridgeServer implements vscode.Disposable {
             } else {
               setTimeout(check, checkInterval);
             }
-          }
+          },
         );
 
         req.on("error", () => {
@@ -410,7 +454,11 @@ export class BridgeServer implements vscode.Disposable {
   }
 
   /**
-   * Update the status bar item
+   * Update the status bar item to reflect the current server state.
+   *
+   * @param state - Optional override: `'starting'` shows a spinner,
+   *                `'error'` shows an error icon. When omitted the
+   *                status is derived from `_isRunning`.
    */
   private updateStatusBar(state?: "starting" | "error"): void {
     if (state === "starting") {
@@ -424,7 +472,7 @@ export class BridgeServer implements vscode.Disposable {
         "Pico Bridge encountered an error. Click to retry.";
       this.statusBarItem.command = "picoBridge.startServer";
       this.statusBarItem.backgroundColor = new vscode.ThemeColor(
-        "statusBarItem.errorBackground"
+        "statusBarItem.errorBackground",
       );
     } else if (this._isRunning) {
       this.statusBarItem.text = `$(broadcast) Pico Bridge: Port ${this._port}`;
@@ -440,19 +488,23 @@ export class BridgeServer implements vscode.Disposable {
   }
 
   /**
-   * Update VS Code context for when clauses
+   * Synchronise VS Code context keys (`picoBridge.serverRunning`, `picoBridge.port`)
+   * so that `when`-clause expressions in `package.json` can react to server state.
    */
   private updateContext(): void {
     vscode.commands.executeCommand(
       "setContext",
       "picoBridge.serverRunning",
-      this._isRunning
+      this._isRunning,
     );
     vscode.commands.executeCommand("setContext", "picoBridge.port", this._port);
   }
 
   /**
-   * Dispose resources
+   * Dispose all resources owned by this instance.
+   *
+   * Force-kills the server process if it is still running and
+   * disposes the status-change event emitter.
    */
   dispose(): void {
     if (this.disposed) {

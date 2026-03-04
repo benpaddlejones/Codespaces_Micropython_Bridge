@@ -22,10 +22,18 @@ _TICKS_HALFPERIOD = _TICKS_PERIOD // 2
 
 
 def sleep(seconds: float) -> None:
+    """Sleep for the given number of seconds.
+
+    Fractional values are accepted for sub-second delays.
+    """
     _time.sleep(seconds)
 
 
 def sleep_ms(milliseconds: int) -> None:
+    """Sleep for the given number of milliseconds.
+
+    Negative or zero values are ignored (no sleep occurs).
+    """
     if milliseconds > 0:
         _time.sleep(milliseconds / 1000.0)
 

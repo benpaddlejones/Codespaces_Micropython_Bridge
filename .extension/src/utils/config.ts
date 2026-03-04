@@ -7,7 +7,12 @@ import * as vscode from "vscode";
 import { PicoBridgeConfig } from "../types";
 
 /**
- * Get the current extension configuration
+ * Get the current extension configuration.
+ *
+ * Reads all `picoBridge.*` settings from the VS Code workspace configuration
+ * and returns them as a typed `PicoBridgeConfig` object with defaults applied.
+ *
+ * @returns The current extension configuration
  */
 export function getConfig(): PicoBridgeConfig {
   const config = vscode.workspace.getConfiguration("picoBridge");
@@ -45,7 +50,11 @@ export function getConfig(): PicoBridgeConfig {
 }
 
 /**
- * Update a configuration value
+ * Update a single `picoBridge.*` configuration value.
+ *
+ * @param key - The configuration key relative to the `picoBridge` namespace (e.g. `"server.port"`)
+ * @param value - The new value to set
+ * @param global - When `true`, writes to global user settings; otherwise writes to workspace settings
  */
 export async function updateConfig<T>(
   key: string,
@@ -63,7 +72,10 @@ export async function updateConfig<T>(
 }
 
 /**
- * Listen for configuration changes
+ * Register a listener that fires whenever any `picoBridge.*` setting changes.
+ *
+ * @param callback - Called with the `ConfigurationChangeEvent` whenever a picoBridge setting is modified
+ * @returns A `Disposable` that unregisters the listener when disposed
  */
 export function onConfigChange(
   callback: (e: vscode.ConfigurationChangeEvent) => void

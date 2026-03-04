@@ -7,11 +7,23 @@ import { EmulatorWebview } from "./webviewProvider";
 // Re-export Pylance configuration functions
 export { configurePylanceForMock, removePylanceConfig } from "./pylanceConfig";
 
+/**
+ * Message received from the emulator webview panel.
+ *
+ * Used to communicate user interactions (play, stop, board change)
+ * and bidirectional hardware simulation data (I2C, ADC) between
+ * the webview and the extension host.
+ */
 interface PanelMessage {
+  /** The message type (e.g. 'play', 'stop', 'board_change', 'adc_set_value') */
   type: string;
+  /** The board identifier, used with 'board_change' messages */
   board?: string;
+  /** Raw data bytes, used with I2C read/write messages */
   data?: number[];
+  /** Pin identifier, used with ADC messages */
   pin?: string;
+  /** Numeric value, used with ADC override messages */
   value?: number;
 }
 
@@ -43,13 +55,23 @@ export class EmulatorManager {
    */
   constructor(
     private readonly context: vscode.ExtensionContext,
-    private readonly logger: Logger
+    private readonly logger: Logger,
   ) {
     this.webview = new EmulatorWebview(context, logger, (message) => {
       this.handlePanelMessage(message as PanelMessage);
     });
   }
 
+  /**
+   * Register all emulator-related VS Code commands with the extension context.
+   *
+   * Commands registered:
+   * - `picoBridge.openEmulator` — Open the hardware visualizer webview
+   * - `picoBridge.runActiveFileInEmulator` — Run the active/selected Python file
+   * - `picoBridge.getMockRunnerPath` — Return path to `runner.py` (for external tools)
+   * - `picoBridge.getMockPath` — Return path to mock modules directory
+   * - `picoBridge.getSelectedBoard` — Return the currently selected board type
+   */
   public registerCommands(): void {
     const openDisposable = vscode.commands.registerCommand(
       "picoBridge.openEmulator",
@@ -57,7 +79,7 @@ export class EmulatorManager {
         this.logger.info("Command: openEmulator");
         this.webview.show();
         this.webview.postMessage({ type: "reset" });
-      }
+      },
     );
 
     const runDisposable = vscode.commands.registerCommand(
@@ -71,14 +93,14 @@ export class EmulatorManager {
           const editor = vscode.window.activeTextEditor;
           if (!editor || editor.document.languageId !== "python") {
             vscode.window.showWarningMessage(
-              "Open a Python file to run it in the emulator"
+              "Open a Python file to run it in the emulator",
             );
             return;
           }
 
           if (editor.document.isUntitled) {
             vscode.window.showWarningMessage(
-              "Save the Python file before running it in the emulator"
+              "Save the Python file before running it in the emulator",
             );
             return;
           }
@@ -91,7 +113,7 @@ export class EmulatorManager {
 
         if (targetUri.scheme !== "file") {
           vscode.window.showWarningMessage(
-            "Only filesystem-based Python files can run in the emulator"
+            "Only filesystem-based Python files can run in the emulator",
           );
           return;
         }
@@ -99,14 +121,14 @@ export class EmulatorManager {
         const document = await vscode.workspace.openTextDocument(targetUri);
         if (document.languageId !== "python") {
           vscode.window.showWarningMessage(
-            "The selected file is not a Python file"
+            "The selected file is not a Python file",
           );
           return;
         }
 
         if (document.isUntitled) {
           vscode.window.showWarningMessage(
-            "Save the Python file before running it in the emulator"
+            "Save the Python file before running it in the emulator",
           );
           return;
         }
@@ -118,7 +140,7 @@ export class EmulatorManager {
         this.webview.show();
         this.webview.postMessage({ type: "reset" });
         await this.runScript(document.uri);
-      }
+      },
     );
 
     // Command to get the mock runner path (used by external tools/integrations)
@@ -129,9 +151,9 @@ export class EmulatorManager {
           this.context.extensionPath,
           "emulator",
           "mock",
-          "runner.py"
+          "runner.py",
         );
-      }
+      },
     );
 
     // Command to get the mock module path (used by external tools/integrations)
@@ -139,7 +161,7 @@ export class EmulatorManager {
       "picoBridge.getMockPath",
       () => {
         return path.join(this.context.extensionPath, "emulator", "mock");
-      }
+      },
     );
 
     // Command to get the currently selected board type
@@ -147,7 +169,7 @@ export class EmulatorManager {
       "picoBridge.getSelectedBoard",
       () => {
         return this.webview.getCurrentBoard();
-      }
+      },
     );
 
     this.context.subscriptions.push(
@@ -155,14 +177,24 @@ export class EmulatorManager {
       runDisposable,
       getRunnerPathDisposable,
       getMockPathDisposable,
-      getSelectedBoardDisposable
+      getSelectedBoardDisposable,
     );
   }
 
+  /** Stop any running emulator process and release resources. */
   public dispose(): void {
     this.stopProcess();
   }
 
+  /**
+   * Spawn the Python mock runner as a child process for the given script.
+   *
+   * Sets the `MICROPYTHON_MOCK=1` environment variable so mock modules are
+   * activated, wires up stdout/stderr handlers, and connects the process
+   * exit event back to the webview.
+   *
+   * @param uri - Filesystem URI of the `.py` script to run
+   */
   private async runScript(uri: vscode.Uri): Promise<void> {
     this.stopProcess();
 
@@ -174,11 +206,11 @@ export class EmulatorManager {
       this.context.extensionPath,
       "emulator",
       "mock",
-      "runner.py"
+      "runner.py",
     );
 
     this.logger.info(
-      `Starting emulator runner: ${pythonExecutable} ${runnerPath} ${uri.fsPath}`
+      `Starting emulator runner: ${pythonExecutable} ${runnerPath} ${uri.fsPath}`,
     );
 
     const cwd = path.dirname(uri.fsPath);
@@ -232,7 +264,7 @@ export class EmulatorManager {
           } else if (selection === "Open Settings") {
             vscode.commands.executeCommand(
               "workbench.action.openSettings",
-              "picoBridge.emulator"
+              "picoBridge.emulator",
             );
           }
         });
@@ -241,6 +273,16 @@ export class EmulatorManager {
     });
   }
 
+  /**
+   * Process a chunk of stdout from the emulator process.
+   *
+   * Buffers the incoming data, splits on newlines, and for each complete line:
+   * - Lines prefixed with `__EMU__` are parsed as JSON hardware-state events
+   *   and forwarded to the webview.
+   * - All other non-empty lines are logged and forwarded as `log` messages.
+   *
+   * @param chunk - Raw stdout data chunk from the child process
+   */
   private handleStdout(chunk: string): void {
     this.stdoutBuffer += chunk;
 
@@ -258,7 +300,7 @@ export class EmulatorManager {
           this.logger.error(
             `Failed to parse emulator event: ${
               error instanceof Error ? error.message : String(error)
-            }`
+            }`,
           );
         }
       } else if (line) {
@@ -270,6 +312,14 @@ export class EmulatorManager {
     }
   }
 
+  /**
+   * Dispatch a message received from the emulator webview panel.
+   *
+   * Handles control messages (`play`, `restart`, `stop`, `pause`, `resume`,
+   * `reset`, `board_change`) and future bidirectional messages (`i2c_*`, `adc_*`).
+   *
+   * @param message - The message object sent from the webview JS
+   */
   private handlePanelMessage(message: PanelMessage): void {
     if (!message || typeof message !== "object") {
       return;
@@ -280,7 +330,7 @@ export class EmulatorManager {
       case "restart":
         if (this.lastScriptPath) {
           this.logger.info(
-            `Panel requested ${message.type}, replaying: ${this.lastScriptPath}`
+            `Panel requested ${message.type}, replaying: ${this.lastScriptPath}`,
           );
           this.webview.postMessage({ type: "reset" });
           this.runScript(vscode.Uri.file(this.lastScriptPath));
@@ -320,7 +370,7 @@ export class EmulatorManager {
         break;
       case "i2c_read_response":
         this.logger.debug(
-          `I2C read response set: ${message.data?.length} bytes`
+          `I2C read response set: ${message.data?.length} bytes`,
         );
         // Future: Implement stdin communication for bidirectional I2C simulation
         break;
@@ -330,7 +380,7 @@ export class EmulatorManager {
         break;
       case "adc_set_value":
         this.logger.debug(
-          `ADC value set: pin=${message.pin}, value=${message.value}`
+          `ADC value set: pin=${message.pin}, value=${message.value}`,
         );
         // Future: Implement stdin communication for ADC value injection
         break;
@@ -344,6 +394,11 @@ export class EmulatorManager {
     }
   }
 
+  /**
+   * Kill the running emulator child process and reset internal state.
+   *
+   * Safe to call when no process is running (no-op in that case).
+   */
   private stopProcess(): void {
     if (this.process) {
       this.logger.info("Stopping emulator runner");
@@ -353,6 +408,14 @@ export class EmulatorManager {
     this.stdoutBuffer = "";
   }
 
+  /**
+   * Resolve the Python executable to use for launching the emulator.
+   *
+   * Reads `picoBridge.emulator.pythonExecutable` from VS Code settings,
+   * defaulting to `"python3"` if not configured.
+   *
+   * @returns The Python executable name or absolute path
+   */
   private getPythonExecutable(): string {
     const config = vscode.workspace.getConfiguration("picoBridge.emulator");
     return config.get<string>("pythonExecutable", "python3");

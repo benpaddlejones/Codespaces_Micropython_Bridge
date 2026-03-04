@@ -2,9 +2,18 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
+/**
+ * A tree item representing a file or directory in the project tree.
+ *
+ * Extends `vscode.TreeItem` with the item's filesystem URI and
+ * a flag indicating whether it represents a directory.
+ */
 interface FileTreeItem extends vscode.TreeItem {
+  /** Filesystem URI of this file or directory */
   uri: vscode.Uri;
+  /** Resource URI used by VS Code for theming and decorations */
   resourceUri: vscode.Uri;
+  /** `true` if this item is a directory, `false` for a file */
   isDirectory: boolean;
 }
 
@@ -31,6 +40,12 @@ export class WorkspaceFilesProvider
   private projectPath: string | undefined;
   private readonly disposables: vscode.Disposable[] = [];
 
+  /**
+   * Create a new WorkspaceFilesProvider.
+   *
+   * Sets up file system watchers for `.py` files, `.micropico` markers, and
+   * general folder changes so the tree auto-refreshes on any structural change.
+   */
   constructor() {
     this.detectProject();
 
@@ -53,22 +68,37 @@ export class WorkspaceFilesProvider
       "**/*",
       false,
       true,
-      false
+      false,
     );
     this.disposables.push(folderWatcher);
     this.disposables.push(folderWatcher.onDidCreate(() => this.refresh()));
     this.disposables.push(folderWatcher.onDidDelete(() => this.refresh()));
   }
 
+  /** Re-detect the active project and redraw the tree. */
   refresh(): void {
     this.detectProject();
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+   * Return the tree item representation for a given element.
+   * @param element - The file tree item to render
+   */
   getTreeItem(element: FileTreeItem): vscode.TreeItem {
     return element;
   }
 
+  /**
+   * Return the children of a tree node.
+   *
+   * At the root level (no `element`) returns the contents of the active project
+   * folder, filtered to `.py` files and directories. Returns an empty array
+   * when no project is detected or the directory cannot be read.
+   *
+   * @param element - The parent item, or `undefined` for the root
+   * @returns Sorted array of file/directory tree items
+   */
   async getChildren(element?: FileTreeItem): Promise<FileTreeItem[]> {
     if (!this.projectPath) {
       return [];
@@ -138,6 +168,12 @@ export class WorkspaceFilesProvider
     }
   }
 
+  /**
+   * Detect the active MicroPython project folder.
+   *
+   * Searches the workspace for a `.micropico` marker file using
+   * breadth-first search and updates `projectPath` accordingly.
+   */
   private detectProject(): void {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -159,22 +195,43 @@ export class WorkspaceFilesProvider
     this.updateContext(false);
   }
 
+  /**
+   * Update the `picoBridge.projectDetected` context key.
+   *
+   * @param detected - Whether an active MicroPython project was found
+   */
   private updateContext(detected: boolean): void {
     vscode.commands.executeCommand(
       "setContext",
       "picoBridge.projectDetected",
-      detected
+      detected,
     );
   }
 
+  /**
+   * Check whether a folder contains a `.micropico` marker file.
+   *
+   * @param folder - Absolute path to the folder to check
+   * @returns `true` if the marker exists
+   */
   private folderHasMarker(folder: string): boolean {
     const marker = path.join(folder, ".micropico");
     return fs.existsSync(marker);
   }
 
+  /**
+   * Search for the nearest folder containing a `.micropico` marker.
+   *
+   * Uses breadth-first search starting from `start`, skipping hidden
+   * and commonly-excluded directories.
+   *
+   * @param start - The root directory to begin searching from
+   * @param maxDepth - Maximum directory depth to search
+   * @returns The absolute path of the first matching folder, or `undefined`
+   */
   private findMarkerFolder(
     start: string,
-    maxDepth: number
+    maxDepth: number,
   ): string | undefined {
     const queue: Array<{ dir: string; depth: number }> = [
       { dir: start, depth: 0 },
@@ -240,6 +297,15 @@ export class WorkspaceFilesProvider
     return undefined;
   }
 
+  /**
+   * Return a numeric sort priority for a file tree item.
+   *
+   * Directories named `project` sort first (0), other directories
+   * sort next (1), and files sort last (2).
+   *
+   * @param item - The file tree item to evaluate
+   * @returns Numeric priority (lower = higher in the list)
+   */
   private getSortPriority(item: FileTreeItem): number {
     if (item.isDirectory) {
       const label = (item.label as string).toLowerCase();
@@ -252,7 +318,7 @@ export class WorkspaceFilesProvider
   }
 
   /**
-   * Dispose all resources
+   * Dispose file system watchers and the tree-data-changed emitter.
    */
   dispose(): void {
     this._onDidChangeTreeData.dispose();

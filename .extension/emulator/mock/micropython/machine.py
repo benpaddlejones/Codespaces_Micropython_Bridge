@@ -192,6 +192,7 @@ class PWM:
         self._freq = freq
         self._duty_u16 = duty_u16
         self._active = True
+        state.emit_pwm_init(pin._id, freq, duty_u16)
         state.emit_pwm_update(pin._id, freq, duty_u16)
 
     def init(
@@ -223,6 +224,7 @@ class PWM:
         if value is None:
             return self._freq
         self._freq = value
+        state.emit_pwm_freq(self._pin._id, self._freq)
         state.emit_pwm_update(self._pin._id, self._freq, self._duty_u16)
         return None
 
@@ -238,6 +240,7 @@ class PWM:
         if value is None:
             return self._duty_u16
         self._duty_u16 = max(0, min(65535, value))
+        state.emit_pwm_duty(self._pin._id, self._duty_u16)
         state.emit_pwm_update(self._pin._id, self._freq, self._duty_u16)
         return None
 
@@ -255,6 +258,7 @@ class PWM:
             return (self._duty_u16 * period_ns) // 65535
         period_ns = 1_000_000_000 // self._freq if self._freq > 0 else 1
         self._duty_u16 = (value * 65535) // period_ns
+        state.emit_pwm_duty(self._pin._id, self._duty_u16)
         state.emit_pwm_update(self._pin._id, self._freq, self._duty_u16)
         return None
 
@@ -262,6 +266,7 @@ class PWM:
         """Disable the PWM output and release the pin."""
         self._active = False
         self._duty_u16 = 0
+        state.emit_pwm_deinit(self._pin._id)
         state.emit_pwm_update(self._pin._id, self._freq, 0)
 
 

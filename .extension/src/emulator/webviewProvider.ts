@@ -4,6 +4,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { Logger } from "../utils";
 
+/** Callback type for handling messages received from the emulator webview. */
 type PanelMessageHandler = (message: unknown) => void;
 
 /**
@@ -26,9 +27,15 @@ export class EmulatorWebview implements vscode.Disposable {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly logger: Logger,
-    private readonly onMessage: PanelMessageHandler
+    private readonly onMessage: PanelMessageHandler,
   ) {}
 
+  /**
+   * Show the emulator webview panel.
+   *
+   * If the panel already exists it is revealed; otherwise a new panel
+   * is created with scripts enabled and content-security-policy applied.
+   */
   public show(): void {
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.Beside, true);
@@ -45,7 +52,7 @@ export class EmulatorWebview implements vscode.Disposable {
         localResourceRoots: [
           vscode.Uri.file(path.join(this.context.extensionPath, "emulator")),
         ],
-      }
+      },
     );
 
     this.panel.webview.html = this.getHtml(this.panel.webview);
@@ -61,6 +68,14 @@ export class EmulatorWebview implements vscode.Disposable {
     this.logger.info("Emulator webview opened");
   }
 
+  /**
+   * Handle an incoming message from the webview.
+   *
+   * Responds to `ready`, `board_change`, and `request_pinout` messages
+   * by sending the appropriate SVG content back to the webview.
+   *
+   * @param message - The raw message object from the webview
+   */
   private handleWebviewMessage(message: unknown): void {
     if (!message || typeof message !== "object") {
       return;
@@ -89,6 +104,13 @@ export class EmulatorWebview implements vscode.Disposable {
     }
   }
 
+  /**
+   * Send the board SVG graphic to the webview.
+   *
+   * Falls back to a simple placeholder SVG if the file is not found.
+   *
+   * @param board - The board identifier (e.g. 'pico', 'pico-w', 'esp32')
+   */
   private sendBoardSvg(board: string): void {
     const svgPath = this.getBoardSvgPath(board);
     if (fs.existsSync(svgPath)) {
@@ -103,6 +125,13 @@ export class EmulatorWebview implements vscode.Disposable {
     }
   }
 
+  /**
+   * Send the pinout reference SVG to the webview.
+   *
+   * Sends `null` if no pinout SVG exists for the requested board.
+   *
+   * @param board - The board identifier
+   */
   private sendPinoutSvg(board: string): void {
     const svgPath = this.getPinoutSvgPath(board);
     if (fs.existsSync(svgPath)) {
@@ -114,21 +143,33 @@ export class EmulatorWebview implements vscode.Disposable {
     }
   }
 
+  /**
+   * Resolve the filesystem path for a board's SVG file.
+   *
+   * @param board - The board identifier
+   * @returns Absolute path to the board SVG file
+   */
   private getBoardSvgPath(board: string): string {
     const webviewRoot = path.join(
       this.context.extensionPath,
       "emulator",
-      "webview"
+      "webview",
     );
     const boardFile = `board-${board}.svg`;
     return path.join(webviewRoot, boardFile);
   }
 
+  /**
+   * Resolve the filesystem path for a board's pinout SVG file.
+   *
+   * @param board - The board identifier
+   * @returns Absolute path to the pinout SVG file
+   */
   private getPinoutSvgPath(board: string): string {
     const pinoutsRoot = path.join(
       this.context.extensionPath,
       "media",
-      "pinouts"
+      "pinouts",
     );
     // Map board names to pinout files
     const pinoutMap: Record<string, string> = {
@@ -162,11 +203,21 @@ export class EmulatorWebview implements vscode.Disposable {
     this.panel.webview.postMessage(message);
   }
 
+  /**
+   * Generate the full HTML content for the emulator webview.
+   *
+   * Reads the HTML template from disk, injects CSP-compliant nonces,
+   * converts local file paths to webview URIs, and applies the
+   * content security policy.
+   *
+   * @param webview - The webview instance to generate URIs for
+   * @returns The complete HTML string ready for rendering
+   */
   private getHtml(webview: vscode.Webview): string {
     const webviewRoot = path.join(
       this.context.extensionPath,
       "emulator",
-      "webview"
+      "webview",
     );
     const htmlPath = path.join(webviewRoot, "index.html");
     const stylePath = path.join(webviewRoot, "style.css");
@@ -188,7 +239,7 @@ export class EmulatorWebview implements vscode.Disposable {
       .replace("js/main.js", scriptUri)
       .replace(
         /default-src 'none'; style-src https:\/\/cdn\.jsdelivr\.net 'unsafe-inline'; script-src 'nonce-\{\{nonce\}\}'; img-src \{\{cspSource\}\} data:;/g,
-        `default-src 'none'; style-src ${cspSource} https://cdn.jsdelivr.net 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${cspSource} data:;`
+        `default-src 'none'; style-src ${cspSource} https://cdn.jsdelivr.net 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${cspSource} data:;`,
       )
       .replace(/\{\{nonce\}\}/g, nonce)
       .replace(/\{\{cspSource\}\}/g, cspSource);

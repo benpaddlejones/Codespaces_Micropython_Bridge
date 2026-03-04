@@ -25,10 +25,21 @@ export class BridgeToolsProvider
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
   private items: vscode.TreeItem[] = [];
 
+  /**
+   * Create a new BridgeToolsProvider and populate the static item list.
+   */
   constructor() {
     this.buildItems();
   }
 
+  /**
+   * Build the flat list of tree items that make up the tools panel.
+   *
+   * Constructs three labelled sections separated by dividers:
+   * - **Tools** — Open Emulator, Add Sample Scripts
+   * - **Project** — Create Basic/Advanced Project, Setup Existing, Switch Active
+   * - **Documentation** — MicroPython Docs, Debugpy Docs, Emulator Docs
+   */
   private buildItems(): void {
     this.items = [];
 
@@ -170,19 +181,37 @@ export class BridgeToolsProvider
     this.items.push(emulatorDocsItem);
   }
 
+  /** Rebuild the item list and fire a tree-data-changed event. */
   refresh(): void {
     this.buildItems();
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+   * Return the tree item representation for a given element.
+   * @param element - The item to render
+   */
   getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
     return element;
   }
 
+  /**
+   * This is a flat view — all items live at the root level, so every
+   * element is treated as having no parent.
+   */
   getParent(_element: vscode.TreeItem): vscode.ProviderResult<vscode.TreeItem> {
     return null;
   }
 
+  /**
+   * Return children for a tree node.
+   *
+   * Because the view is flat, any non-root element returns an empty array.
+   * At the root level the full pre-built item list is returned.
+   *
+   * @param element - Parent item (always leaf nodes in this flat view)
+   * @returns The full item list at root, or an empty array for any child
+   */
   getChildren(
     element?: vscode.TreeItem
   ): vscode.ProviderResult<vscode.TreeItem[]> {

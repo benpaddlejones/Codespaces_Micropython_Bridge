@@ -5,6 +5,17 @@ All notable changes to the Pi Pico to Codespaces Bridge extension will be docume
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.4] - 2026-03-04
+
+### Fixed
+
+- **Marketplace images** - Converted absolute GitHub URLs to relative paths and added `--baseContentUrl` / `--baseImagesUrl` flags so demo GIFs and the CHANGELOG badge render correctly on the VS Code Marketplace
+- **PWM events** - Emulator now emits granular `pwm_init`, `pwm_freq`, `pwm_duty`, and `pwm_deinit` events alongside the existing `pwm_update` event, fixing 12 integration-test failures
+
+### Improved
+
+- **JSDoc coverage** - Added missing docstrings across `webviewProvider.ts`, `bridgeServer.ts`, `statusView.ts`, `workspaceFiles.ts`, and the `PanelMessage` interface in `index.ts`
+
 ## [2.1.3] - 2026-03-02
 
 ### Added

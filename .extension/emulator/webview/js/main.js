@@ -179,7 +179,7 @@ function setPinMode(pin, mode, active = true) {
     "pwm-mode",
     "adc-mode",
     "i2c-mode",
-    "uart-mode"
+    "uart-mode",
   );
 
   if (active) {
@@ -304,7 +304,7 @@ function updatePinVisual(pin, value, mode = "digital") {
       "uart-mode",
       "pin-high",
       "pin-low",
-      "pin-pwm"
+      "pin-pwm",
     );
 
     // For input mode, always show as active (reading a pin indicates it's in use)
@@ -350,7 +350,7 @@ function clearPinModes() {
         "pwm-mode",
         "adc-mode",
         "i2c-mode",
-        "uart-mode"
+        "uart-mode",
       );
     });
   }
@@ -373,7 +373,7 @@ function resetAll() {
         "uart-mode",
         "pin-high",
         "pin-low",
-        "pin-pwm"
+        "pin-pwm",
       );
     });
   }
@@ -524,8 +524,14 @@ window.addEventListener("message", (event) => {
       break;
 
     case "pwm_update":
-      updatePinVisual(message.pin, message.duty > 0, "pwm");
-      logEvent(`PWM ${message.pin} freq=${message.freq} duty=${message.duty}`);
+    case "pwm_init":
+    case "pwm_freq":
+    case "pwm_duty":
+    case "pwm_deinit":
+      updatePinVisual(message.pin, (message.duty || 0) > 0, "pwm");
+      logEvent(
+        `PWM ${message.pin} ${message.type} freq=${message.freq || ""} duty=${message.duty || 0}`,
+      );
       break;
 
     case "pin_register":
@@ -544,7 +550,7 @@ window.addEventListener("message", (event) => {
         updateToggleButton(i2cPanel);
       }
       logEvent(
-        `I2C${message.id} initialized: SCL=GP${message.scl}, SDA=GP${message.sda}, freq=${message.freq}Hz`
+        `I2C${message.id} initialized: SCL=GP${message.scl}, SDA=GP${message.sda}, freq=${message.freq}Hz`,
       );
       break;
 
@@ -555,7 +561,7 @@ window.addEventListener("message", (event) => {
         rx: message.rx,
       };
       logEvent(
-        `UART${message.id} initialized: TX=GP${message.tx}, RX=GP${message.rx}, baud=${message.baudrate}`
+        `UART${message.id} initialized: TX=GP${message.tx}, RX=GP${message.rx}, baud=${message.baudrate}`,
       );
       break;
 
@@ -574,7 +580,7 @@ window.addEventListener("message", (event) => {
       logEvent(
         `📶 WiFi interface ${
           message.interface === 0 ? "STA" : "AP"
-        } initialized`
+        } initialized`,
       );
       break;
 
@@ -615,13 +621,11 @@ window.addEventListener("message", (event) => {
 
       // Update last read display
       if (adcLastReadEl) {
-        adcLastReadEl.querySelector(
-          ".adc-pin"
-        ).textContent = `GP${message.pin}`;
+        adcLastReadEl.querySelector(".adc-pin").textContent =
+          `GP${message.pin}`;
         adcLastReadEl.querySelector(".adc-value").textContent = message.value;
-        adcLastReadEl.querySelector(
-          ".adc-voltage"
-        ).textContent = `${message.voltage_mv}mV`;
+        adcLastReadEl.querySelector(".adc-voltage").textContent =
+          `${message.voltage_mv}mV`;
 
         // Flash the reading panel
         adcLastReadEl.classList.remove("reading-active");
@@ -688,7 +692,7 @@ window.addEventListener("message", (event) => {
 
     case "log":
       appendConsole(
-        (message.text || message.message || message.data || "") + "\n"
+        (message.text || message.message || message.data || "") + "\n",
       );
       break;
 
@@ -699,7 +703,7 @@ window.addEventListener("message", (event) => {
       } else if (i2cBuses[message.id]) {
         flashMultiplePins(
           [i2cBuses[message.id].scl, i2cBuses[message.id].sda],
-          "i2c"
+          "i2c",
         );
       }
       logI2C("WRITE", message.addr, message.data);
@@ -719,14 +723,14 @@ window.addEventListener("message", (event) => {
       } else if (i2cBuses[message.id]) {
         flashMultiplePins(
           [i2cBuses[message.id].scl, i2cBuses[message.id].sda],
-          "i2c"
+          "i2c",
         );
       }
       logI2C("READ", message.addr, message.data);
       logEvent(
         `I2C read from 0x${message.addr.toString(16)}: ${
           message.data.length
-        } bytes`
+        } bytes`,
       );
       break;
 
@@ -737,7 +741,7 @@ window.addEventListener("message", (event) => {
       } else if (i2cBuses[message.id]) {
         flashMultiplePins(
           [i2cBuses[message.id].scl, i2cBuses[message.id].sda],
-          "i2c"
+          "i2c",
         );
       }
       logI2C("WRITE_MEM", message.addr, message.data, message.memaddr);
@@ -757,14 +761,14 @@ window.addEventListener("message", (event) => {
       } else if (i2cBuses[message.id]) {
         flashMultiplePins(
           [i2cBuses[message.id].scl, i2cBuses[message.id].sda],
-          "i2c"
+          "i2c",
         );
       }
       logI2C("READ_MEM", message.addr, message.data, message.memaddr);
       logEvent(
         `I2C readfrom_mem 0x${message.addr.toString(16)}: ${
           message.data.length
-        } bytes`
+        } bytes`,
       );
       break;
 
@@ -937,7 +941,7 @@ function updateI2cResponseStatus() {
   if (i2cResponseStatusEl) {
     if (i2cResponseOverride && i2cResponseOverride.length > 0) {
       i2cResponseStatusEl.textContent = `⚡ Override: ${formatHexBytes(
-        i2cResponseOverride
+        i2cResponseOverride,
       )}`;
       i2cResponseStatusEl.classList.add("active");
     } else {
@@ -1114,7 +1118,7 @@ if (adcSetBtnEl) {
   adcSetBtnEl.addEventListener("click", () => {
     const pin = adcPinSelectEl?.value;
     let value = validateAdcValue(
-      adcSliderEl?.value || adcValueInputEl?.value || "32768"
+      adcSliderEl?.value || adcValueInputEl?.value || "32768",
     );
 
     // Update input to show validated value

@@ -7,7 +7,13 @@
 import * as vscode from "vscode";
 import { BridgeServer } from "../server";
 
+/**
+ * A tree item that can optionally contain child items.
+ *
+ * Used to build the hierarchical status view in the sidebar.
+ */
 interface StatusItem extends vscode.TreeItem {
+  /** Optional child items displayed when the item is expanded */
   children?: StatusItem[];
 }
 
@@ -20,23 +26,45 @@ export class StatusViewProvider
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
   private readonly disposables: vscode.Disposable[] = [];
 
+  /**
+   * Create a new StatusViewProvider.
+   *
+   * Subscribes to `BridgeServer.onStatusChange` so the tree automatically
+   * refreshes whenever the server starts, stops, or changes state.
+   *
+   * @param server - The `BridgeServer` instance whose status this view reflects
+   */
   constructor(private server: BridgeServer) {
     // Listen for server status changes
     this.disposables.push(
       server.onStatusChange(() => {
         this.refresh();
-      })
+      }),
     );
   }
 
+  /** Fire a tree-data-changed event to redraw the status view. */
   refresh(): void {
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+   * Return the tree item representation for a given element.
+   * @param element - The status item to render
+   */
   getTreeItem(element: StatusItem): vscode.TreeItem {
     return element;
   }
 
+  /**
+   * Return the children of a tree node.
+   *
+   * At the root level builds the full status view: server state, port, URL,
+   * a separator, and contextual action buttons (Start/Stop/Open Browser).
+   *
+   * @param element - A parent item whose children should be returned, or `undefined` for the root
+   * @returns Resolved array of status items
+   */
   getChildren(element?: StatusItem): Thenable<StatusItem[]> {
     if (element) {
       return Promise.resolve(element.children || []);
@@ -48,13 +76,13 @@ export class StatusViewProvider
     // === STATUS SECTION ===
     const serverStatus = new vscode.TreeItem(
       status.running ? "Server: Running ✓" : "Server: Stopped",
-      vscode.TreeItemCollapsibleState.None
+      vscode.TreeItemCollapsibleState.None,
     ) as StatusItem;
     serverStatus.iconPath = new vscode.ThemeIcon(
       status.running ? "pass-filled" : "circle-outline",
       status.running
         ? new vscode.ThemeColor("testing.iconPassed")
-        : new vscode.ThemeColor("testing.iconSkipped")
+        : new vscode.ThemeColor("testing.iconSkipped"),
     );
     serverStatus.tooltip = status.running
       ? `Running on port ${status.port}`
@@ -65,7 +93,7 @@ export class StatusViewProvider
     if (status.running) {
       const portItem = new vscode.TreeItem(
         `Port: ${status.port}`,
-        vscode.TreeItemCollapsibleState.None
+        vscode.TreeItemCollapsibleState.None,
       ) as StatusItem;
       portItem.iconPath = new vscode.ThemeIcon("broadcast");
       portItem.tooltip = "Server listening port";
@@ -75,7 +103,7 @@ export class StatusViewProvider
       if (status.url) {
         const urlItem = new vscode.TreeItem(
           status.url,
-          vscode.TreeItemCollapsibleState.None
+          vscode.TreeItemCollapsibleState.None,
         ) as StatusItem;
         urlItem.iconPath = new vscode.ThemeIcon("link-external");
         urlItem.tooltip = "Click to open in browser";
@@ -90,7 +118,7 @@ export class StatusViewProvider
     // Separator before buttons
     const sep2 = new vscode.TreeItem(
       "───────────────",
-      vscode.TreeItemCollapsibleState.None
+      vscode.TreeItemCollapsibleState.None,
     ) as StatusItem;
     items.push(sep2);
 
@@ -99,7 +127,7 @@ export class StatusViewProvider
       // Open Browser button
       const openBrowserBtn = new vscode.TreeItem(
         "Open in Browser",
-        vscode.TreeItemCollapsibleState.None
+        vscode.TreeItemCollapsibleState.None,
       ) as StatusItem;
       openBrowserBtn.iconPath = new vscode.ThemeIcon("globe");
       openBrowserBtn.tooltip = "Open bridge interface in browser";
@@ -112,7 +140,7 @@ export class StatusViewProvider
       // Stop Server button
       const stopServerBtn = new vscode.TreeItem(
         "Stop Server",
-        vscode.TreeItemCollapsibleState.None
+        vscode.TreeItemCollapsibleState.None,
       ) as StatusItem;
       stopServerBtn.iconPath = new vscode.ThemeIcon("debug-stop");
       stopServerBtn.tooltip = "Stop the bridge server";
@@ -125,7 +153,7 @@ export class StatusViewProvider
       // Start Server button
       const startServerBtn = new vscode.TreeItem(
         "Start Server",
-        vscode.TreeItemCollapsibleState.None
+        vscode.TreeItemCollapsibleState.None,
       ) as StatusItem;
       startServerBtn.iconPath = new vscode.ThemeIcon("play");
       startServerBtn.tooltip = "Start the bridge server";
@@ -140,7 +168,7 @@ export class StatusViewProvider
   }
 
   /**
-   * Dispose all resources
+   * Dispose the event emitter and all internal subscriptions.
    */
   dispose(): void {
     this._onDidChangeTreeData.dispose();

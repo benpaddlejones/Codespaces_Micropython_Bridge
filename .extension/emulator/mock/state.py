@@ -268,7 +268,7 @@ def emit_event(event_type: str, data: Dict[str, Any]) -> None:
 
 
 def emit_pwm_update(pin_id: str, freq: int, duty: int) -> None:
-    """Emit a PWM update event.
+    """Emit a PWM update event (generic, used by webview for visuals).
 
     Args:
         pin_id: Pin identifier string.
@@ -276,6 +276,46 @@ def emit_pwm_update(pin_id: str, freq: int, duty: int) -> None:
         duty: 16-bit duty cycle value (0-65535).
     """
     _emit({"type": "pwm_update", "pin": pin_id, "freq": freq, "duty": duty})
+
+
+def emit_pwm_init(pin_id: str, freq: int, duty: int) -> None:
+    """Emit a PWM initialization event.
+
+    Args:
+        pin_id: Pin identifier string.
+        freq: Initial PWM frequency in Hz.
+        duty: Initial 16-bit duty cycle value (0-65535).
+    """
+    _emit({"type": "pwm_init", "pin": pin_id, "freq": freq, "duty": duty})
+
+
+def emit_pwm_freq(pin_id: str, freq: int) -> None:
+    """Emit a PWM frequency change event.
+
+    Args:
+        pin_id: Pin identifier string.
+        freq: New PWM frequency in Hz.
+    """
+    _emit({"type": "pwm_freq", "pin": pin_id, "freq": freq})
+
+
+def emit_pwm_duty(pin_id: str, duty: int) -> None:
+    """Emit a PWM duty cycle change event.
+
+    Args:
+        pin_id: Pin identifier string.
+        duty: 16-bit duty cycle value (0-65535).
+    """
+    _emit({"type": "pwm_duty", "pin": pin_id, "duty": duty})
+
+
+def emit_pwm_deinit(pin_id: str) -> None:
+    """Emit a PWM deinitialization event.
+
+    Args:
+        pin_id: Pin identifier string.
+    """
+    _emit({"type": "pwm_deinit", "pin": pin_id})
 
 
 def emit_neopixel_init(pin_id: str, count: int) -> None:
