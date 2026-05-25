@@ -12,6 +12,7 @@ class poll:
     """
     
     def __init__(self):
+        """Create an empty poll object backed by CPython's `select.poll`."""
         self._poll = _poll()
         self._fds = {}
     
@@ -53,29 +54,40 @@ class poll:
         self._poll.modify(fd, eventmask)
     
     def poll(self, timeout: int = -1):
-        """
-        Poll for events.
-        
+        """Poll for events.
+
         Args:
-            timeout: Timeout in milliseconds (-1 for blocking)
-        
+            timeout: Timeout in milliseconds (-1 for blocking, 0 for
+                non-blocking).
+
         Returns:
-            List of (object, event) tuples
+            List of ``(object, event_mask)`` tuples for ready descriptors.
         """
         if timeout == -1:
-            timeout = None
-        elif timeout >= 0:
-            timeout = timeout / 1000.0  # Convert ms to seconds
-        
-        results = self._poll.poll(timeout)
+            cpython_timeout = None
+        else:
+            # MicroPython's poll.poll(timeout) takes milliseconds, and so
+            # does CPython's select.poll.poll(timeout). Pass through
+            # unchanged (the previous implementation divided by 1000 and
+            # produced wildly-wrong waits).
+            cpython_timeout = int(timeout)
+
+        results = self._poll.poll(cpython_timeout)
         # Convert fd back to original object
         return [(self._fds.get(fd, fd), event) for fd, event in results]
-    
+
     def ipoll(self, timeout: int = -1, flags: int = 0):
-        """
-        Iterating poll - yields events one at a time.
-        
-        This is more memory-efficient than poll() for MicroPython.
+        """Iterating poll - yields events one at a time.
+
+        This is more memory-efficient than ``poll()`` on real MicroPython
+        because it avoids allocating a list.
+
+        Args:
+            timeout: Timeout in milliseconds (-1 for blocking).
+            flags: Reserved for compatibility; ignored in the mock.
+
+        Yields:
+            ``(object, event_mask)`` tuples for ready descriptors.
         """
         for item in self.poll(timeout):
             yield item

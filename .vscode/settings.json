@@ -32,6 +32,8 @@
     "${workspaceFolder}/.extension/emulator/mock/micropython",
     "${workspaceFolder}/.extension/emulator/mock/typings",
     "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.1.19/emulator/mock/typings",
-    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.1.19/emulator/mock/micropython"
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.1.19/emulator/mock/micropython",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.2.0/emulator/mock/typings",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.2.0/emulator/mock/micropython"
   ]
 }

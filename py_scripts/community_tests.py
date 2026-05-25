@@ -217,6 +217,7 @@ def test_timer_callbacks():
     counter = [0]  # Use list for mutable closure
     
     def tick(t):
+        """Periodic timer callback that increments the shared counter."""
         counter[0] += 1
     
     timer = Timer()
@@ -357,6 +358,7 @@ def test_micropython_functions():
     # Schedule (should execute immediately in mock)
     scheduled = [False]
     def scheduled_func(arg):
+        """Scheduled callback that records its argument into the closure list."""
         scheduled[0] = arg
     
     micropython.schedule(scheduled_func, True)
@@ -392,6 +394,7 @@ def test_pin_interrupt():
     irq_count = [0]
     
     def button_handler(pin):
+        """Pin IRQ handler that counts button press events."""
         irq_count[0] += 1
     
     # Set up interrupt

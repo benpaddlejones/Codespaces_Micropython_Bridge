@@ -123,3 +123,95 @@ def schedule(func: Callable, arg: Any) -> None:
         arg: Argument to pass to the function
     """
     func(arg)
+
+
+class RingIO:
+    """Fixed-size byte ring buffer with stream-style ``read``/``write``.
+
+    Introduced in MicroPython v1.23 (``micropython.RingIO``). Reads block
+    semantics are non-blocking and return however many bytes are available.
+    """
+
+    def __init__(self, size: int) -> None:
+        """Create an empty ring buffer with the given capacity.
+
+        Args:
+            size: Maximum number of bytes the buffer can hold.
+        """
+        self._size = int(size)
+        self._buf = bytearray()
+
+    def any(self) -> int:
+        """Return the number of bytes currently available to read.
+
+        Returns:
+            Count of buffered bytes.
+        """
+        return len(self._buf)
+
+    def read(self, nbytes: int = -1) -> bytes:
+        """Read up to ``nbytes`` bytes from the buffer.
+
+        Args:
+            nbytes: Maximum bytes to read; ``-1`` returns everything
+                currently buffered.
+
+        Returns:
+            The bytes read (may be shorter than ``nbytes``).
+        """
+        if nbytes < 0 or nbytes >= len(self._buf):
+            out = bytes(self._buf)
+            self._buf = bytearray()
+            return out
+        out = bytes(self._buf[:nbytes])
+        del self._buf[:nbytes]
+        return out
+
+    def readinto(self, buf, nbytes: int = -1) -> int:
+        """Read bytes into ``buf``.
+
+        Args:
+            buf: Pre-allocated buffer to fill.
+            nbytes: Maximum bytes to read; ``-1`` fills as much of ``buf``
+                as possible.
+
+        Returns:
+            Number of bytes written into ``buf``.
+        """
+        limit = len(buf) if nbytes < 0 else min(len(buf), nbytes)
+        data = self.read(limit)
+        n = len(data)
+        buf[:n] = data
+        return n
+
+    def readline(self) -> bytes:
+        """Read up to and including the next newline.
+
+        Returns:
+            The bytes up to and including ``\\n``, or whatever is buffered
+            if no newline is present.
+        """
+        try:
+            idx = self._buf.index(b"\n")
+        except ValueError:
+            return self.read(-1)
+        return self.read(idx + 1)
+
+    def write(self, data) -> int:
+        """Append ``data`` to the buffer, dropping the oldest bytes if full.
+
+        Args:
+            data: Bytes to write.
+
+        Returns:
+            Number of bytes accepted (always ``len(data)``).
+        """
+        self._buf.extend(bytes(data))
+        if len(self._buf) > self._size:
+            overflow = len(self._buf) - self._size
+            del self._buf[:overflow]
+        return len(data)
+
+    def close(self) -> None:
+        """Discard buffered data and reset the ring buffer."""
+        self._buf = bytearray()

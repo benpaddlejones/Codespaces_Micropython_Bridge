@@ -16,4 +16,5 @@ from utime import (
     localtime,
     gmtime,
     mktime,
+    strftime,
 )

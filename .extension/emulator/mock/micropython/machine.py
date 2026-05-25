@@ -25,6 +25,10 @@ class Pin:
     PULL_DOWN = 3
     IRQ_RISING = 1
     IRQ_FALLING = 2
+    # Level-triggered IRQ constants exist on RP2 / ESP32 ports and on real
+    # MicroPython are powers of two in the same bitfield as IRQ_RISING.
+    IRQ_LOW_LEVEL = 4
+    IRQ_HIGH_LEVEL = 8
 
     _MODE_NAMES = {
         IN: "IN",
@@ -75,6 +79,7 @@ class Pin:
 
     @property
     def _mode_name(self) -> str:
+        """Return the human-readable name (e.g. "IN", "OUT") of the pin's current mode."""
         return self._MODE_NAMES.get(self._mode, "OUT")
 
     def value(self, val: Optional[int] = None) -> int:
@@ -166,6 +171,7 @@ class Pin:
         self._irq_trigger = trigger
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        """Return a debug string showing the pin's id, mode, value, and pull."""
         return (
             f"<Pin id={self._id} mode={self._mode_name} value={self._value} "
             f"pull={self._pull}>"
@@ -533,6 +539,15 @@ class SoftI2C(I2C):
         sda: Pin,
         freq: int = 400000,
     ) -> None:
+        """Create a software (bit-banged) I2C bus.
+
+        Mirrors `machine.SoftI2C` from MicroPython.
+
+        Args:
+            scl: Pin used for the clock line.
+            sda: Pin used for the data line.
+            freq: Target SCL frequency in Hz.
+        """
         super().__init__(0, scl=scl, sda=sda, freq=freq)
 
 
@@ -658,6 +673,20 @@ class SoftSPI(SPI):
         mosi: Pin,
         miso: Pin,
     ) -> None:
+        """Create a software (bit-banged) SPI bus.
+
+        Mirrors `machine.SoftSPI` from MicroPython.
+
+        Args:
+            baudrate: Target SCK frequency in Hz.
+            polarity: Clock idle polarity (0 or 1).
+            phase: Clock phase (0 or 1).
+            bits: Number of bits per transfer.
+            firstbit: Bit order, `SPI.MSB` or `SPI.LSB`.
+            sck: Pin used for the clock line.
+            mosi: Pin used for controller-out / peripheral-in.
+            miso: Pin used for controller-in / peripheral-out.
+        """
         super().__init__(
             0, baudrate, polarity=polarity, phase=phase, bits=bits,
             firstbit=firstbit, sck=sck, mosi=mosi, miso=miso
@@ -1164,9 +1193,11 @@ class _MemoryAccess:
         self._memory: dict[int, int] = {}
     
     def __getitem__(self, addr: int) -> int:
+        """Read the stored value at `addr`, returning 0 if never written."""
         return self._memory.get(addr, 0)
     
     def __setitem__(self, addr: int, value: int) -> None:
+        """Store `value` (masked to the access width) at `addr` and emit a write event."""
         mask = (1 << (self._size * 8)) - 1
         self._memory[addr] = value & mask
         state.emit_event(f"mem{self._size * 8}_write", {"addr": hex(addr), "value": value & mask})
@@ -1176,3 +1207,46 @@ class _MemoryAccess:
 mem8 = _MemoryAccess(1)
 mem16 = _MemoryAccess(2)
 mem32 = _MemoryAccess(4)
+
+class Signal:
+    """Logical signal wrapper that decouples a Pin from its active level.
+
+    A ``Signal`` looks like a Pin from the caller's perspective (``on()``,
+    ``off()``, ``value()``) but lets the user invert the physical level via
+    ``invert=True`` so application code can stay in terms of logical state.
+    """
+
+    def __init__(self, pin_obj, invert: bool = False) -> None:
+        """Wrap an existing Pin.
+
+        Args:
+            pin_obj: A :class:`Pin` instance (or any object exposing
+                ``value()``).
+            invert: When true, logical ``1`` drives the underlying pin low.
+        """
+        self._pin = pin_obj
+        self._invert = bool(invert)
+
+    def value(self, v: int = None):
+        """Get or set the logical value.
+
+        Args:
+            v: Optional new logical value (``0`` or ``1``); omit to read.
+
+        Returns:
+            The current logical value when ``v`` is omitted, else ``None``.
+        """
+        if v is None:
+            raw = self._pin.value()
+            return (1 - raw) if self._invert else raw
+        target = (1 - int(bool(v))) if self._invert else int(bool(v))
+        self._pin.value(target)
+        return None
+
+    def on(self) -> None:
+        """Drive the signal to its logical-on state."""
+        self.value(1)
+
+    def off(self) -> None:
+        """Drive the signal to its logical-off state."""
+        self.value(0)

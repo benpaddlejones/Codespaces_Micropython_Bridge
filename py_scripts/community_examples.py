@@ -295,6 +295,7 @@ def example_timer_periodic():
     counter = [0]
     
     def tick(timer):
+        """Periodic timer callback that increments the shared counter."""
         counter[0] += 1
     
     timer = Timer()
@@ -455,6 +456,7 @@ def example_irq_handler():
     events = []
     
     def button_handler(pin):
+        """Pin IRQ handler that records each event into the closure list."""
         events.append(f"IRQ on {pin}")
     
     button = Pin(14, Pin.IN, Pin.PULL_UP)

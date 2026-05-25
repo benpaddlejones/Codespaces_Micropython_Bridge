@@ -136,6 +136,7 @@ def asm_pio(**kwargs):
         Callable: Decorator that returns an empty list as the assembled program.
     """
     def decorator(func):
+        """Replace the decorated PIO assembly function with an empty program list."""
         # In mock, just return a placeholder
         return []
     return decorator
@@ -153,6 +154,7 @@ class Flash:
 
     @property
     def _data(self):
+        """Lazily allocate and return the backing bytearray for flash storage."""
         if self.__data is None:
             self.__data = bytearray(self._FLASH_SIZE)
         return self.__data
@@ -201,6 +203,7 @@ class DMA:
     """Mock DMA controller (stub, no-op in emulator)."""
     
     def __init__(self):
+        """Create a DMA channel stub. Mirrors `rp2.DMA` but performs no transfers."""
         pass
 
 

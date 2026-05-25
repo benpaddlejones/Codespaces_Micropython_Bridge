@@ -33,6 +33,19 @@ class WLAN:
         self._subnet = "255.255.255.0"
         self._gateway = "192.168.1.1"
         self._dns = "8.8.8.8"
+        # Persistent config state. Keys mirror the documented config()
+        # parameter names so callers can round-trip values.
+        self._config = {
+            "mac": b"\x02\x00\x00\x00\x00\x01",
+            "essid": None,
+            "channel": 1,
+            "hidden": False,
+            "authmode": 3,  # WPA2_PSK
+            "password": "",
+            "txpower": 17,
+            "pm": 0,
+            "hostname": "micropython",
+        }
         state.emit_event("wlan_init", {"interface": interface_id})
     
     def active(self, is_active: Optional[bool] = None):
@@ -78,11 +91,91 @@ class WLAN:
         return (self._ip, self._subnet, self._gateway, self._dns)
     
     def config(self, *args, **kwargs):
-        """Get or set general network interface parameters."""
-        if "essid" in kwargs:
-            self._ssid = kwargs["essid"]
-        if "channel" in kwargs:
-            pass  # Mock - ignore channel
+        """Get or set general network interface parameters.
+
+        Args:
+            *args: Single key string for a get; multiple are not supported
+                by MicroPython either.
+            **kwargs: One or more ``key=value`` pairs to set.
+
+        Returns:
+            The requested value when called with a single positional key,
+            otherwise ``None``.
+        """
+        if args and not kwargs:
+            if len(args) != 1:
+                raise ValueError("config() takes exactly one positional key")
+            key = args[0]
+            if key == "essid":
+                return self._ssid if self._ssid is not None else self._config["essid"]
+            if key not in self._config:
+                raise ValueError("unknown config key: {}".format(key))
+            return self._config[key]
+        for key, value in kwargs.items():
+            if key == "essid":
+                self._ssid = value
+            if key not in self._config and key != "essid":
+                raise ValueError("unknown config key: {}".format(key))
+            self._config[key] = value
+        if kwargs:
+            state.emit_event(
+                "wlan_config",
+                {"interface": self.interface_id, "keys": list(kwargs)},
+            )
+        return None
+
+    def ipconfig(self, *args, **kwargs):
+        """Get or set IP-level parameters using the v1.22+ ``ipconfig`` API.
+
+        Recognised keys: ``addr4``, ``gw4``, ``dns``, ``has_dhcp4``.
+
+        Args:
+            *args: A single key string for a get.
+            **kwargs: One or more ``key=value`` pairs to set; ``addr4`` may
+                be a ``"a.b.c.d/prefix"`` string or an ``(ip, mask)`` tuple.
+
+        Returns:
+            The requested value when called with one positional key, else
+            ``None``.
+        """
+        def _get(key):
+            """Resolve a single ipconfig key against current state."""
+            if key == "addr4":
+                return (self._ip, self._subnet)
+            if key == "gw4":
+                return self._gateway
+            if key == "dns":
+                return self._dns
+            if key == "has_dhcp4":
+                return False
+            raise ValueError("unknown ipconfig key: {}".format(key))
+
+        if args and not kwargs:
+            if len(args) != 1:
+                raise ValueError("ipconfig() takes exactly one positional key")
+            return _get(args[0])
+        for key, value in kwargs.items():
+            if key == "addr4":
+                if isinstance(value, tuple):
+                    self._ip, self._subnet = value
+                elif isinstance(value, str) and "/" in value:
+                    ip, _prefix = value.split("/", 1)
+                    self._ip = ip
+                else:
+                    self._ip = value
+            elif key == "gw4":
+                self._gateway = value
+            elif key == "dns":
+                self._dns = value
+            elif key == "has_dhcp4":
+                pass  # No DHCP loop in the mock.
+            else:
+                raise ValueError("unknown ipconfig key: {}".format(key))
+        if kwargs:
+            state.emit_event(
+                "wlan_ipconfig",
+                {"interface": self.interface_id, "keys": list(kwargs)},
+            )
         return None
     
     def scan(self):

@@ -13,10 +13,12 @@ _metrics = {}
 def profile(name: str):
     """Decorator to profile function execution time."""
     def decorator(func):
+        """Wrap ``func`` so each invocation records timing under ``name``."""
         def wrapper(*args, **kwargs):
-            start = time.perf_counter()
+            """Execute the wrapped function and update the metrics table."""
+            start = time.ticks_us()
             result = func(*args, **kwargs)
-            elapsed = (time.perf_counter() - start) * 1000
+            elapsed = time.ticks_diff(time.ticks_us(), start) / 1000
             if name not in _metrics:
                 _metrics[name] = {"calls": 0, "total_ms": 0, "min_ms": float('inf'), "max_ms": 0}
             _metrics[name]["calls"] += 1
@@ -30,10 +32,10 @@ def profile(name: str):
 
 def run_profile(name: str, func, iterations: int = 1000):
     """Run a function multiple times and record metrics."""
-    start = time.perf_counter()
+    start = time.ticks_us()
     for _ in range(iterations):
         func()
-    elapsed = (time.perf_counter() - start) * 1000
+    elapsed = time.ticks_diff(time.ticks_us(), start) / 1000
     _metrics[name] = {
         "calls": iterations,
         "total_ms": elapsed,
@@ -70,6 +72,7 @@ def test_pin_toggle():
     led = Pin(25, Pin.OUT)
     
     def toggle():
+        """Drive the LED high then low once."""
         led.value(1)
         led.value(0)
     
@@ -83,6 +86,7 @@ def test_pin_value_read():
     led.value(1)
     
     def read():
+        """Read the pin value once."""
         _ = led.value()
     
     return run_profile("Pin value read", read, iterations=5000)
@@ -95,6 +99,7 @@ def test_pwm_duty_cycle():
     pwm.freq(1000)
     
     def change_duty():
+        """Set the PWM duty cycle to mid-scale."""
         pwm.duty_u16(32768)
     
     result = run_profile("PWM duty change", change_duty, iterations=2000)
@@ -108,6 +113,7 @@ def test_adc_read():
     adc = ADC(26)
     
     def read():
+        """Read one 16-bit ADC sample."""
         _ = adc.read_u16()
     
     return run_profile("ADC read_u16", read, iterations=5000)
@@ -119,6 +125,7 @@ def test_i2c_scan():
     i2c = I2C(0, scl=Pin(1), sda=Pin(0))
     
     def scan():
+        """Perform one I2C bus scan."""
         _ = i2c.scan()
     
     return run_profile("I2C scan", scan, iterations=500)
@@ -130,6 +137,7 @@ def test_i2c_read():
     i2c = I2C(0, scl=Pin(1), sda=Pin(0))
     
     def read():
+        """Read 6 bytes from I2C device 0x68."""
         _ = i2c.readfrom(0x68, 6)
     
     return run_profile("I2C readfrom (6 bytes)", read, iterations=2000)
@@ -142,6 +150,7 @@ def test_i2c_write():
     data = bytes([0x01, 0x02, 0x03, 0x04])
     
     def write():
+        """Write a 4-byte payload to I2C device 0x68."""
         i2c.writeto(0x68, data)
     
     return run_profile("I2C writeto (4 bytes)", write, iterations=2000)
@@ -154,6 +163,7 @@ def test_spi_transfer():
     data = bytes([0xAA] * 16)
     
     def transfer():
+        """Write a 16-byte payload over SPI."""
         spi.write(data)
     
     result = run_profile("SPI write (16 bytes)", transfer, iterations=2000)
@@ -166,9 +176,11 @@ def test_timer_callback():
     from machine import Timer
     
     def callback(t):
+        """No-op timer callback used purely for profiling overhead."""
         pass
     
     def create_timer():
+        """Create, start and immediately deinit a periodic timer."""
         timer = Timer()
         timer.init(mode=Timer.PERIODIC, period=100, callback=callback)
         timer.deinit()
@@ -181,6 +193,7 @@ def test_time_ticks():
     import utime
     
     def ticks():
+        """Read the millisecond tick counter once."""
         _ = utime.ticks_ms()
     
     return run_profile("utime.ticks_ms()", ticks, iterations=10000)
@@ -191,6 +204,7 @@ def test_time_sleep_us():
     import utime
     
     def sleep():
+        """Sleep for one microsecond."""
         utime.sleep_us(1)  # 1 microsecond
     
     return run_profile("utime.sleep_us(1)", sleep, iterations=1000)
@@ -204,6 +218,7 @@ def test_neopixel_write():
     np = NeoPixel(Pin(16), 8)
     
     def write():
+        """Set the first three NeoPixel colors and flush to the strip."""
         np[0] = (255, 0, 0)
         np[1] = (0, 255, 0)
         np[2] = (0, 0, 255)
@@ -217,6 +232,7 @@ def test_gc_collect():
     import gc
     
     def collect():
+        """Trigger one garbage collection cycle."""
         gc.collect()
     
     return run_profile("gc.collect()", collect, iterations=500)
@@ -227,6 +243,7 @@ def test_micropython_const():
     import micropython
     
     def const_call():
+        """Invoke ``micropython.const`` once."""
         _ = micropython.const(42)
     
     return run_profile("micropython.const()", const_call, iterations=10000)
@@ -237,6 +254,7 @@ def test_struct_pack():
     import struct
     
     def pack():
+        """Pack a small fixed payload with ``struct.pack``."""
         _ = struct.pack('<HHI', 0x1234, 0x5678, 0xDEADBEEF)
     
     return run_profile("struct.pack('<HHI', ...)", pack, iterations=5000)
@@ -247,6 +265,7 @@ def test_state_emission_overhead():
     import state
     
     def emit():
+        """Emit a single test event through the state bus."""
         state.emit_event("test_event", {"pin": "0", "value": 1})
     
     return run_profile("state.emit_event()", emit, iterations=5000)
@@ -312,4 +331,7 @@ if __name__ == "__main__":
     total_ops = sum(m["calls"] for m in _metrics.values())
     total_time = sum(m["total_ms"] for m in _metrics.values())
     print(f"\nTotal: {total_ops:,} operations in {total_time:.2f}ms")
-    print(f"Overall throughput: {total_ops / (total_time / 1000):,.0f} ops/sec")
+    # Guard against zero elapsed time (e.g. when running under the emulator mock
+    # where operations can complete in sub-millisecond time and round to 0).
+    safe_seconds = max(total_time, 1) / 1000
+    print(f"Overall throughput: {total_ops / safe_seconds:,.0f} ops/sec")

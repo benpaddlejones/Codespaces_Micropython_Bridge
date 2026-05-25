@@ -96,12 +96,14 @@ class struct:
         self._layout = layout
     
     def __getattr__(self, name: str) -> Any:
+        """Return 0 for any struct field access (mock behavior)."""
         if name.startswith('_'):
             return super().__getattribute__(name)
         # Mock - return 0 for any field access
         return 0
     
     def __setattr__(self, name: str, value: Any) -> None:
+        """Ignore struct field writes (mock behavior)."""
         if name.startswith('_'):
             super().__setattr__(name, value)
         # Mock - ignore field writes

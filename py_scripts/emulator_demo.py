@@ -97,6 +97,7 @@ def test_timer():
     timer_start = utime.ticks_ms()
     
     def timer_callback(t):
+        """Timer IRQ callback: increments counter and prints elapsed time."""
         nonlocal callback_count
         callback_count += 1
         elapsed = utime.ticks_diff(utime.ticks_ms(), timer_start)

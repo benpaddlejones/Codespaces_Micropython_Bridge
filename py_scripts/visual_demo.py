@@ -294,6 +294,7 @@ def demo_timer():
     counter = [0]
     
     def tick(t):
+        """Timer callback: bump the counter and toggle the on-board LED."""
         counter[0] += 1
         led.toggle()
         print(f"    Timer tick #{counter[0]} - LED toggled")

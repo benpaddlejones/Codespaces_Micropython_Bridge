@@ -60,6 +60,7 @@ def test_machine_pin():
     
     # IRQ
     def callback(pin):
+        """No-op IRQ handler used to validate Pin.irq() registration."""
         pass
     led.irq(handler=callback, trigger=1)  # 1 = rising edge
 
@@ -250,6 +251,7 @@ def test_machine_timer():
     
     callback_count = [0]
     def tick(t):
+        """Periodic timer callback that increments the shared counter."""
         callback_count[0] += 1
     
     timer.init(mode=Timer.PERIODIC, period=100, callback=tick)
@@ -433,11 +435,13 @@ def test_micropython():
     # Decorators (should be no-ops in mock)
     @micropython.native
     def native_func():
+        """Function decorated with @micropython.native (no-op in mock)."""
         return 1
     assert native_func() == 1
     
     @micropython.viper
     def viper_func():
+        """Function decorated with @micropython.viper (no-op in mock)."""
         return 2
     assert viper_func() == 2
     
@@ -457,6 +461,7 @@ def test_micropython():
     
     # Schedule
     def scheduled(arg):
+        """No-op scheduled function used to validate micropython.schedule()."""
         pass
     micropython.schedule(scheduled, None)
     
@@ -945,11 +950,17 @@ def test_usocket():
 def test_uzlib():
     """Test uzlib module (decompress, DecompIO)."""
     import uzlib
-    import zlib
 
-    # Compress some data with standard zlib for testing
+    # Real MicroPython `uzlib` exposes only decompression (compression lives
+    # in the separate `deflate` module from v1.21+). Use a pre-computed
+    # zlib-compressed payload so the test does not depend on a `compress`
+    # function the mock deliberately omits.
     original = b"hello world, this is a test of uzlib decompression"
-    compressed = zlib.compress(original)
+    compressed = (
+        b"x\x9c\xcbH\xcd\xc9\xc9W(\xcf/\xcaI\xd1Q(\xc9\xc8,V\x00\xa2D\x85"
+        b"\x92\xd4\xe2\x12\x85\xfc4\x85\xd2\xaa\x9c\xcc$\x85\x94\xd4\xe4"
+        b"\xfc\xdc\x82\xa2\xd4\xe2\xe2\xcc\xfc<\x00\xceP\x12\x94"
+    )
 
     # decompress
     result = uzlib.decompress(compressed)

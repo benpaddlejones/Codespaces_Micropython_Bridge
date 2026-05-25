@@ -43,6 +43,7 @@ class EmulatorResult:
     
     @property
     def success(self) -> bool:
+        """True when the emulator exited cleanly and reported no errors."""
         return self.exit_code == 0 and not self.errors
     
     def get_events_by_type(self, event_type: str) -> List[Dict[str, Any]]:
@@ -119,6 +120,7 @@ class EmulatorIntegrationTests:
     """Test suite for emulator integration."""
     
     def __init__(self):
+        """Initialize counters and per-board result storage."""
         self.passed = 0
         self.failed = 0
         self.results: Dict[str, EmulatorResult] = {}

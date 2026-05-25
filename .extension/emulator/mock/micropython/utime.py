@@ -112,3 +112,27 @@ def mktime(tuple_time: tuple) -> int:
     """Convert local time tuple to seconds since epoch."""
     # Add tm_isdst=-1 to let Python figure it out
     return int(_time.mktime(tuple_time + (-1,)))
+
+
+def strftime(fmt: str, t=None) -> str:
+    """Format a time tuple according to ``fmt``.
+
+    MicroPython exposes ``strftime`` on ports built with the ``MICROPY_PY_TIME_TIME_TIME_NS``
+    extension. The mock always delegates to CPython's :func:`time.strftime`,
+    converting an 8-tuple ``(year, mon, mday, hour, min, sec, wday, yday)``
+    into the 9-tuple CPython expects.
+
+    Args:
+        fmt: A standard ``strftime`` format string.
+        t: An 8-tuple as returned by :func:`localtime` / :func:`gmtime`;
+            defaults to the current local time.
+
+    Returns:
+        The formatted time string.
+    """
+    if t is None:
+        t = localtime()
+    if len(t) == 8:
+        # CPython needs a 9-tuple with tm_isdst.
+        t = tuple(t) + (-1,)
+    return _time.strftime(fmt, t)

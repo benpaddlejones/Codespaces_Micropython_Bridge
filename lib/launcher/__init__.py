@@ -53,9 +53,11 @@ def run():
     stop_pin = Pin(config.STOP_PIN_NUMBER, Pin.IN, Pin.PULL_UP)
 
     def _raise_keyboard_interrupt(_):
+        """Scheduled helper that raises KeyboardInterrupt in a safe context."""
         raise KeyboardInterrupt("Stop pin button pressed")
 
     def callback(stop_pin):
+        """IRQ handler that defers the KeyboardInterrupt via micropython.schedule."""
         micropython.schedule(_raise_keyboard_interrupt, None)
 
     stop_pin.irq(trigger=Pin.IRQ_FALLING, handler=callback)
