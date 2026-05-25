@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <defs>
+    <style>
+      .board { fill: #1a1a2e; stroke: #333; stroke-width: 2; }
+      .pin-label { font-family: monospace; font-size: 11px; fill: #fff; }
+      .pin-label-left { text-anchor: end; }
+      .pin-label-right { text-anchor: start; }
+      .pin-circle { fill: #b8860b; stroke: #8b6914; stroke-width: 1; }
+      .gpio { fill: #4ec9b0; }
+      .power { fill: #f48771; }
+      .gnd { fill: #666; }
+      .adc { fill: #9cdcfe; }
+      .touch { fill: #ce9178; }
+      .uart { fill: #dcdcaa; }
+      .spi { fill: #c586c0; }
+      .i2c { fill: #4fc1ff; }
+      .title { font-family: sans-serif; font-size: 24px; fill: #fff; font-weight: bold; }
+      .subtitle { font-family: sans-serif; font-size: 14px; fill: #888; }
+      .section-title { font-family: sans-serif; font-size: 12px; fill: #9cdcfe; font-weight: bold; }
+      .chip { fill: #2d2d2d; stroke: #444; stroke-width: 1; }
+      .chip-label { font-family: monospace; font-size: 10px; fill: #666; }
+      .usb { fill: #c0c0c0; stroke: #808080; stroke-width: 1; }
+      .antenna { fill: #d4a017; stroke: #b8860b; stroke-width: 1; }
+      .legend-box { fill: #252526; stroke: #444; stroke-width: 1; rx: 4; }
+      .legend-text { font-family: sans-serif; font-size: 10px; fill: #d4d4d4; }
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="800" fill="#1e1e1e"/>
+  
+  <!-- Title -->
+  <text x="600" y="40" text-anchor="middle" class="title">ESP32-DevKitC Pinout Reference</text>
+  <text x="600" y="60" text-anchor="middle" class="subtitle">ESP32-WROOM-32 Module</text>
+  
+  <!-- Board outline -->
+  <rect class="board" x="400" y="100" width="400" height="600" rx="8"/>
+  
+  <!-- Antenna area -->
+  <rect class="antenna" x="500" y="110" width="200" height="80" rx="4"/>
+  <text x="600" y="155" text-anchor="middle" fill="#1a1a1a" font-size="12" font-family="monospace">WiFi/BT Antenna</text>
+  
+  <!-- ESP32 chip -->
+  <rect class="chip" x="450" y="220" width="300" height="200" rx="4"/>
+  <text x="600" y="300" text-anchor="middle" class="chip-label" font-size="14">ESP32-WROOM-32</text>
+  <text x="600" y="320" text-anchor="middle" class="chip-label">Dual Core 240MHz</text>
+  <text x="600" y="340" text-anchor="middle" class="chip-label">WiFi 802.11 b/g/n</text>
+  <text x="600" y="360" text-anchor="middle" class="chip-label">Bluetooth 4.2 + BLE</text>
+  
+  <!-- USB connector -->
+  <rect class="usb" x="540" y="660" width="120" height="35" rx="3"/>
+  <text x="600" y="682" text-anchor="middle" fill="#555" font-size="10" font-family="monospace">Micro USB</text>
+  
+  <!-- Left side pins -->
+  <g id="left-pins">
+    <!-- 3V3 -->
+    <circle class="pin-circle power" cx="415" cy="460" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="464">3V3</text>
+    <text class="pin-label" x="80" y="464" fill="#f48771">3.3V Power Output</text>
+    
+    <!-- EN -->
+    <circle class="pin-circle gpio" cx="415" cy="485" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="489">EN</text>
+    <text class="pin-label" x="80" y="489" fill="#4ec9b0">Chip Enable (Reset)</text>
+    
+    <!-- GPIO36/VP/ADC1_0 -->
+    <circle class="pin-circle adc" cx="415" cy="510" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="514">36</text>
+    <text class="pin-label" x="80" y="514" fill="#9cdcfe">GPIO36 / VP / ADC1_0 (input only)</text>
+    
+    <!-- GPIO39/VN/ADC1_3 -->
+    <circle class="pin-circle adc" cx="415" cy="535" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="539">39</text>
+    <text class="pin-label" x="80" y="539" fill="#9cdcfe">GPIO39 / VN / ADC1_3 (input only)</text>
+    
+    <!-- GPIO34/ADC1_6 -->
+    <circle class="pin-circle adc" cx="415" cy="560" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="564">34</text>
+    <text class="pin-label" x="80" y="564" fill="#9cdcfe">GPIO34 / ADC1_6 (input only)</text>
+    
+    <!-- GPIO35/ADC1_7 -->
+    <circle class="pin-circle adc" cx="415" cy="585" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="589">35</text>
+    <text class="pin-label" x="80" y="589" fill="#9cdcfe">GPIO35 / ADC1_7 (input only)</text>
+    
+    <!-- GPIO32/ADC1_4/TOUCH9 -->
+    <circle class="pin-circle touch" cx="415" cy="610" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="614">32</text>
+    <text class="pin-label" x="80" y="614" fill="#ce9178">GPIO32 / ADC1_4 / TOUCH9</text>
+    
+    <!-- GPIO33/ADC1_5/TOUCH8 -->
+    <circle class="pin-circle touch" cx="415" cy="635" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="639">33</text>
+    <text class="pin-label" x="80" y="639" fill="#ce9178">GPIO33 / ADC1_5 / TOUCH8</text>
+    
+    <!-- GND -->
+    <circle class="pin-circle gnd" cx="415" cy="660" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="664">GND</text>
+    <text class="pin-label" x="80" y="664" fill="#666">Ground</text>
+    
+    <!-- VIN -->
+    <circle class="pin-circle power" cx="415" cy="685" r="6"/>
+    <text class="pin-label pin-label-left" x="405" y="689">VIN</text>
+    <text class="pin-label" x="80" y="689" fill="#f48771">5V Power Input</text>
+  </g>
+  
+  <!-- Right side pins -->
+  <g id="right-pins">
+    <!-- GND -->
+    <circle class="pin-circle gnd" cx="785" cy="460" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="464">GND</text>
+    <text class="pin-label pin-label-left" x="1120" y="464" fill="#666">Ground</text>
+    
+    <!-- GPIO23 -->
+    <circle class="pin-circle spi" cx="785" cy="485" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="489">23</text>
+    <text class="pin-label pin-label-left" x="1120" y="489" fill="#c586c0">GPIO23 / VSPI MOSI</text>
+    
+    <!-- GPIO22/SCL -->
+    <circle class="pin-circle i2c" cx="785" cy="510" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="514">22</text>
+    <text class="pin-label pin-label-left" x="1120" y="514" fill="#4fc1ff">GPIO22 / I2C SCL</text>
+    
+    <!-- GPIO1/TX0 -->
+    <circle class="pin-circle uart" cx="785" cy="535" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="539">TX0</text>
+    <text class="pin-label pin-label-left" x="1120" y="539" fill="#dcdcaa">GPIO1 / UART0 TX</text>
+    
+    <!-- GPIO3/RX0 -->
+    <circle class="pin-circle uart" cx="785" cy="560" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="564">RX0</text>
+    <text class="pin-label pin-label-left" x="1120" y="564" fill="#dcdcaa">GPIO3 / UART0 RX</text>
+    
+    <!-- GPIO21/SDA -->
+    <circle class="pin-circle i2c" cx="785" cy="585" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="589">21</text>
+    <text class="pin-label pin-label-left" x="1120" y="589" fill="#4fc1ff">GPIO21 / I2C SDA</text>
+    
+    <!-- GND -->
+    <circle class="pin-circle gnd" cx="785" cy="610" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="614">GND</text>
+    <text class="pin-label pin-label-left" x="1120" y="614" fill="#666">Ground</text>
+    
+    <!-- GPIO19/VSPI MISO -->
+    <circle class="pin-circle spi" cx="785" cy="635" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="639">19</text>
+    <text class="pin-label pin-label-left" x="1120" y="639" fill="#c586c0">GPIO19 / VSPI MISO</text>
+    
+    <!-- GPIO18/VSPI CLK -->
+    <circle class="pin-circle spi" cx="785" cy="660" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="664">18</text>
+    <text class="pin-label pin-label-left" x="1120" y="664" fill="#c586c0">GPIO18 / VSPI CLK</text>
+    
+    <!-- GPIO5/VSPI CS -->
+    <circle class="pin-circle spi" cx="785" cy="685" r="6"/>
+    <text class="pin-label pin-label-right" x="795" y="689">5</text>
+    <text class="pin-label pin-label-left" x="1120" y="689" fill="#c586c0">GPIO5 / VSPI CS0</text>
+  </g>
+  
+  <!-- Additional GPIO labels on board -->
+  <g id="more-pins" font-size="9" font-family="monospace" fill="#888">
+    <text x="430" y="435">GPIO25</text>
+    <text x="430" y="420">GPIO26</text>
+    <text x="430" y="405">GPIO27</text>
+    <text x="700" y="435">GPIO17</text>
+    <text x="700" y="420">GPIO16</text>
+    <text x="700" y="405">GPIO4</text>
+    <text x="700" y="390">GPIO2 (LED)</text>
+    <text x="700" y="375">GPIO15</text>
+  </g>
+  
+  <!-- Legend -->
+  <rect class="legend-box" x="40" y="120" width="180" height="200"/>
+  <text x="130" y="145" text-anchor="middle" class="section-title">Pin Types</text>
+  
+  <circle cx="60" cy="170" r="6" fill="#4ec9b0"/>
+  <text x="75" y="174" class="legend-text">GPIO</text>
+  
+  <circle cx="60" cy="195" r="6" fill="#f48771"/>
+  <text x="75" y="199" class="legend-text">Power</text>
+  
+  <circle cx="60" cy="220" r="6" fill="#666"/>
+  <text x="75" y="224" class="legend-text">Ground</text>
+  
+  <circle cx="60" cy="245" r="6" fill="#9cdcfe"/>
+  <text x="75" y="249" class="legend-text">ADC (Analog Input)</text>
+  
+  <circle cx="60" cy="270" r="6" fill="#ce9178"/>
+  <text x="75" y="274" class="legend-text">Touch Sensor</text>
+  
+  <circle cx="60" cy="295" r="6" fill="#4fc1ff"/>
+  <text x="75" y="299" class="legend-text">I2C (SDA/SCL)</text>
+  
+  <!-- Notes -->
+  <rect class="legend-box" x="980" y="120" width="180" height="160"/>
+  <text x="1070" y="145" text-anchor="middle" class="section-title">Notes</text>
+  <text x="995" y="170" class="legend-text">• GPIO34-39: Input only</text>
+  <text x="995" y="190" class="legend-text">• GPIO2: Built-in LED</text>
+  <text x="995" y="210" class="legend-text">• Default I2C: 21/22</text>
+  <text x="995" y="230" class="legend-text">• Default SPI: 18/19/23</text>
+  <text x="995" y="250" class="legend-text">• ADC2 unavailable</text>
+  <text x="995" y="270" class="legend-text">  when WiFi active</text>
+  
+  <!-- Footer -->
+  <text x="600" y="780" text-anchor="middle" fill="#555" font-size="10" font-family="sans-serif">
+    ESP32-DevKitC V4 - For MicroPython Emulator Reference
+  </text>
+</svg>

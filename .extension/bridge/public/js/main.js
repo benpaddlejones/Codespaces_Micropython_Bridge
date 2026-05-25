@@ -54,9 +54,152 @@ import {
   uploadProject,
 } from "./tools/picoSync.js";
 import { initSyncStatus } from "./tools/syncStatus.js";
+import { initTabs } from "./tools/tabs.js";
 import { addListener, getById, getValue, setValue } from "./ui/dom.js";
-import { initPinoutViewer } from "./ui/pinout.js";
+import { initPinoutViewer, setPinoutMetadata } from "./ui/pinout.js";
 import { initStatusUI, updateFileButtons } from "./ui/status.js";
+
+const DEFAULT_DEVICE_LINKS = {
+  docsUrl: "https://docs.micropython.org/en/latest/",
+  docsLabel: "MicroPython docs",
+  pinout: {
+    title: "Raspberry Pi Pico Pinout",
+    src: "pico-pinout.svg",
+    alt: "Raspberry Pi Pico Pinout Diagram",
+  },
+};
+
+const DEVICE_LINKS = {
+  pico: {
+    docsUrl: "https://docs.micropython.org/en/latest/rp2/quickref.html",
+    docsLabel: "RP2 quick reference",
+    pinout: {
+      title: "Raspberry Pi Pico Pinout",
+      src: "pico-pinout.svg",
+      alt: "Raspberry Pi Pico Pinout Diagram",
+    },
+  },
+  pico_w: {
+    docsUrl: "https://docs.micropython.org/en/latest/rp2/quickref.html",
+    docsLabel: "Pico W quick reference",
+    pinout: {
+      title: "Raspberry Pi Pico W Pinout",
+      src: "pico-pinout.svg",
+      alt: "Raspberry Pi Pico W Pinout Diagram",
+    },
+  },
+  pico2: {
+    docsUrl: "https://docs.micropython.org/en/latest/rp2/quickref.html",
+    docsLabel: "Pico 2 quick reference",
+    pinout: {
+      title: "Raspberry Pi Pico 2 Pinout",
+      src: "pico-pinout.svg",
+      alt: "Raspberry Pi Pico 2 Pinout Diagram",
+    },
+  },
+  pico2_w: {
+    docsUrl: "https://docs.micropython.org/en/latest/rp2/quickref.html",
+    docsLabel: "Pico 2 W quick reference",
+    pinout: {
+      title: "Raspberry Pi Pico 2 W Pinout",
+      src: "pico-pinout.svg",
+      alt: "Raspberry Pi Pico 2 W Pinout Diagram",
+    },
+  },
+  rp2040: {
+    docsUrl: "https://docs.micropython.org/en/latest/rp2/quickref.html",
+    docsLabel: "RP2040 quick reference",
+    pinout: {
+      title: "RP2040 Pinout",
+      src: "pico-pinout.svg",
+      alt: "RP2040 Pinout Diagram",
+    },
+  },
+  rp2350: {
+    docsUrl: "https://docs.micropython.org/en/latest/rp2/quickref.html",
+    docsLabel: "RP2350 quick reference",
+    pinout: {
+      title: "RP2350 Pinout",
+      src: "pico-pinout.svg",
+      alt: "RP2350 Pinout Diagram",
+    },
+  },
+  esp32: {
+    docsUrl: "https://docs.micropython.org/en/latest/esp32/quickref.html",
+    docsLabel: "ESP32 quick reference",
+    pinout: {
+      title: "ESP32 Pinout",
+      src: "esp32-pinout.svg",
+      alt: "ESP32 Pinout Diagram",
+    },
+  },
+  esp32s2: {
+    docsUrl: "https://docs.micropython.org/en/latest/esp32/quickref.html",
+    docsLabel: "ESP32-S2 quick reference",
+    pinout: {
+      title: "ESP32-S2 Pinout",
+      src: "esp32-pinout.svg",
+      alt: "ESP32-S2 Pinout Diagram",
+    },
+  },
+  esp32s3: {
+    docsUrl: "https://docs.micropython.org/en/latest/esp32/quickref.html",
+    docsLabel: "ESP32-S3 quick reference",
+    pinout: {
+      title: "ESP32-S3 Pinout",
+      src: "esp32-pinout.svg",
+      alt: "ESP32-S3 Pinout Diagram",
+    },
+  },
+  esp32c3: {
+    docsUrl: "https://docs.micropython.org/en/latest/esp32/quickref.html",
+    docsLabel: "ESP32-C3 quick reference",
+    pinout: {
+      title: "ESP32-C3 Pinout",
+      src: "esp32-pinout.svg",
+      alt: "ESP32-C3 Pinout Diagram",
+    },
+  },
+  esp8266: {
+    docsUrl: "https://docs.micropython.org/en/latest/esp8266/quickref.html",
+    docsLabel: "ESP8266 quick reference",
+    pinout: {
+      title: "ESP8266 Pinout",
+      src: "esp32-pinout.svg",
+      alt: "ESP8266 Pinout Diagram",
+    },
+  },
+  tinys3: {
+    docsUrl: "https://docs.micropython.org/en/latest/esp32/quickref.html",
+    docsLabel: "TinyS3 quick reference",
+    pinout: {
+      title: "TinyS3 Pinout",
+      src: "esp32-pinout.svg",
+      alt: "TinyS3 Pinout Diagram",
+    },
+  },
+};
+
+function getDeviceLinks(boardId) {
+  return DEVICE_LINKS[boardId] || DEFAULT_DEVICE_LINKS;
+}
+
+function updateDeviceReferenceLinks(info) {
+  const docsBtn = getById("deviceDocsBtn");
+  const pinoutBtn = getById("pinoutBtn");
+  const links = getDeviceLinks(info && info.board);
+
+  if (docsBtn) {
+    docsBtn.href = links.docsUrl;
+    docsBtn.title = `Open ${links.docsLabel}`;
+  }
+
+  if (pinoutBtn) {
+    pinoutBtn.title = `View ${links.pinout.title}`;
+  }
+
+  setPinoutMetadata(links.pinout);
+}
 
 // === Initialization ===
 
@@ -88,6 +231,11 @@ function init() {
   setupPlotterEventListeners();
   initPinoutViewer();
   initSyncStatus();
+
+  // Paginated UI: REPL / Files / Plotter. Must run AFTER the per-tab
+  // modules have wired their own listeners so e.g. the first activation
+  // of the Files tab can trigger a Sync refresh.
+  initTabs();
 
   // Load workspace files
   loadWorkspaceFiles();
@@ -297,15 +445,19 @@ function setupFirmwareDropdown() {
  * Setup device info subscription to update UI
  */
 function setupDeviceInfoSubscription() {
+  updateDeviceReferenceLinks(null);
+
   store.subscribe("device", (deviceState) => {
     const deviceInfoEl = getById("deviceInfo");
     if (!deviceInfoEl) return;
 
     if (deviceState.detected && deviceState.info) {
       const info = deviceState.info;
+      updateDeviceReferenceLinks(info);
       const variant = info.variant === "micropython" ? "🐍" : "🐍🔵";
       const variantName =
         info.variant === "micropython" ? "MicroPython" : "CircuitPython";
+      const boardName = (info.board || "unknown").toUpperCase();
 
       // Check if outdated
       const firmwareInfo = getFirmwareInfo();
@@ -319,12 +471,14 @@ function setupDeviceInfoSubscription() {
       deviceInfoEl.innerHTML = `
         <span class="device-name ${warningClass}">${variant} ${info.name}</span>
         <span class="device-version">v${info.version}${outdatedBadge}</span>
+        <span class="device-meta">${variantName} • ${boardName}${info.buildDate ? ` • ${info.buildDate}` : ""}</span>
       `;
       deviceInfoEl.title = `${info.name}\n${variantName} v${info.version}${
         info.buildDate ? "\nBuild: " + info.buildDate : ""
       }`;
       deviceInfoEl.className = `device-info detected ${warningClass}`;
     } else {
+      updateDeviceReferenceLinks(null);
       deviceInfoEl.innerHTML = '<span class="device-name">Not detected</span>';
       deviceInfoEl.title = "Connect to detect device";
       deviceInfoEl.className = "device-info";

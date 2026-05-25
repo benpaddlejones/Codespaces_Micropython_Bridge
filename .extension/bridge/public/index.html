@@ -35,7 +35,7 @@
           <button id="connectBtn">Connect Pico</button>
           <button id="disconnectBtn" disabled>Disconnect</button>
           <div class="separator"></div>
-          <select id="baudRate">
+          <select id="baudRate" aria-label="Baud rate">
             <option value="300">300</option>
             <option value="1200">1200</option>
             <option value="2400">2400</option>
@@ -59,10 +59,6 @@
           </label>
           <button id="clearBtn">Clear</button>
           <button id="downloadBtn">Download Log</button>
-          <div class="separator"></div>
-          <label class="checkbox-label">
-            <input type="checkbox" id="plotterCheck" /> 📈 Plotter
-          </label>
           <div class="spacer"></div>
           <div
             id="serverStatus"
@@ -75,6 +71,7 @@
               id="restartServerBtn"
               class="btn-restart-server"
               title="Restart Server"
+              aria-label="Restart bridge server"
               style="display: none"
             >
               ↻
@@ -82,8 +79,48 @@
           </div>
         </div>
 
-        <!-- Tool Bar: Pico Commands - Grouped by function -->
-        <div class="toolbar tools-bar">
+        <!-- Tab Strip: paginate the workspace into REPL / Device / Plotter -->
+        <div class="tab-strip" role="tablist" aria-label="Workspace view">
+          <button
+            id="tab-btn-repl"
+            class="tab-btn"
+            data-tab="repl"
+            role="tab"
+            aria-selected="true"
+            aria-controls="tab-panel-repl"
+            tabindex="0"
+            type="button"
+          >
+            💻 REPL
+          </button>
+          <button
+            id="tab-btn-files"
+            class="tab-btn"
+            data-tab="files"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-panel-files"
+            tabindex="-1"
+            type="button"
+          >
+            📟 Device
+          </button>
+          <button
+            id="tab-btn-plotter"
+            class="tab-btn"
+            data-tab="plotter"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-panel-plotter"
+            tabindex="-1"
+            type="button"
+          >
+            📈 Plotter
+          </button>
+        </div>
+
+        <!-- REPL tab toolbar -->
+        <div class="toolbar tools-bar tab-toolbar" data-tab="repl">
           <!-- Files Group -->
           <div class="tool-group">
             <span class="group-label">Files</span>
@@ -98,6 +135,7 @@
               <select
                 id="filePicker"
                 class="file-picker"
+                aria-label="Workspace file to run or upload"
                 title="Select a Python file to run or upload"
               >
                 <option value="">Select file...</option>
@@ -106,6 +144,7 @@
                 id="refreshFilesBtn"
                 class="tool-btn"
                 title="Reload workspace files"
+                aria-label="Reload workspace files"
               >
                 ↻
               </button>
@@ -115,43 +154,6 @@
                 title="Run selected file on Pico"
               >
                 ▶️ Run
-              </button>
-            </div>
-          </div>
-
-          <div class="tool-separator"></div>
-
-          <!-- Upload Group -->
-          <div class="tool-group">
-            <span class="group-label">Upload</span>
-            <div class="group-buttons">
-              <button
-                id="uploadFileBtn"
-                class="tool-btn"
-                title="Upload selected file to Pico"
-              >
-                📄 File
-              </button>
-              <button
-                id="uploadLibBtn"
-                class="tool-btn"
-                title="Upload /lib folder to Pico"
-              >
-                📚 Lib
-              </button>
-              <button
-                id="uploadProjectBtn"
-                class="tool-btn btn-upload-all"
-                title="Upload entire project (lib + py_scripts + main.py)"
-              >
-                📦 All
-              </button>
-              <button
-                id="syncStatusBtn"
-                class="tool-btn btn-sync"
-                title="Compare workspace ↔ Pico and selectively push/pull/delete"
-              >
-                🔄 Sync
               </button>
             </div>
           </div>
@@ -182,6 +184,51 @@
                 title="Hard reset (machine.reset()) - Full reboot, USB disconnects"
               >
                 ⚡ Hard
+              </button>
+            </div>
+          </div>
+
+          <div class="tool-separator"></div>
+
+          <!-- Device Info (visible on REPL so you always see what's connected) -->
+          <div class="tool-group device-info-group">
+            <span class="group-label">Device</span>
+            <div
+              id="deviceInfo"
+              class="device-info"
+              title="Connect to detect device"
+            >
+              <span class="device-name">Not detected</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Files tab toolbar -->
+        <div class="toolbar tools-bar tab-toolbar" data-tab="files" hidden>
+          <!-- Upload Group -->
+          <div class="tool-group">
+            <span class="group-label">Upload</span>
+            <div class="group-buttons">
+              <button
+                id="uploadFileBtn"
+                class="tool-btn"
+                title="Upload selected file to Pico"
+              >
+                📄 File
+              </button>
+              <button
+                id="uploadLibBtn"
+                class="tool-btn"
+                title="Upload /lib folder to Pico"
+              >
+                📚 Lib
+              </button>
+              <button
+                id="uploadProjectBtn"
+                class="tool-btn btn-upload-all"
+                title="Upload entire project (lib + py_scripts + main.py)"
+              >
+                📦 All
               </button>
             </div>
           </div>
@@ -228,6 +275,7 @@
                 id="deleteAllBtn"
                 class="tool-btn btn-danger"
                 title="⚠️ Delete ALL files on Pico"
+                aria-label="Wipe all files on Pico (destructive)"
               >
                 🗑️ Wipe
               </button>
@@ -236,25 +284,12 @@
 
           <div class="tool-separator"></div>
 
-          <!-- Device Info -->
-          <div class="tool-group device-info-group">
-            <span class="group-label">Device</span>
-            <div
-              id="deviceInfo"
-              class="device-info"
-              title="Connect to detect device"
-            >
-              <span class="device-name">Not detected</span>
-            </div>
-          </div>
-
-          <div class="tool-separator"></div>
-
-          <!-- Help Group -->
+          <!-- Help Group: device-specific references -->
           <div class="tool-group">
             <span class="group-label">Help</span>
             <div class="group-buttons">
               <a
+                id="deviceDocsBtn"
                 href="https://docs.micropython.org/en/latest/"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -276,56 +311,24 @@
       </div>
     </div>
 
-    <!-- Sync Status Modal -->
-    <div id="syncStatusModal" class="sync-modal" style="display: none">
-      <div class="sync-modal-content">
-        <div class="sync-modal-header">
-          <div>
-            <h2>Workspace ↔ Pico</h2>
-            <div id="syncProjectRoot" class="sync-project-root"></div>
-          </div>
-          <button id="syncCloseBtn" class="pinout-close-btn" title="Close">
-            ×
-          </button>
-        </div>
-        <div class="sync-toolbar">
-          <button id="syncRefreshBtn" class="tool-btn btn-sync">
-            🔄 Refresh
-          </button>
-          <button id="syncPushAllBtn" class="tool-btn btn-upload-all">
-            📤 Push All Changes
-          </button>
-          <button
-            id="syncMirrorBtn"
-            class="tool-btn btn-danger"
-            title="Make Pico exactly match workspace (deletes orphans)"
-          >
-            🪞 Mirror (push + delete orphans)
-          </button>
-          <div class="sync-summary" id="syncSummary"></div>
-        </div>
-        <div class="sync-modal-body">
-          <div class="sync-header-row">
-            <span class="sync-status"></span>
-            <span class="sync-path">File</span>
-            <span class="sync-size">Size</span>
-            <span class="sync-actions">Actions</span>
-          </div>
-          <div id="syncBody" class="sync-rows"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Diff Modal (opened from Sync Status) -->
+    <!-- Diff Modal (opened from Files tab Sync UI) -->
     <div
       id="syncDiffModal"
       class="sync-modal sync-diff-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="syncDiffTitle"
       style="display: none"
     >
       <div class="sync-modal-content sync-diff-content">
         <div class="sync-modal-header">
           <h2 id="syncDiffTitle">Diff</h2>
-          <button id="syncDiffCloseBtn" class="pinout-close-btn" title="Close">
+          <button
+            id="syncDiffCloseBtn"
+            class="pinout-close-btn"
+            title="Close"
+            aria-label="Close diff dialog"
+          >
             ×
           </button>
         </div>
@@ -334,11 +337,23 @@
     </div>
 
     <!-- Pinout Modal -->
-    <div id="pinoutModal" class="pinout-modal" style="display: none">
+    <div
+      id="pinoutModal"
+      class="pinout-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pinoutModalTitle"
+      style="display: none"
+    >
       <div class="pinout-modal-content">
         <div class="pinout-modal-header">
-          <h2>Raspberry Pi Pico Pinout</h2>
-          <button id="pinoutCloseBtn" class="pinout-close-btn" title="Close">
+          <h2 id="pinoutModalTitle">Raspberry Pi Pico Pinout</h2>
+          <button
+            id="pinoutCloseBtn"
+            class="pinout-close-btn"
+            title="Close"
+            aria-label="Close pinout dialog"
+          >
             ×
           </button>
         </div>
@@ -357,39 +372,109 @@
     </div>
 
     <div id="main-content">
-      <div id="terminal-container"></div>
-      <div id="plotter-container" style="display: none">
-        <div class="plotter-toolbar">
-          <button id="plotterClearBtn" class="tool-btn">🗑️ Clear</button>
-          <button id="plotterFreezeBtn" class="tool-btn">⏸️ Freeze</button>
-          <button id="plotterDownloadBtn" class="tool-btn">📷 Save PNG</button>
-          <button id="plotterFullscreenBtn" class="tool-btn">
-            ⛶ Fullscreen
-          </button>
-          <div class="separator"></div>
-          <label class="checkbox-label">
-            <input type="checkbox" id="plotterAutoScaleCheck" checked /> Auto
-            Scale
-          </label>
-          <span class="plotter-info">
-            Format: <code>value</code> or <code>v1,v2,v3</code> or
-            <code>label:value</code>
-          </span>
-          <div class="spacer"></div>
-          <div id="plotterLegend" class="plotter-legend"></div>
+      <!-- REPL tab body -->
+      <div
+        id="tab-panel-repl"
+        class="tab-body"
+        data-tab="repl"
+        role="tabpanel"
+        aria-labelledby="tab-btn-repl"
+      >
+        <div id="terminal-container"></div>
+      </div>
+
+      <!-- Files tab body: inline Workspace ↔ Pico sync UI -->
+      <div
+        id="tab-panel-files"
+        class="tab-body"
+        data-tab="files"
+        role="tabpanel"
+        aria-labelledby="tab-btn-files"
+        hidden
+      >
+        <div class="files-panel">
+          <div class="files-panel-header">
+            <div>
+              <h2>Workspace ↔ Pico</h2>
+              <div id="syncProjectRoot" class="sync-project-root"></div>
+            </div>
+          </div>
+          <div class="sync-toolbar">
+            <button id="syncRefreshBtn" class="tool-btn btn-sync">
+              🔄 Refresh
+            </button>
+            <button id="syncPullAllBtn" class="tool-btn">
+              📥 Pull All Device Code
+            </button>
+            <button id="syncPushAllBtn" class="tool-btn btn-upload-all">
+              📤 Push All Changes
+            </button>
+            <button
+              id="syncMirrorBtn"
+              class="tool-btn btn-danger"
+              title="Make Pico exactly match workspace (deletes orphans)"
+            >
+              🪞 Mirror (push + delete orphans)
+            </button>
+            <div class="sync-summary" id="syncSummary"></div>
+          </div>
+          <div class="files-panel-body">
+            <div class="sync-header-row">
+              <span class="sync-status"></span>
+              <span class="sync-path">File</span>
+              <span class="sync-size">Size</span>
+              <span class="sync-actions">Actions</span>
+            </div>
+            <div id="syncBody" class="sync-rows"></div>
+          </div>
         </div>
-        <canvas id="plotterCanvas"></canvas>
+      </div>
+
+      <!-- Plotter tab body -->
+      <div
+        id="tab-panel-plotter"
+        class="tab-body"
+        data-tab="plotter"
+        role="tabpanel"
+        aria-labelledby="tab-btn-plotter"
+        hidden
+      >
+        <div id="plotter-container">
+          <div class="plotter-toolbar">
+            <button id="plotterClearBtn" class="tool-btn">🗑️ Clear</button>
+            <button id="plotterFreezeBtn" class="tool-btn">⏸️ Freeze</button>
+            <button id="plotterDownloadBtn" class="tool-btn">
+              📷 Save PNG
+            </button>
+            <button id="plotterFullscreenBtn" class="tool-btn">
+              ⛶ Fullscreen
+            </button>
+            <div class="separator"></div>
+            <label class="checkbox-label">
+              <input type="checkbox" id="plotterAutoScaleCheck" checked /> Auto
+              Scale
+            </label>
+            <span class="plotter-info">
+              Format: <code>value</code> or <code>v1,v2,v3</code> or
+              <code>label:value</code>
+            </span>
+            <div class="spacer"></div>
+            <div id="plotterLegend" class="plotter-legend"></div>
+          </div>
+          <canvas id="plotterCanvas"></canvas>
+        </div>
       </div>
     </div>
 
-    <div class="input-bar">
+    <div class="input-bar" data-tab="repl">
       <input
         type="text"
         id="serialInput"
         placeholder="Type command..."
+        aria-label="Serial command to send"
         disabled
       />
-      <select id="lineEnding">
+      <select id="lineEnding" aria-label="Line ending">
         <option value="none">No line ending</option>
         <option value="nl">Newline</option>
         <option value="cr">Carriage return</option>

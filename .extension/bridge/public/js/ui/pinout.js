@@ -6,6 +6,7 @@
  */
 
 import { addListener, getById } from "./dom.js";
+import { releaseFocus, trapFocus } from "./focusTrap.js";
 
 // State for zoom/pan
 let scale = 1;
@@ -25,11 +26,37 @@ const ZOOM_SPEED = 0.1;
 function getElements() {
   return {
     modal: getById("pinoutModal"),
+    title: getById("pinoutModalTitle"),
     image: getById("pinoutImage"),
     closeBtn: getById("pinoutCloseBtn"),
     resetBtn: getById("pinoutResetBtn"),
     body: document.querySelector(".pinout-modal-body"),
   };
+}
+
+const DEFAULT_PINOUT = {
+  title: "Raspberry Pi Pico Pinout",
+  src: "pico-pinout.svg",
+  alt: "Raspberry Pi Pico Pinout Diagram",
+};
+
+/**
+ * Set the pinout diagram metadata used by the modal.
+ * @param {{title?: string, src?: string, alt?: string} | null} config
+ */
+export function setPinoutMetadata(config) {
+  const next = {
+    ...DEFAULT_PINOUT,
+    ...(config || {}),
+  };
+  const { image, title } = getElements();
+  if (image) {
+    image.src = next.src;
+    image.alt = next.alt;
+  }
+  if (title) {
+    title.textContent = next.title;
+  }
 }
 
 /**
@@ -60,6 +87,7 @@ export function showPinout() {
   if (modal) {
     modal.style.display = "flex";
     resetView();
+    trapFocus(modal, hidePinout);
   }
 }
 
@@ -70,6 +98,7 @@ export function hidePinout() {
   const { modal } = getElements();
   if (modal) {
     modal.style.display = "none";
+    releaseFocus(modal);
   }
 }
 
@@ -147,6 +176,9 @@ function handleKeyDown(e) {
  */
 export function initPinoutViewer() {
   const { modal, body, closeBtn, resetBtn } = getElements();
+
+  // Ensure the modal has a valid default even before device detection runs.
+  setPinoutMetadata(null);
 
   // Open button
   addListener("pinoutBtn", "click", showPinout);

@@ -4,12 +4,12 @@
  */
 
 import * as store from "../state/store.js";
+import { fitTerminal } from "../terminal/setup.js";
 import {
-  drawPlotter,
   clearPlotter as clearPlotterData,
   downloadPlotterPNG,
+  drawPlotter,
 } from "./renderer.js";
-import { fitTerminal } from "../terminal/setup.js";
 
 /**
  * Toggle plotter visibility
@@ -124,20 +124,16 @@ export function downloadPlotter() {
  * Setup plotter event listeners
  */
 export function setupPlotterEventListeners() {
-  const plotterCheck = document.getElementById("plotterCheck");
+  // The legacy `#plotterCheck` toolbar checkbox was removed when the UI
+  // moved to paginated tabs — the Plotter tab itself now toggles
+  // plotter visibility via tabs.js calling togglePlotter().
   const plotterClearBtn = document.getElementById("plotterClearBtn");
   const plotterFreezeBtn = document.getElementById("plotterFreezeBtn");
   const plotterDownloadBtn = document.getElementById("plotterDownloadBtn");
   const plotterFullscreenBtn = document.getElementById("plotterFullscreenBtn");
   const plotterAutoScaleCheck = document.getElementById(
-    "plotterAutoScaleCheck"
+    "plotterAutoScaleCheck",
   );
-
-  if (plotterCheck) {
-    plotterCheck.addEventListener("change", (e) => {
-      togglePlotter(e.target.checked);
-    });
-  }
 
   if (plotterClearBtn) {
     plotterClearBtn.addEventListener("click", clearPlotter);

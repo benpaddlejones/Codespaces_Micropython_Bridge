@@ -26,6 +26,7 @@ import {
 } from "../serial/rawRepl.js";
 import * as store from "../state/store.js";
 import { termWrite } from "../terminal/output.js";
+import { releaseFocus, trapFocus } from "../ui/focusTrap.js";
 import { diffLines, renderDiffHtml } from "./diff.js";
 
 const MAX_PULL_BYTES = 256 * 1024;
@@ -461,11 +462,15 @@ function showDiffModal(picoPath, workspaceContent, deviceContent) {
     <pre class="sync-diff-pre">${renderDiffHtml(ops)}</pre>
   `;
   modal.style.display = "flex";
+  trapFocus(modal, hideDiffModal);
 }
 
 function hideDiffModal() {
   const modal = document.getElementById("syncDiffModal");
-  if (modal) modal.style.display = "none";
+  if (modal) {
+    modal.style.display = "none";
+    releaseFocus(modal);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -501,6 +506,43 @@ async function pushAll() {
       termWrite(`[Sync] ✓ ${r.path}\r\n`);
     } catch (err) {
       termWrite(`[Sync] ✗ ${r.path}: ${err.message}\r\n`);
+    }
+  }
+  await refreshSyncStatus();
+}
+
+async function pullAll() {
+  if (!cachedStatus) return;
+  const toPull = cachedStatus.rows.filter(
+    (r) => r.status === "modified" || r.status === "orphan",
+  );
+  if (toPull.length === 0) {
+    termWrite("[Sync] Nothing to pull — workspace is already up to date\r\n");
+    return;
+  }
+
+  if (
+    !confirm(
+      `Pull ${toPull.length} file(s) from device to workspace?\n\n` +
+        `This will overwrite workspace versions for modified files.\n\n` +
+        toPull
+          .slice(0, 10)
+          .map((r) => `  ${r.path}`)
+          .join("\n") +
+        (toPull.length > 10 ? `\n  …+${toPull.length - 10} more` : ""),
+    )
+  ) {
+    return;
+  }
+
+  termWrite(`[Sync] Pulling ${toPull.length} file(s) from device...\r\n`);
+  for (const r of toPull) {
+    try {
+      const content = await readDeviceFile(r.path);
+      await writeWorkspaceFileContent(r.path, content);
+      termWrite(`[Sync] ✓ pull ${r.path}\r\n`);
+    } catch (err) {
+      termWrite(`[Sync] ✗ pull ${r.path}: ${err.message}\r\n`);
     }
   }
   await refreshSyncStatus();
@@ -589,29 +631,21 @@ export async function refreshSyncStatus() {
 }
 
 export function openSyncPanel() {
-  const modal = document.getElementById("syncStatusModal");
-  if (!modal) return;
-  modal.style.display = "flex";
+  // Back-compat shim: prior versions exposed openSyncPanel() to open a
+  // modal. The Sync UI is now the Files tab. Re-render in case the
+  // caller wanted to ensure the panel content is fresh.
   renderStatusPanel();
-}
-
-function closeSyncPanel() {
-  const modal = document.getElementById("syncStatusModal");
-  if (modal) modal.style.display = "none";
 }
 
 /**
  * Wire up all DOM event listeners. Called once from main.js.
  */
 export function initSyncStatus() {
-  const open = document.getElementById("syncStatusBtn");
-  if (open) open.addEventListener("click", openSyncPanel);
-
-  const close = document.getElementById("syncCloseBtn");
-  if (close) close.addEventListener("click", closeSyncPanel);
-
   const refresh = document.getElementById("syncRefreshBtn");
   if (refresh) refresh.addEventListener("click", refreshSyncStatus);
+
+  const pullAllBtn = document.getElementById("syncPullAllBtn");
+  if (pullAllBtn) pullAllBtn.addEventListener("click", pullAll);
 
   const pushAllBtn = document.getElementById("syncPushAllBtn");
   if (pushAllBtn) pushAllBtn.addEventListener("click", pushAll);
@@ -648,14 +682,12 @@ export function initSyncStatus() {
   const diffClose = document.getElementById("syncDiffCloseBtn");
   if (diffClose) diffClose.addEventListener("click", hideDiffModal);
 
-  // ESC closes whichever modal is on top.
+  // ESC closes the diff modal when it's open.
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     const diff = document.getElementById("syncDiffModal");
     if (diff && diff.style.display === "flex") {
       hideDiffModal();
-      return;
     }
-    closeSyncPanel();
   });
 }

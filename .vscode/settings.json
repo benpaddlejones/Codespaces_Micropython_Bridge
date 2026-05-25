@@ -2,6 +2,7 @@
   "files.autoSave": "onFocusChange",
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "python.defaultInterpreterPath": "/usr/bin/python3",
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
     "source.organizeImports": "explicit"
@@ -34,6 +35,12 @@
     "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.1.19/emulator/mock/typings",
     "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.1.19/emulator/mock/micropython",
     "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.2.0/emulator/mock/typings",
-    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.2.0/emulator/mock/micropython"
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.2.0/emulator/mock/micropython",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.3.0/emulator/mock/typings",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.3.0/emulator/mock/micropython",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.3.1/emulator/mock/typings",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.3.1/emulator/mock/micropython",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.3.2/emulator/mock/typings",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.3.2/emulator/mock/micropython"
   ]
 }
