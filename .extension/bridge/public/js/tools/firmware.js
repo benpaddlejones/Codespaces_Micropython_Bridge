@@ -3,64 +3,79 @@
  * Handles firmware version checking and downloading for various boards.
  */
 
-import * as store from "../state/store.js";
 import { termWrite } from "../terminal/output.js";
 import { getDeviceInfo } from "./deviceDetect.js";
 
-// MicroPython board info
+// MicroPython board info. `category` controls grouping in the firmware
+// dropdown menu; the order here is the display order within each group.
 const MICROPYTHON_BOARDS = {
   // Raspberry Pi Pico family
   pico: {
     name: "Raspberry Pi Pico",
     extension: ".uf2",
+    category: "Raspberry Pi Pico",
   },
   pico_w: {
     name: "Raspberry Pi Pico W",
     extension: ".uf2",
+    category: "Raspberry Pi Pico",
   },
   pico2: {
     name: "Raspberry Pi Pico 2",
     extension: ".uf2",
+    category: "Raspberry Pi Pico",
+  },
+  pico2_w: {
+    name: "Raspberry Pi Pico 2 W",
+    extension: ".uf2",
+    category: "Raspberry Pi Pico",
   },
 
   // RP2040/RP2350 generic
   rp2040: {
     name: "Generic RP2040",
     extension: ".uf2",
+    category: "Generic RP2",
   },
   rp2350: {
     name: "Generic RP2350",
     extension: ".uf2",
+    category: "Generic RP2",
   },
 
   // ESP32 family
   esp32: {
     name: "ESP32",
     extension: ".bin",
+    category: "ESP32 / ESP8266",
     flashInstructions:
       "Use esptool.py: esptool.py --chip esp32 erase_flash && esptool.py --chip esp32 write_flash -z 0x1000 firmware.bin",
   },
   esp32s2: {
     name: "ESP32-S2",
     extension: ".bin",
+    category: "ESP32 / ESP8266",
     flashInstructions:
       "Use esptool.py: esptool.py --chip esp32s2 erase_flash && esptool.py --chip esp32s2 write_flash -z 0x1000 firmware.bin",
   },
   esp32s3: {
     name: "ESP32-S3",
     extension: ".bin",
+    category: "ESP32 / ESP8266",
     flashInstructions:
       "Use esptool.py: esptool.py --chip esp32s3 erase_flash && esptool.py --chip esp32s3 write_flash -z 0 firmware.bin",
   },
   esp32c3: {
     name: "ESP32-C3",
     extension: ".bin",
+    category: "ESP32 / ESP8266",
     flashInstructions:
       "Use esptool.py: esptool.py --chip esp32c3 erase_flash && esptool.py --chip esp32c3 write_flash -z 0 firmware.bin",
   },
   esp8266: {
     name: "ESP8266",
     extension: ".bin",
+    category: "ESP32 / ESP8266",
     flashInstructions:
       "Use esptool.py: esptool.py --chip esp8266 erase_flash && esptool.py --chip esp8266 write_flash -z 0 firmware.bin",
   },
@@ -69,10 +84,24 @@ const MICROPYTHON_BOARDS = {
   tinys3: {
     name: "TinyS3 (ESP32-S3)",
     extension: ".bin",
+    category: "ESP32 / ESP8266",
     flashInstructions:
       "Use esptool.py: esptool.py --chip esp32s3 erase_flash && esptool.py --chip esp32s3 write_flash -z 0 firmware.bin",
   },
 };
+
+/**
+ * Return the full board catalogue as an array of `{ id, name, category }`
+ * entries, preserving the declaration order in MICROPYTHON_BOARDS. The
+ * firmware split-button dropdown uses this to render its menu.
+ */
+export function getAllBoards() {
+  return Object.entries(MICROPYTHON_BOARDS).map(([id, info]) => ({
+    id,
+    name: info.name,
+    category: info.category || "Other",
+  }));
+}
 
 /**
  * Check if firmware is outdated
@@ -142,16 +171,57 @@ export function getFirmwareInfo() {
 }
 
 /**
- * Fetch latest firmware info from server API
+ * Fetch latest firmware info from server API. Times out after 20s so a
+ * stalled upstream (network egress blocked, micropython.org slow, etc.)
+ * surfaces an error in the terminal instead of leaving the user staring
+ * at a silent "Fetching..." line forever.
  * @param {string} boardId - Board identifier
  * @returns {Promise<object>} Firmware info
  */
 async function fetchLatestFirmware(boardId) {
-  const response = await fetch(`/api/firmware/latest/${boardId}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  let response;
+  try {
+    response = await fetch(`/api/firmware/latest/${boardId}`, {
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error(
+        "timed out waiting for micropython.org (20s) — check network egress",
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) {
-    throw new Error(`Failed to fetch firmware info: ${response.statusText}`);
+    let detail = response.statusText;
+    try {
+      const body = await response.json();
+      if (body && body.error) detail = body.error;
+    } catch {}
+    throw new Error(`Failed to fetch firmware info: ${detail}`);
   }
   return response.json();
+}
+
+/**
+ * Trigger a cross-origin download/open without using window.open(), which
+ * popup-blockers silently swallow when called after an `await` (the user
+ * gesture chain is broken). Building an <a> element and clicking it is
+ * treated as a navigation rather than a popup, so it works reliably in
+ * VS Code webviews / Simple Browser.
+ */
+function openDownloadUrl(url) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 /**
@@ -163,7 +233,7 @@ export async function downloadFirmware() {
 
   if (!firmwareInfo) {
     termWrite(
-      "\r\n[Bridge] ❌ No device detected. Connect to a board first.\r\n"
+      "\r\n[Bridge] ❌ No device detected. Connect to a board first.\r\n",
     );
     showFirmwareSelector();
     return;
@@ -171,12 +241,12 @@ export async function downloadFirmware() {
 
   if (firmwareInfo.isGeneric) {
     termWrite(`\r\n[Bridge] ${firmwareInfo.message}\r\n`);
-    window.open("https://micropython.org/download/", "_blank");
+    openDownloadUrl("https://micropython.org/download/");
     return;
   }
 
   termWrite(
-    `\r\n[Bridge] 📥 Fetching latest MicroPython for ${firmwareInfo.name}...\r\n`
+    `\r\n[Bridge] 📥 Fetching latest MicroPython for ${firmwareInfo.name}...\r\n`,
   );
   termWrite(`[Bridge] Current version: v${firmwareInfo.currentVersion}\r\n`);
 
@@ -185,7 +255,7 @@ export async function downloadFirmware() {
     const latest = await fetchLatestFirmware(firmwareInfo.boardId);
 
     termWrite(
-      `[Bridge] Latest version: v${latest.version} (${latest.buildDate})\r\n`
+      `[Bridge] Latest version: v${latest.version} (${latest.buildDate})\r\n`,
     );
 
     if (!isOutdated(firmwareInfo.currentVersion, latest.version)) {
@@ -198,9 +268,10 @@ export async function downloadFirmware() {
 
     // Start the download
     termWrite(`[Bridge] ⬇️  Downloading ${latest.filename}...\r\n`);
-    window.open(latest.url, "_blank");
+    openDownloadUrl(latest.url);
 
     termWrite(`[Bridge] ✓ Download started!\r\n`);
+    termWrite(`[Bridge]   ${latest.url}\r\n`);
 
     // Show flashing instructions
     if (firmwareInfo.flashInstructions) {
@@ -209,18 +280,18 @@ export async function downloadFirmware() {
     } else {
       termWrite(`\r\n[Bridge] 📋 Flash instructions:\r\n`);
       termWrite(
-        `[Bridge] 1. Hold BOOTSEL button and plug in USB (or press BOOTSEL + reset)\r\n`
+        `[Bridge] 1. Hold BOOTSEL button and plug in USB (or press BOOTSEL + reset)\r\n`,
       );
       termWrite(`[Bridge] 2. A drive named "RPI-RP2" will appear\r\n`);
       termWrite(
-        `[Bridge] 3. Drag the ${latest.filename} file to the drive\r\n`
+        `[Bridge] 3. Drag the ${latest.filename} file to the drive\r\n`,
       );
       termWrite(`[Bridge] 4. Board will reboot automatically\r\n`);
     }
   } catch (err) {
     termWrite(`[Bridge] ❌ Error: ${err.message}\r\n`);
     termWrite(`[Bridge] Opening download page instead...\r\n`);
-    window.open("https://micropython.org/download/", "_blank");
+    openDownloadUrl("https://micropython.org/download/");
   }
 }
 
@@ -256,7 +327,7 @@ export async function downloadFirmwareForBoard(boardId) {
   }
 
   termWrite(
-    `\r\n[Bridge] 📥 Fetching latest MicroPython for ${boardInfo.name}...\r\n`
+    `\r\n[Bridge] 📥 Fetching latest MicroPython for ${boardInfo.name}...\r\n`,
   );
 
   try {
@@ -265,9 +336,10 @@ export async function downloadFirmwareForBoard(boardId) {
     termWrite(`[Bridge] Latest version: v${latest.version}\r\n`);
     termWrite(`[Bridge] ⬇️  Downloading ${latest.filename}...\r\n`);
 
-    window.open(latest.url, "_blank");
+    openDownloadUrl(latest.url);
 
     termWrite(`[Bridge] ✓ Download started!\r\n`);
+    termWrite(`[Bridge]   ${latest.url}\r\n`);
 
     if (boardInfo.flashInstructions) {
       termWrite(`\r\n[Bridge] 📋 Flash instructions:\r\n`);
@@ -280,7 +352,7 @@ export async function downloadFirmwareForBoard(boardId) {
   } catch (err) {
     termWrite(`[Bridge] ❌ Error: ${err.message}\r\n`);
     termWrite(`[Bridge] Opening download page instead...\r\n`);
-    window.open("https://micropython.org/download/", "_blank");
+    openDownloadUrl("https://micropython.org/download/");
   }
 }
 

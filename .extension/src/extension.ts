@@ -72,10 +72,21 @@ export async function activate(
 
     // Auto-configure Pylance for MicroPython mock modules
     // This enables IntelliSense for `import machine`, `import utime`, etc.
-    await configurePylanceForMock(context, logger);
+    // Fire-and-forget: writing to workspace config can be slow on first install
+    // and we don't want to block activation on it.
+    void configurePylanceForMock(context, logger).catch((err) => {
+      logger?.error(
+        `configurePylanceForMock failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
-    // Auto-create .vscode/launch.json for debugpy if it doesn't exist
-    await ensureLaunchJson(context, logger);
+    // Auto-create .vscode/launch.json for debugpy if it doesn't exist.
+    // Fire-and-forget: file I/O + JSON parsing shouldn't block activation.
+    void ensureLaunchJson(context, logger).catch((err) => {
+      logger?.error(
+        `ensureLaunchJson failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
     // Register debug configuration provider for MicroPython Emulator
     // This makes "MicroPython (Emulator)" appear in the debug dropdown
@@ -196,8 +207,8 @@ export async function activate(
       ),
     );
 
-    // Set initial context values
-    await vscode.commands.executeCommand(
+    // Set initial context values (fire-and-forget; not needed for activation)
+    void vscode.commands.executeCommand(
       "setContext",
       "picoBridge.serverRunning",
       false,
@@ -232,30 +243,34 @@ export async function activate(
 
     logger.info("Pico Bridge extension activated successfully");
 
-    // Show welcome message on first activation
+    // Show welcome message on first activation.
+    // Fire-and-forget so the modal dialog doesn't keep activation in the
+    // "loading" state until the user clicks something — that's the main
+    // reason the extension felt laggy on first install.
     const hasShownWelcome = context.globalState.get<boolean>(
       "hasShownWelcome",
       false,
     );
     if (!hasShownWelcome) {
-      const selection = await vscode.window.showInformationMessage(
-        "Welcome to Pico Bridge! This extension enables MicroPython development for Raspberry Pi Pico and ESP32.",
-        "Start Server",
-        "Open Walkthrough",
-        "Dismiss",
-      );
-
-      if (selection === "Start Server") {
-        await vscode.commands.executeCommand("picoBridge.startServer");
-      } else if (selection === "Open Walkthrough") {
-        // Use correct walkthrough ID from package.json
-        await vscode.commands.executeCommand(
-          "workbench.action.openWalkthrough",
-          "benpaddlejones.pico-bridge#picoBridge.gettingStarted",
+      void (async () => {
+        const selection = await vscode.window.showInformationMessage(
+          "Welcome to Pico Bridge! This extension enables MicroPython development for Raspberry Pi Pico and ESP32.",
+          "Start Server",
+          "Open Walkthrough",
+          "Dismiss",
         );
-      }
 
-      await context.globalState.update("hasShownWelcome", true);
+        if (selection === "Start Server") {
+          await vscode.commands.executeCommand("picoBridge.startServer");
+        } else if (selection === "Open Walkthrough") {
+          await vscode.commands.executeCommand(
+            "workbench.action.openWalkthrough",
+            "benpaddlejones.pico-bridge#picoBridge.gettingStarted",
+          );
+        }
+
+        await context.globalState.update("hasShownWelcome", true);
+      })();
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

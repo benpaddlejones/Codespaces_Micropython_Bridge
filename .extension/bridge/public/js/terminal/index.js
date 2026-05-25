@@ -3,6 +3,7 @@
  * Exports all terminal-related functionality.
  */
 
-export * from "./setup.js";
-export * from "./output.js";
+export * from "./controls.js";
 export * from "./handlers.js";
+export * from "./output.js";
+export * from "./setup.js";

@@ -23,15 +23,15 @@
   ],
   "eslint.format.enable": true,
   "eslint.lintTask.enable": true,
-  "workbench.colorTheme": "Default Dark+",
+  "workbench.colorTheme": "Dark+",
   "workbench.iconTheme": "vs-seti",
   "git.confirmSync": false,
   "git.enableSmartCommit": true,
   "window.restoreWindows": "preserve",
   "python.analysis.extraPaths": [
-    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-1.1.0/emulator/mock/micropython",
-    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-1.1.0/emulator/mock/typings",
-    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.0.0/emulator/mock/typings",
-    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.0.0/emulator/mock/micropython"
+    "${workspaceFolder}/.extension/emulator/mock/micropython",
+    "${workspaceFolder}/.extension/emulator/mock/typings",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.1.19/emulator/mock/typings",
+    "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.1.19/emulator/mock/micropython"
   ]
 }

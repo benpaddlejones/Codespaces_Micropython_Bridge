@@ -61,7 +61,7 @@ router.get("/firmware/latest/:board", async (req, res) => {
       `href="(/resources/firmware/${
         boardInfo.page
       }-\\d+-v[\\d.]+${boardInfo.ext.replace(".", "\\.")})"`,
-      "g"
+      "g",
     );
 
     const matches = [...html.matchAll(firmwareRegex)];
@@ -110,33 +110,37 @@ router.get("/firmware/latest/:board", async (req, res) => {
 // === Helper Functions ===
 
 /**
- * Fetch a page via HTTPS
+ * Fetch a page via HTTPS, with a hard timeout so a stalled connection
+ * never wedges the API endpoint (and therefore the bridge UI's spinner).
  */
-function fetchPage(url) {
+function fetchPage(url, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
-    https
-      .get(url, (response) => {
-        if (
-          response.statusCode >= 300 &&
-          response.statusCode < 400 &&
-          response.headers.location
-        ) {
-          return fetchPage(response.headers.location)
-            .then(resolve)
-            .catch(reject);
-        }
+    const req = https.get(url, (response) => {
+      if (
+        response.statusCode >= 300 &&
+        response.statusCode < 400 &&
+        response.headers.location
+      ) {
+        return fetchPage(response.headers.location, timeoutMs)
+          .then(resolve)
+          .catch(reject);
+      }
 
-        if (response.statusCode !== 200) {
-          reject(new Error(`HTTP ${response.statusCode}`));
-          return;
-        }
+      if (response.statusCode !== 200) {
+        reject(new Error(`HTTP ${response.statusCode}`));
+        return;
+      }
 
-        let data = "";
-        response.on("data", (chunk) => (data += chunk));
-        response.on("end", () => resolve(data));
-        response.on("error", reject);
-      })
-      .on("error", reject);
+      let data = "";
+      response.on("data", (chunk) => (data += chunk));
+      response.on("end", () => resolve(data));
+      response.on("error", reject);
+    });
+
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`Timed out after ${timeoutMs}ms fetching ${url}`));
+    });
+    req.on("error", reject);
   });
 }
 

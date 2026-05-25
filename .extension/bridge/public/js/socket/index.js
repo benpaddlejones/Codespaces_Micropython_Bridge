@@ -4,7 +4,7 @@
  */
 
 import * as store from "../state/store.js";
-import { termWrite, setStatus } from "../terminal/output.js";
+import { setStatus, termWrite } from "../terminal/output.js";
 import { loadWorkspaceFiles } from "../tools/fileManager.js";
 
 let socket = null;
@@ -16,7 +16,6 @@ let socket = null;
 export function initSocket() {
   if (socket) return socket;
 
-  // eslint-disable-next-line no-undef
   socket = io();
 
   // Connection events
@@ -124,7 +123,7 @@ export async function restartServer() {
     if (response.ok) {
       console.log("Server restart requested");
     }
-  } catch (err) {
+  } catch (_err) {
     console.log("Server unreachable, showing restart instructions");
   }
 
@@ -144,7 +143,7 @@ export async function restartServer() {
       "1. Open VS Code terminal\n" +
       "2. Run: bash .devcontainer/start-bridge.sh\n\n" +
       "Or use the Command Palette (Ctrl+Shift+P):\n" +
-      "Tasks: Run Task → Start Pico Bridge"
+      "Tasks: Run Task → Start Pico Bridge",
   );
 }
 

@@ -26,12 +26,27 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const fs = require("fs");
+const path = require("path");
 
 // Import modular components
 const config = require("./config");
 const ptyBridge = require("./src/pty");
 const apiRoutes = require("./src/api");
 const { fileWatcher } = require("./src/services");
+const { createCacheBustMiddleware } = require("./src/middleware/cacheBust");
+
+// Read version from the extension's package.json so the UI always shows
+// the real installed version (instead of a hardcoded literal that drifts).
+// Generate a build token at server startup so every reload of the
+// extension host / VS Code window invalidates every browser-side asset URL.
+let BRIDGE_VERSION = "0.0.0";
+try {
+  BRIDGE_VERSION = require("../package.json").version || "0.0.0";
+} catch (_err) {
+  // package.json may not be resolvable in some packaged contexts; fall
+  // back to "0.0.0" rather than crashing the bridge.
+}
+const BRIDGE_BUILD_TOKEN = String(Date.now());
 
 // Import resilience modules for high availability
 const {
@@ -81,6 +96,16 @@ let lastPtyError = null;
 // =============================================================================
 
 // Serve static files from public directory (development mode - no caching)
+// First: cache-bust middleware rewrites HTML/JS to append ?v=<BUILD_TOKEN>
+// to every local asset URL and ES module import. This guarantees the
+// browser never serves a stale module graph after a server restart.
+app.use(
+  createCacheBustMiddleware({
+    publicDir: config.paths.publicDir,
+    buildToken: BRIDGE_BUILD_TOKEN,
+    version: BRIDGE_VERSION,
+  }),
+);
 app.use(express.static(config.paths.publicDir, config.staticOptions));
 app.use(express.json());
 
@@ -95,6 +120,16 @@ app.use((req, res, next) => {
 // =============================================================================
 
 apiRoutes.registerRoutes(app);
+
+// Version + build-token endpoint for the bridge UI.
+app.get("/api/version", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({
+    version: BRIDGE_VERSION,
+    buildToken: BRIDGE_BUILD_TOKEN,
+    startedAt: new Date(Number(BRIDGE_BUILD_TOKEN)).toISOString(),
+  });
+});
 
 // Add resilience diagnostic endpoints
 app.get(

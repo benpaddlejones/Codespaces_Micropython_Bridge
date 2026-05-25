@@ -28,11 +28,17 @@ import {
 } from "./serial/index.js";
 import { initSocket, setupRestartButton } from "./socket/index.js";
 import * as store from "./state/store.js";
+import { initTerminalControls } from "./terminal/controls.js";
 import { setupKeyboardHandlers } from "./terminal/handlers.js";
 import { initTerminal, writeWelcomeMessage } from "./terminal/index.js";
 import { clearOutput, downloadLog, termWrite } from "./terminal/output.js";
 import { getSelectedFile, loadWorkspaceFiles } from "./tools/fileManager.js";
-import { downloadFirmware, getFirmwareInfo } from "./tools/firmware.js";
+import {
+  downloadFirmware,
+  downloadFirmwareForBoard,
+  getAllBoards,
+  getFirmwareInfo,
+} from "./tools/firmware.js";
 import {
   enterBootloader,
   hardReset,
@@ -63,6 +69,7 @@ function init() {
     initTerminal(terminalContainer);
     setupKeyboardHandlers();
     writeWelcomeMessage();
+    initTerminalControls(getById("main-content"));
   }
 
   // Initialize Socket.io
@@ -113,7 +120,6 @@ function setupConnectionListeners() {
 function setupInputListeners() {
   const sendBtn = getById("sendBtn");
   const serialInput = getById("serialInput");
-  const lineEndingSelect = getById("lineEnding");
 
   const sendInputData = async () => {
     const data = getValue("serialInput");
@@ -207,6 +213,7 @@ function setupToolListeners() {
 
   // Firmware download
   addListener("firmwareBtn", "click", downloadFirmware);
+  setupFirmwareDropdown();
 
   // File picker change
   addListener("filePicker", "change", updateFileButtons);
@@ -215,6 +222,71 @@ function setupToolListeners() {
   if (refreshBtn) {
     refreshBtn.disabled = false;
   }
+}
+
+/**
+ * Build the firmware split-button dropdown menu. Bootstrap's dropdown
+ * component handles open/close, outside-click, ESC, focus, and viewport
+ * positioning. We only populate the menu and wire each item to
+ * downloadFirmwareForBoard(). The main `⬇️ Firmware` button still runs
+ * auto-detect; this dropdown lets the user override when auto-detect is
+ * wrong (e.g. a Pico H running Pico W firmware that reports itself as
+ * "Pico W").
+ */
+function setupFirmwareDropdown() {
+  const toggleBtn = getById("firmwareDropdownBtn");
+  const menu = getById("firmwareMenu");
+  if (!toggleBtn || !menu) return;
+
+  // Populate menu: grouped by `category`, in declaration order.
+  const boards = getAllBoards();
+  const groups = new Map();
+  for (const b of boards) {
+    if (!groups.has(b.category)) groups.set(b.category, []);
+    groups.get(b.category).push(b);
+  }
+
+  menu.innerHTML = "";
+  let firstGroup = true;
+  for (const [category, items] of groups) {
+    if (!firstGroup) {
+      const divLi = document.createElement("li");
+      divLi.innerHTML = '<hr class="dropdown-divider">';
+      menu.appendChild(divLi);
+    }
+    firstGroup = false;
+
+    const headerLi = document.createElement("li");
+    const headerEl = document.createElement("h6");
+    headerEl.className = "dropdown-header";
+    headerEl.textContent = category;
+    headerLi.appendChild(headerEl);
+    menu.appendChild(headerLi);
+
+    for (const b of items) {
+      const li = document.createElement("li");
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "dropdown-item d-flex justify-content-between";
+      item.dataset.boardId = b.id;
+      item.innerHTML = `<span>${b.name}</span><span class="text-muted small ms-3">${b.id}</span>`;
+      item.addEventListener("click", () => {
+        downloadFirmwareForBoard(b.id);
+      });
+      li.appendChild(item);
+      menu.appendChild(li);
+    }
+  }
+
+  // When the menu is about to open, highlight the auto-detected board
+  // so the user can see what the main button would have picked.
+  toggleBtn.addEventListener("show.bs.dropdown", () => {
+    const detected = getFirmwareInfo();
+    const detectedId = detected && detected.boardId;
+    for (const el of menu.querySelectorAll(".dropdown-item")) {
+      el.classList.toggle("active", el.dataset.boardId === detectedId);
+    }
+  });
 }
 
 // === Start Application ===

@@ -15,6 +15,48 @@ vsc-extension-quickstart.md
 webpack.config.js
 .vscodeignore
 
+# Built artifacts that don't need to ship
+*.vsix
+pyrightconfig.json
+
+# Trim node_modules fat — keep the runtime files but drop docs, tests,
+# typings, source maps, CI configs, and other dev-only cruft that bloats
+# the .vsix without being needed at runtime.
+node_modules/**/*.md
+node_modules/**/*.markdown
+node_modules/**/*.ts
+node_modules/**/*.map
+node_modules/**/*.flow
+node_modules/**/*.tsbuildinfo
+node_modules/**/.github/**
+node_modules/**/.eslint*
+node_modules/**/.prettier*
+node_modules/**/.editorconfig
+node_modules/**/.travis*
+node_modules/**/.npmignore
+node_modules/**/.gitignore
+node_modules/**/.gitattributes
+node_modules/**/.nycrc*
+node_modules/**/.mocharc*
+node_modules/**/AUTHORS*
+node_modules/**/CHANGELOG*
+node_modules/**/CHANGES*
+node_modules/**/CONTRIBUTING*
+node_modules/**/CONTRIBUTORS*
+node_modules/**/HISTORY*
+node_modules/**/SECURITY*
+node_modules/**/UPGRADING*
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/__tests__/**
+node_modules/**/docs/**
+node_modules/**/doc/**
+node_modules/**/example/**
+node_modules/**/examples/**
+node_modules/**/coverage/**
+node_modules/**/benchmark/**
+node_modules/**/.bin/**
+
 # Include project template with .micropico marker
 !project/**
 !project/.micropico

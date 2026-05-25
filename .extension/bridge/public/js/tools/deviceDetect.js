@@ -6,23 +6,36 @@
 import * as store from "../state/store.js";
 import { termWrite } from "../terminal/output.js";
 
-// Known board signatures from REPL banners
+// Known board signatures from REPL banners.
+//
+// IMPORTANT: ordering matters — first match wins, so the most specific
+// variants (Pico 2 W, Pico W) MUST come before the generic ones (Pico 2,
+// Pico). Also note the trailing `\b` (word boundary) after every `W`:
+// without it `/Pico W/` happily matches the substring `Pico W` inside
+// `Raspberry Pi Pico with RP2040` (the banner a Pico/Pico H reports),
+// causing a Pico H to be mis-detected as a Pico W.
 const BOARD_PATTERNS = [
   // MicroPython boards
   {
-    pattern: /MicroPython.*Raspberry Pi Pico W/i,
+    pattern: /MicroPython.*Raspberry Pi Pico 2 W\b/i,
+    board: "pico2_w",
+    variant: "micropython",
+    name: "Raspberry Pi Pico 2 W",
+  },
+  {
+    pattern: /MicroPython.*Raspberry Pi Pico W\b/i,
     board: "pico_w",
     variant: "micropython",
     name: "Raspberry Pi Pico W",
   },
   {
-    pattern: /MicroPython.*Raspberry Pi Pico 2/i,
+    pattern: /MicroPython.*Raspberry Pi Pico 2\b/i,
     board: "pico2",
     variant: "micropython",
     name: "Raspberry Pi Pico 2",
   },
   {
-    pattern: /MicroPython.*Raspberry Pi Pico/i,
+    pattern: /MicroPython.*Raspberry Pi Pico\b/i,
     board: "pico",
     variant: "micropython",
     name: "Raspberry Pi Pico",
@@ -76,7 +89,7 @@ const BOARD_PATTERNS = [
     name: "MicroPython Board",
   },
 
-  // CircuitPython boards
+  // CircuitPython boards (same ordering + word-boundary rules as above)
   {
     pattern: /CircuitPython.*TinyS3/i,
     board: "tinys3",
@@ -84,19 +97,25 @@ const BOARD_PATTERNS = [
     name: "TinyS3",
   },
   {
-    pattern: /CircuitPython.*Pico W/i,
+    pattern: /CircuitPython.*Pico 2 W\b/i,
+    board: "pico2_w",
+    variant: "circuitpython",
+    name: "Raspberry Pi Pico 2 W",
+  },
+  {
+    pattern: /CircuitPython.*Pico W\b/i,
     board: "pico_w",
     variant: "circuitpython",
     name: "Raspberry Pi Pico W",
   },
   {
-    pattern: /CircuitPython.*Pico 2/i,
+    pattern: /CircuitPython.*Pico 2\b/i,
     board: "pico2",
     variant: "circuitpython",
     name: "Raspberry Pi Pico 2",
   },
   {
-    pattern: /CircuitPython.*Pico/i,
+    pattern: /CircuitPython.*Pico\b/i,
     board: "pico",
     variant: "circuitpython",
     name: "Raspberry Pi Pico",
@@ -130,7 +149,6 @@ const VERSION_PATTERNS = {
 // Buffer to accumulate REPL output for detection
 let detectionBuffer = "";
 let detectionTimeout = null;
-let detectionCallback = null;
 
 /**
  * Start device detection by analyzing REPL output
@@ -238,13 +256,13 @@ function announceDevice(info) {
 /**
  * Warn user about CircuitPython compatibility
  */
-function warnCircuitPython(info) {
+function warnCircuitPython(_info) {
   termWrite(
     "\r\n[Bridge] ⚠️  WARNING: CircuitPython detected!\r\n" +
       "[Bridge] This bridge is designed for MicroPython.\r\n" +
       "[Bridge] Raw REPL commands may not work correctly.\r\n" +
       "[Bridge] Consider flashing MicroPython firmware.\r\n" +
-      '[Bridge] Use the "Download Firmware" button to get the latest MicroPython.\r\n\r\n'
+      '[Bridge] Use the "Download Firmware" button to get the latest MicroPython.\r\n\r\n',
   );
 }
 

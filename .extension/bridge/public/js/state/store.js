@@ -222,6 +222,38 @@ export function isSilentMode() {
   return state.ui.silentMode;
 }
 
+// --- Serial capture (for upload verification, etc.) ----------------------
+// When capturing is enabled, the serial read loop appends every received
+// chunk to an internal buffer so a caller can later inspect what the
+// device printed in response to a known command. Independent of silentMode
+// so callers can choose to also hide the captured output from the user.
+let _captureActive = false;
+let _captureBuffer = "";
+export function startCapture() {
+  _captureBuffer = "";
+  _captureActive = true;
+}
+export function isCapturing() {
+  return _captureActive;
+}
+export function appendCapture(chunk) {
+  if (_captureActive) _captureBuffer += chunk;
+}
+/**
+ * Read the current capture buffer WITHOUT clearing it. Used by polling
+ * code (e.g. marker-based upload completion) that needs to inspect the
+ * buffer repeatedly without disturbing other readers.
+ */
+export function peekCapture() {
+  return _captureBuffer;
+}
+export function stopCaptureAndGet() {
+  _captureActive = false;
+  const out = _captureBuffer;
+  _captureBuffer = "";
+  return out;
+}
+
 export function setShowTimestamp(show) {
   state.ui.showTimestamp = show;
 }

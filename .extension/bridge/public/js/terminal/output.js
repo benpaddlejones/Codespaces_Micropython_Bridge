@@ -3,9 +3,51 @@
  * Handles writing to the terminal with timestamps and buffer management.
  */
 
-import * as store from "../state/store.js";
-import { getTerminal } from "./setup.js";
 import { parseSerialForPlotter } from "../plotter/parser.js";
+import * as store from "../state/store.js";
+import {
+  bufferIfPaused,
+  notifyTerminalUpdated,
+  registerPauseFlush,
+} from "./controls.js";
+import { getTerminal, isAtBottom, scrollToBottom } from "./setup.js";
+
+// --- Write coalescing -----------------------------------------------------
+// Bursty serial output (REPL banner + os.listdir + tracebacks) used to
+// trigger one term.write() per socket chunk, causing many small repaints
+// and occasional "stuck near the bottom" rendering. We buffer chunks and
+// flush once per animation frame, preserving the user's scroll position
+// when they're reading history and snapping to the bottom otherwise.
+let writeBuffer = "";
+let flushScheduled = false;
+
+function flushWriteBuffer() {
+  flushScheduled = false;
+  if (!writeBuffer) return;
+  const term = getTerminal();
+  if (!term) {
+    writeBuffer = "";
+    return;
+  }
+  const wasAtBottom = isAtBottom();
+  const chunk = writeBuffer;
+  writeBuffer = "";
+  term.write(chunk, () => {
+    if (wasAtBottom) scrollToBottom();
+    notifyTerminalUpdated();
+  });
+}
+
+function queueWrite(data) {
+  writeBuffer += data;
+  if (flushScheduled) return;
+  flushScheduled = true;
+  requestAnimationFrame(flushWriteBuffer);
+}
+
+// Allow the pause controls to flush their backlog through the same
+// coalesced path on resume.
+registerPauseFlush(queueWrite);
 
 /**
  * Write to terminal with optional timestamp
@@ -43,11 +85,16 @@ export function termWrite(data) {
     }
 
     store.setLastCharWasNewline(lastCharWasNewline);
-    term.write(output);
+    // Always log to the downloadable buffer, even when paused, so nothing
+    // is lost from the user's perspective. Only the visible xterm write is
+    // gated by the pause toggle.
     store.appendToLogBuffer(output);
+    if (bufferIfPaused(output)) return;
+    queueWrite(output);
   } else {
-    term.write(data);
     store.appendToLogBuffer(data);
+    if (bufferIfPaused(data)) return;
+    queueWrite(data);
   }
 }
 

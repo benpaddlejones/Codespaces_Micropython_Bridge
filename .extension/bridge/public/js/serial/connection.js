@@ -3,11 +3,11 @@
  * Handles Web Serial API connection to Pi Pico.
  */
 
-import * as store from "../state/store.js";
-import { termWrite, setStatus } from "../terminal/output.js";
-import { updateToolButtons } from "../ui/status.js";
 import { getSocket } from "../socket/index.js";
-import { startDetection, feedDetectionData } from "../tools/deviceDetect.js";
+import * as store from "../state/store.js";
+import { setStatus, termWrite } from "../terminal/output.js";
+import { feedDetectionData, startDetection } from "../tools/deviceDetect.js";
+import { updateToolButtons } from "../ui/status.js";
 
 /**
  * Connect to Pico via Web Serial API
@@ -16,7 +16,7 @@ import { startDetection, feedDetectionData } from "../tools/deviceDetect.js";
 export async function connect(baudRate = 115200) {
   if (!navigator.serial) {
     alert(
-      "Web Serial API not supported in this browser. Please use Chrome, Edge, or Opera."
+      "Web Serial API not supported in this browser. Please use Chrome, Edge, or Opera.",
     );
     return;
   }
@@ -124,8 +124,17 @@ async function startReadLoop(port) {
       const { value, done } = await reader.read();
       if (done) break;
       if (value) {
-        // Feed data to device detection
-        feedDetectionData(value);
+        // Feed data to device detection only until the device has been
+        // identified. Otherwise every subsequent REPL prompt (e.g. during
+        // file uploads) would re-trigger the "Detected:" announcement and
+        // spam the terminal.
+        if (!store.getDeviceInfo()) {
+          feedDetectionData(value);
+        }
+
+        // Capture before the silent-mode check so verification works even
+        // when the caller wants to hide raw REPL chatter from the user.
+        store.appendCapture(value);
 
         if (!store.isSilentMode()) {
           termWrite(value);

@@ -74,7 +74,6 @@ export function drawPlotter() {
 
   // Draw data lines
   const labels = Object.keys(plotterData);
-  const maxLen = Math.max(...labels.map((l) => plotterData[l].length));
 
   // Fixed number of points to display (creates natural scrolling)
   const displayPoints = store.getPlotterMaxPoints();

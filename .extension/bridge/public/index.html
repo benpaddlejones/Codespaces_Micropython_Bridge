@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -192,13 +192,31 @@
               >
                 💾 Boot
               </button>
-              <button
-                id="firmwareBtn"
-                class="tool-btn btn-firmware"
-                title="Download latest MicroPython firmware for detected board"
-              >
-                ⬇️ Firmware
-              </button>
+              <div class="btn-group firmware-split" data-bs-theme="dark">
+                <button
+                  id="firmwareBtn"
+                  type="button"
+                  class="tool-btn btn-firmware"
+                  title="Download latest MicroPython firmware for detected board"
+                >
+                  ⬇️ Firmware
+                </button>
+                <button
+                  id="firmwareDropdownBtn"
+                  type="button"
+                  class="tool-btn btn-firmware dropdown-toggle dropdown-toggle-split"
+                  data-bs-toggle="dropdown"
+                  data-bs-display="dynamic"
+                  aria-expanded="false"
+                  title="Pick a specific board"
+                >
+                  <span class="visually-hidden">Toggle firmware menu</span>
+                </button>
+                <ul
+                  id="firmwareMenu"
+                  class="dropdown-menu dropdown-menu-end firmware-menu"
+                ></ul>
+              </div>
               <button
                 id="deleteAllBtn"
                 class="tool-btn btn-danger"
