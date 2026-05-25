@@ -53,6 +53,7 @@ import {
   uploadLib,
   uploadProject,
 } from "./tools/picoSync.js";
+import { initSyncStatus } from "./tools/syncStatus.js";
 import { addListener, getById, getValue, setValue } from "./ui/dom.js";
 import { initPinoutViewer } from "./ui/pinout.js";
 import { initStatusUI, updateFileButtons } from "./ui/status.js";
@@ -86,6 +87,7 @@ function init() {
   setupToolListeners();
   setupPlotterEventListeners();
   initPinoutViewer();
+  initSyncStatus();
 
   // Load workspace files
   loadWorkspaceFiles();

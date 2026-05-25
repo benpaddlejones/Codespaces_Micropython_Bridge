@@ -261,6 +261,32 @@ export async function uploadFile(filePath) {
 }
 
 /**
+ * Upload a single file identified by its Pico-style destination path
+ * (e.g. "/main.py"). Used by the Sync Status panel where the caller
+ * already knows the device-side path. Reuses the verified
+ * `writeSingleFile()` so we get the same marker + wait behaviour as the
+ * regular toolbar upload.
+ *
+ * @param {string} picoPath - Absolute Pico path, e.g. "/lib/sensors.py"
+ */
+export async function uploadFileByPicoPath(picoPath) {
+  if (!store.isConnected()) {
+    throw new Error("Not connected to Pico");
+  }
+  await syncRtc();
+  // Strip leading slash so /api/workspace/file can resolve it against the
+  // project root (which is how the workspace snapshot keys are produced).
+  const res = await fetch(
+    `/api/workspace/file?path=${encodeURIComponent(picoPath)}`,
+  );
+  const data = await res.json();
+  if (!data.success) {
+    throw new Error(data.error || "Workspace fetch failed");
+  }
+  await writeSingleFile(picoPath, data.content);
+}
+
+/**
  * Write one file to the Pico with a payload-aware wait window. Used by
  * the single-file upload UI, the "critical files last" pass in
  * uploadProject(), and the auto-retry loop in verifyUploads().

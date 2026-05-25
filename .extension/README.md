@@ -1,6 +1,6 @@
 # Pi Pico to Codespaces Bridge
 
-[![Version](https://img.shields.io/badge/Version-2.2.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.2.1-green)](CHANGELOG.md)
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/items?itemName=pico-bridge.pico-bridge)
 [![MicroPython](https://img.shields.io/badge/MicroPython-1.20%2B-00b2a9?logo=python&logoColor=white)](https://micropython.org/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Pico%20Ready-c51a4a?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/documentation/microcontrollers/)
@@ -19,6 +19,7 @@ Code entirely in the cloud and push updates to your Pi Pico in real time. This b
 - **[File Management](#file-upload)**: Upload, download, and manage files on your device
 - **Code Execution**: Run Python scripts directly on your microcontroller
 - **Project Sync**: Synchronize entire project folders to the device
+- **Workspace ↔ Pico Sync**: 🔄 Sync panel diffs every project file against the device by SHA-256, with per-row Push / Pull / Delete / Diff and Push-All / Mirror bulk ops
 - **Data Plotter**: Visualize sensor data in real-time
 
 ### v2.0.0 New Features

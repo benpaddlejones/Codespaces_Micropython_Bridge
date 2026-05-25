@@ -146,6 +146,13 @@
               >
                 📦 All
               </button>
+              <button
+                id="syncStatusBtn"
+                class="tool-btn btn-sync"
+                title="Compare workspace ↔ Pico and selectively push/pull/delete"
+              >
+                🔄 Sync
+              </button>
             </div>
           </div>
 
@@ -266,6 +273,63 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Sync Status Modal -->
+    <div id="syncStatusModal" class="sync-modal" style="display: none">
+      <div class="sync-modal-content">
+        <div class="sync-modal-header">
+          <div>
+            <h2>Workspace ↔ Pico</h2>
+            <div id="syncProjectRoot" class="sync-project-root"></div>
+          </div>
+          <button id="syncCloseBtn" class="pinout-close-btn" title="Close">
+            ×
+          </button>
+        </div>
+        <div class="sync-toolbar">
+          <button id="syncRefreshBtn" class="tool-btn btn-sync">
+            🔄 Refresh
+          </button>
+          <button id="syncPushAllBtn" class="tool-btn btn-upload-all">
+            📤 Push All Changes
+          </button>
+          <button
+            id="syncMirrorBtn"
+            class="tool-btn btn-danger"
+            title="Make Pico exactly match workspace (deletes orphans)"
+          >
+            🪞 Mirror (push + delete orphans)
+          </button>
+          <div class="sync-summary" id="syncSummary"></div>
+        </div>
+        <div class="sync-modal-body">
+          <div class="sync-header-row">
+            <span class="sync-status"></span>
+            <span class="sync-path">File</span>
+            <span class="sync-size">Size</span>
+            <span class="sync-actions">Actions</span>
+          </div>
+          <div id="syncBody" class="sync-rows"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diff Modal (opened from Sync Status) -->
+    <div
+      id="syncDiffModal"
+      class="sync-modal sync-diff-modal"
+      style="display: none"
+    >
+      <div class="sync-modal-content sync-diff-content">
+        <div class="sync-modal-header">
+          <h2 id="syncDiffTitle">Diff</h2>
+          <button id="syncDiffCloseBtn" class="pinout-close-btn" title="Close">
+            ×
+          </button>
+        </div>
+        <div class="sync-modal-body" id="syncDiffBody"></div>
       </div>
     </div>
 

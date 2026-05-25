@@ -2,7 +2,7 @@
   "name": "pico-bridge",
   "displayName": "Pi Pico to Codespaces Bridge",
   "description": "MicroPython development for Raspberry Pi Pico/ESP32 with built-in emulator, debugpy debugging, and Web Serial API bridge to GitHub Codespaces",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "publisher": "benpaddlejones",
   "license": "GPL-3.0",
   "extensionPack": [
@@ -594,7 +594,9 @@
     "package": "webpack --mode production --devtool hidden-source-map",
     "lint": "eslint src --ext ts && npm run lint:bridge",
     "lint:bridge": "eslint bridge/public/js --ext js",
-    "test": "node ./out/test/runTest.js",
+    "test": "npm run test:bridge && node ./out/test/runTest.js",
+    "test:bridge": "node --test bridge/test/*.test.mjs",
+    "test:extension": "node ./out/test/runTest.js",
     "test-compile": "tsc -p ./ --outDir out",
     "vsix": "vsce package --baseContentUrl https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/blob/HEAD/.extension/ --baseImagesUrl https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/raw/HEAD/.extension/",
     "publish": "vsce publish --baseContentUrl https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/blob/HEAD/.extension/ --baseImagesUrl https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/raw/HEAD/.extension/"

@@ -4,6 +4,18 @@ All notable changes to the Pi Pico to Codespaces Bridge extension.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-05-25
+
+Workspace ↔ Pico sync, with file-level diff, directly in the bridge browser UI.
+
+- **Added**: 🔄 **Sync** toolbar button + Sync Status modal. Lists every deployable workspace file alongside what's on the connected Pico, classified by SHA-256 as `synced` / `modified` / `not-deployed` / `orphan-on-device`.
+- **Added**: per-row **Push / Pull / Delete** actions and a **Diff** modal (LCS line diff, in-browser, no dependency).
+- **Added**: **Push All** and **Mirror Mode** bulk operations (Mirror also deletes device-only files).
+- **Added**: server endpoints `GET /api/workspace/sync-status`, `GET /api/workspace/file`, `POST /api/workspace/file` — path-traversal-guarded, 1 MB/4 MB caps, restricted to `.py .mpy .json .txt .html .css .js .csv .cfg .ini .toml .md` and never touches `node_modules` / `.git` / `release` / hidden dirs.
+- **Added**: device-side listing via raw REPL — walks `/` and computes `uhashlib.sha256` per file, framed by sentinel markers.
+- **Added**: 29 new bridge unit/integration tests (`npm run test:bridge`) — diff LCS correctness + HTML escaping, sync service walker + traversal guard + hashing, REST API round-trip with a temp fixture project.
+- **Added**: `test:bridge` and `test:extension` npm scripts. `npm test` now runs both.
+
 ## [2.2.0] - 2026-05-25
 
 Emulator now covers a much wider slice of modern MicroPython, plus a way to bound `while True:` demos in CI.
