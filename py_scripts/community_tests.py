@@ -88,10 +88,17 @@ def test_pwm_fade():
         pwm.duty_u16(max(0, duty))
         utime.sleep_ms(20)
     
-    # Test init() method
+    # Test init() method — verify BOTH freq and duty round-trip
     pwm.init(freq=500, duty_u16=32768)
     assert pwm.freq() == 500, f"Freq should be 500, got {pwm.freq()}"
-    
+    assert pwm.duty_u16() == 32768, \
+        f"duty_u16 should be 32768 after init, got {pwm.duty_u16()}"
+
+    # Final fade sample should be readable too
+    pwm.duty_u16(12345)
+    assert pwm.duty_u16() == 12345, \
+        f"duty_u16 round-trip failed, got {pwm.duty_u16()}"
+
     pwm.deinit()
 
 
@@ -146,10 +153,11 @@ def test_i2c_communication():
     MPU6050_ADDR = 0x68
     WHO_AM_I_REG = 0x75
     
-    # Write to device
+    # Write to device. Contract: writeto returns number of ACKs (device-dependent).
     result = i2c.writeto(MPU6050_ADDR, bytes([WHO_AM_I_REG]))
-    assert result == 1, f"writeto should return bytes written, got {result}"
-    
+    assert isinstance(result, int) and 0 <= result <= 1, \
+        f"writeto must return int in 0..len(buf), got {result}"
+
     # Read response
     data = i2c.readfrom(MPU6050_ADDR, 1)
     assert len(data) == 1, f"Should read 1 byte, got {len(data)}"
@@ -172,15 +180,20 @@ def test_i2c_primitives():
     # Low-level primitives
     i2c.start()
     acks = i2c.write(bytes([0x68 << 1]))  # Address + write bit
-    assert acks >= 0, "write() should return ACK count"
-    
+    assert isinstance(acks, int) and acks >= 0, \
+        f"write() must return non-negative ACK count, got {acks}"
+
     buf = bytearray(2)
     i2c.readinto(buf)
     i2c.stop()
-    
-    # Vectored write
-    nbytes = i2c.writevto(0x68, [bytes([0x3B]), bytes([0x00, 0x01])])
-    assert nbytes == 3, f"writevto should return total bytes, got {nbytes}"
+
+    # Vectored write. Contract: writevto returns number of ACKs (device-dependent),
+    # bounded by total payload bytes.
+    payload = [bytes([0x3B]), bytes([0x00, 0x01])]
+    total = sum(len(p) for p in payload)
+    nbytes = i2c.writevto(0x68, payload)
+    assert isinstance(nbytes, int) and 0 <= nbytes <= total, \
+        f"writevto must return 0..{total} ACKs, got {nbytes}"
 
 
 # =============================================================================
@@ -195,17 +208,26 @@ def test_spi_communication():
     cs.value(1)  # Deselect
     
     cs.value(0)  # Select
+    assert cs.value() == 0, "CS should be low (selected)"
     spi.write(bytes([0x9F]))  # Read ID command (common for flash chips)
     response = spi.read(3)
     cs.value(1)  # Deselect
-    
-    assert len(response) == 3, f"Should read 3 bytes, got {len(response)}"
-    
-    # Write-readinto pattern
+    assert cs.value() == 1, "CS should be high (deselected)"
+
+    # Contract: spi.read(n) returns exactly n bytes (content is device-dependent).
+    assert isinstance(response, (bytes, bytearray)), \
+        f"spi.read() must return bytes-like, got {type(response).__name__}"
+    assert len(response) == 3, f"spi.read(3) must return 3 bytes, got {len(response)}"
+
+    # Contract: write_readinto() returns None and preserves buffer length.
     write_buf = bytes([0x03, 0x00, 0x00, 0x00])  # Read command
-    read_buf = bytearray(4)
-    spi.write_readinto(write_buf, read_buf)
-    
+    read_buf = bytearray(b"\xAA\xBB\xCC\xDD")
+    original_len = len(read_buf)
+    result = spi.write_readinto(write_buf, read_buf)
+    assert result is None, f"write_readinto must return None, got {result}"
+    assert len(read_buf) == original_len, \
+        f"write_readinto must not change buffer length, got {len(read_buf)}"
+
     spi.deinit()
 
 
@@ -221,20 +243,25 @@ def test_timer_callbacks():
         counter[0] += 1
     
     timer = Timer()
-    timer.init(freq=10, mode=Timer.PERIODIC, callback=tick)
-    
+    result = timer.init(freq=10, mode=Timer.PERIODIC, callback=tick)
+    assert result is None, f"Timer.init() must return None, got {result}"
+
     # Let timer run briefly
     utime.sleep_ms(250)
     timer.deinit()
-    
-    # Counter may or may not increment in mock (depends on implementation)
-    print(f"Timer ticks: {counter[0]}")
-    
-    # Test timer value
+
+    # Counter type must be int (mock may or may not tick, but state must be sane)
+    assert isinstance(counter[0], int), \
+        f"Counter must remain int, got {type(counter[0]).__name__}"
+    assert counter[0] >= 0, f"Counter must be non-negative, got {counter[0]}"
+
+    # Test timer value — must be 32-bit masked int
     timer2 = Timer(1)
     timer2.init(freq=1, mode=Timer.ONE_SHOT, callback=tick)
     val = timer2.value()
     assert isinstance(val, int), f"Timer.value() should return int, got {type(val)}"
+    assert 0 <= val <= 0xFFFFFFFF, \
+        f"Timer.value() must be 32-bit masked, got {val}"
     timer2.deinit()
 
 
@@ -248,20 +275,27 @@ def test_uart_communication():
     # Write data
     message = b"AT+GMR\r\n"  # Common AT command
     bytes_written = uart.write(message)
-    assert bytes_written == len(message), f"Should write {len(message)} bytes"
-    
-    # With loopback, data should be available to read
-    utime.sleep_ms(10)  # Small delay for loopback
-    
-    if uart.any() > 0:
-        response = uart.read()
-        assert response == message, "Loopback should return same data"
-    
+    assert bytes_written == len(message), \
+        f"Should write {len(message)} bytes, got {bytes_written}"
+
+    # Loopback is enabled by default in mock — data MUST be available
+    available = uart.any()
+    assert available == len(message), \
+        f"any() must report {len(message)} bytes after loopback write, got {available}"
+
+    response = uart.read()
+    assert response == message, \
+        f"Loopback must return same data; expected {message!r}, got {response!r}"
+
+    # After draining, any() must report 0
+    assert uart.any() == 0, f"any() must be 0 after read, got {uart.any()}"
+
     # Test txdone/flush
     uart.write(b"test")
     assert uart.txdone() == True, "TX should be done immediately in mock"
-    uart.flush()  # Should not block
-    
+    flush_result = uart.flush()
+    assert flush_result is None, f"flush() must return None, got {flush_result}"
+
     uart.deinit()
 
 
@@ -274,16 +308,23 @@ def test_rtc_operations():
     
     # Get current time
     dt = rtc.datetime()
-    assert len(dt) == 9 or len(dt) == 8, f"datetime should return 8-9 tuple, got {len(dt)}"
-    
-    # Set time
-    rtc.datetime((2025, 12, 13, 6, 12, 30, 0, 0))  # Sat Dec 13, 2025 12:30:00
-    
+    assert isinstance(dt, tuple), f"datetime() must return tuple, got {type(dt).__name__}"
+    assert len(dt) == 8, f"datetime should return 8-tuple, got {len(dt)}"
+
+    # Set time and verify exact round-trip
+    set_value = (2025, 12, 13, 6, 12, 30, 0, 0)  # Sat Dec 13, 2025 12:30:00
+    rtc.datetime(set_value)
+    dt2 = rtc.datetime()
+    assert dt2 == set_value, \
+        f"datetime round-trip failed: expected {set_value}, got {dt2}"
+
     # Test alarm functions
     rtc.alarm(0, (2025, 12, 13, 6, 12, 31, 0, 0))
     left = rtc.alarm_left(0)
     assert isinstance(left, int), f"alarm_left should return int, got {type(left)}"
-    rtc.cancel(0)
+    assert left >= 0, f"alarm_left must be non-negative, got {left}"
+    cancel_result = rtc.cancel(0)
+    assert cancel_result is None, f"cancel() must return None, got {cancel_result}"
 
 
 # =============================================================================
@@ -390,19 +431,22 @@ def test_gc_functions():
 def test_pin_interrupt():
     """Pin interrupts - common for buttons and encoders."""
     button = Pin(2, Pin.IN, Pin.PULL_UP)
-    
+
     irq_count = [0]
-    
+
     def button_handler(pin):
         """Pin IRQ handler that counts button press events."""
         irq_count[0] += 1
-    
-    # Set up interrupt
-    button.irq(handler=button_handler, trigger=Pin.IRQ_FALLING)
-    
-    # In real hardware, button press would trigger
-    # In mock, we just verify setup doesn't crash
-    print(f"Button IRQ configured on pin {button._id}")
+
+    # Contract: Pin.irq() returns None and accepts None to clear.
+    result = button.irq(handler=button_handler, trigger=Pin.IRQ_FALLING)
+    assert result is None, f"Pin.irq() must return None, got {result}"
+    cleared = button.irq(handler=None, trigger=Pin.IRQ_RISING)
+    assert cleared is None, f"Pin.irq(handler=None) must return None, got {cleared}"
+
+    # Re-arming with FALLING must also be a no-op return-wise.
+    re_armed = button.irq(handler=button_handler, trigger=Pin.IRQ_FALLING)
+    assert re_armed is None, f"Pin.irq() re-arm must return None, got {re_armed}"
 
 
 # =============================================================================
@@ -410,30 +454,39 @@ def test_pin_interrupt():
 # =============================================================================
 def test_neopixel():
     """NeoPixel LED strip - popular for lighting projects."""
-    try:
-        import neopixel
-        
-        NUM_LEDS = 8
-        np = neopixel.NeoPixel(Pin(16), NUM_LEDS)
-        
-        # Set colors
-        np[0] = (255, 0, 0)    # Red
-        np[1] = (0, 255, 0)    # Green
-        np[2] = (0, 0, 255)    # Blue
-        
-        # Rainbow pattern
-        for i in range(NUM_LEDS):
-            hue = (i * 256 // NUM_LEDS) % 256
-            np[i] = (hue, 255 - hue, (hue * 2) % 256)
-        
-        np.write()
-        
-        # Fill all with one color
-        np.fill((100, 100, 100))
-        np.write()
-        
-    except ImportError:
-        print("NeoPixel module not available")
+    # Mock must always provide neopixel — do NOT swallow ImportError
+    import neopixel
+
+    NUM_LEDS = 8
+    np = neopixel.NeoPixel(Pin(16), NUM_LEDS)
+    assert len(np) == NUM_LEDS, f"len(np) must be {NUM_LEDS}, got {len(np)}"
+
+    # Set colors and verify exact round-trip
+    np[0] = (255, 0, 0)    # Red
+    np[1] = (0, 255, 0)    # Green
+    np[2] = (0, 0, 255)    # Blue
+    assert np[0] == (255, 0, 0), f"pixel 0 must be red, got {np[0]}"
+    assert np[1] == (0, 255, 0), f"pixel 1 must be green, got {np[1]}"
+    assert np[2] == (0, 0, 255), f"pixel 2 must be blue, got {np[2]}"
+
+    # Rainbow pattern — every pixel must round-trip
+    expected = []
+    for i in range(NUM_LEDS):
+        hue = (i * 256 // NUM_LEDS) % 256
+        color = (hue, 255 - hue, (hue * 2) % 256)
+        np[i] = color
+        expected.append(color)
+    for i, color in enumerate(expected):
+        assert np[i] == color, f"pixel {i} must be {color}, got {np[i]}"
+
+    np.write()
+
+    # Fill must overwrite every pixel
+    np.fill((100, 100, 100))
+    for i in range(NUM_LEDS):
+        assert np[i] == (100, 100, 100), \
+            f"fill() must overwrite pixel {i}, got {np[i]}"
+    np.write()
 
 
 # =============================================================================
@@ -441,26 +494,63 @@ def test_neopixel():
 # =============================================================================
 def test_network_wlan():
     """WiFi connection - common for IoT projects."""
-    try:
-        import network
-        
-        wlan = network.WLAN(network.STA_IF)
-        wlan.active(True)
-        
-        # Scan for networks
-        networks = wlan.scan()
-        print(f"Networks found: {len(networks)}")
-        
-        # Check connection status
-        connected = wlan.isconnected()
-        print(f"Connected: {connected}")
-        
-        # Get status
-        status = wlan.status()
-        print(f"Status: {status}")
-        
-    except ImportError:
-        print("Network module not available")
+    # Mock must always provide network — do NOT swallow ImportError
+    import network
+
+    assert network.STA_IF == 0, f"STA_IF must be 0, got {network.STA_IF}"
+    assert network.AP_IF == 1, f"AP_IF must be 1, got {network.AP_IF}"
+
+    wlan = network.WLAN(network.STA_IF)
+    assert wlan.active(True) is True, "active(True) must return True"
+    assert wlan.active() is True, "active() must report True after enable"
+
+    # Before connect: not connected, status must be a non-negative int
+    assert wlan.isconnected() is False, "WLAN must start disconnected"
+    pre_status = wlan.status()
+    assert isinstance(pre_status, int), \
+        f"status() must return int, got {type(pre_status).__name__}"
+
+    # Scan returns a list of 6-tuples; the count is environment-dependent
+    networks = wlan.scan()
+    assert isinstance(networks, list), \
+        f"scan() must return list, got {type(networks).__name__}"
+    for net in networks:
+        assert len(net) == 6, f"Each scan entry must be 6-tuple, got {len(net)}"
+        ssid, bssid, channel, rssi, security, hidden = net
+        assert isinstance(ssid, (bytes, bytearray)), \
+            f"ssid must be bytes, got {type(ssid).__name__}"
+        assert isinstance(bssid, (bytes, bytearray)) and len(bssid) == 6, \
+            f"bssid must be 6 bytes, got {bssid!r}"
+        assert isinstance(channel, int), "channel must be int"
+        assert isinstance(rssi, int) and rssi < 0, \
+            f"rssi must be negative int, got {rssi}"
+        assert isinstance(security, int), "security must be int"
+        assert isinstance(hidden, (bool, int)), "hidden must be bool/int"
+
+    # After connect (mock auto-connects, real hardware may differ)
+    wlan.connect("TestSSID", "password123")
+    assert wlan.isconnected() is True, "isconnected() must be True after connect"
+    post_status = wlan.status()
+    assert isinstance(post_status, int), "status() must return int"
+
+    # Contract: status('rssi') returns negative int when connected
+    rssi = wlan.status("rssi")
+    assert isinstance(rssi, int) and rssi < 0, \
+        f"status('rssi') must be negative int, got {rssi}"
+
+    # Contract: ifconfig() returns 4-tuple of dotted-decimal strings
+    cfg = wlan.ifconfig()
+    assert isinstance(cfg, tuple) and len(cfg) == 4, \
+        f"ifconfig() must return 4-tuple, got {cfg!r}"
+    for field, value in zip(("ip", "subnet", "gateway", "dns"), cfg):
+        assert isinstance(value, str) and value, \
+            f"{field} must be non-empty str, got {value!r}"
+        parts = value.split(".")
+        assert len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts), \
+            f"{field} must be dotted-decimal IPv4, got {value!r}"
+
+    wlan.disconnect()
+    assert wlan.isconnected() is False, "isconnected() must be False after disconnect"
 
 
 # =============================================================================
@@ -469,13 +559,17 @@ def test_network_wlan():
 def test_performance_pin_toggle():
     """Performance: Rapid pin toggling to check event emission overhead."""
     led = Pin(25, Pin.OUT)
-    
+
     start = utime.ticks_ms()
     for _ in range(1000):
         led.on()
         led.off()
     elapsed = utime.ticks_diff(utime.ticks_ms(), start)
-    
+
+    # Final state must be OFF (last call was led.off())
+    assert led.value() == 0, f"led must end OFF, got {led.value()}"
+    assert isinstance(elapsed, int) and elapsed >= 0, \
+        f"elapsed must be non-negative int, got {elapsed!r}"
     print(f"1000 pin toggles: {elapsed}ms ({elapsed/1000:.3f}ms per toggle)")
     assert elapsed < 5000, f"Pin toggling too slow: {elapsed}ms for 1000 toggles"
 
@@ -489,10 +583,14 @@ def test_performance_i2c():
     
     start = utime.ticks_ms()
     for _ in range(100):
-        i2c.readfrom_mem(0x68, 0x3B, 6)
+        data = i2c.readfrom_mem(0x68, 0x3B, 6)
+        assert isinstance(data, bytes) and len(data) == 6, \
+            f"readfrom_mem must return 6 bytes, got {data!r}"
     elapsed = utime.ticks_diff(utime.ticks_ms(), start)
-    
+
     print(f"100 I2C reads: {elapsed}ms ({elapsed/100:.2f}ms per read)")
+    assert elapsed < 5000, \
+        f"100 I2C reads should take <5s, got {elapsed}ms"
 
 
 # =============================================================================
