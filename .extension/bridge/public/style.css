@@ -646,9 +646,11 @@ select:focus {
   min-width: 120px;
 }
 
-/* Narrow viewports: collapse name + version onto a single line so the
-   block is at most 2 lines (name/version + meta) instead of 3. */
-@media (max-width: 900px) {
+/* Wide viewports: collapse name + version onto a single line so the
+   block is 2 lines (name/version + meta) instead of 3. Narrow
+   viewports keep the stacked 3-line layout so each piece stays
+   readable on a small toolbar. */
+@media (min-width: 901px) {
   .device-info {
     display: grid;
     grid-template-columns: auto auto;
@@ -656,7 +658,6 @@ select:focus {
     column-gap: 6px;
     row-gap: 0;
     align-items: baseline;
-    min-width: 0;
   }
   .device-info .device-name {
     grid-column: 1 / 2;

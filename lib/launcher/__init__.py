@@ -75,6 +75,8 @@ def run():
 
     # Run the script with exception handling
     try:
+        # Force a fresh load so reruns execute updated student code.
+        sys.modules.pop(config.FILE_NAME, None)
         __import__(config.FILE_NAME)
     except KeyboardInterrupt:
         print("KEYBOARD INTERRUPT")

@@ -263,10 +263,11 @@ export async function activate(
         if (selection === "Start Server") {
           await vscode.commands.executeCommand("picoBridge.startServer");
         } else if (selection === "Open Walkthrough") {
-          await vscode.commands.executeCommand(
-            "workbench.action.openWalkthrough",
-            "benpaddlejones.pico-bridge#picoBridge.gettingStarted",
+          const readmeUri = vscode.Uri.joinPath(
+            context.extensionUri,
+            "README.md",
           );
+          await vscode.commands.executeCommand("vscode.open", readmeUri);
         }
 
         await context.globalState.update("hasShownWelcome", true);

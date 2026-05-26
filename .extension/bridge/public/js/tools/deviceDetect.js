@@ -158,13 +158,17 @@ const SPINNER_LABEL = "[Bridge] Detecting device";
 function startSpinner() {
   stopSpinner();
   let frame = 0;
-  // Print the first frame on its own line so we can keep overwriting it.
-  termWrite(`${SPINNER_LABEL}${SPINNER_FRAMES[0]}`);
+  // Start on a fresh row and clear to end-of-line so we don't inherit any
+  // pre-silent-mode REPL chatter (e.g. an echoed ">>> ") that would shift
+  // our label rightward and leave stray characters past the spinner when
+  // later frames overwrite cols 0..N only.
+  termWrite(`\r\x1b[K${SPINNER_LABEL}${SPINNER_FRAMES[0]}`);
   spinnerVisible = true;
   spinnerInterval = setInterval(() => {
     frame = (frame + 1) % SPINNER_FRAMES.length;
-    // \r returns to column 0 so we overwrite the existing label in place.
-    termWrite(`\r${SPINNER_LABEL}${SPINNER_FRAMES[frame]}`);
+    // \r returns to column 0; \x1b[K erases from cursor to end of line so
+    // any leftover characters past the spinner width are removed too.
+    termWrite(`\r${SPINNER_LABEL}${SPINNER_FRAMES[frame]}\x1b[K`);
   }, 200);
 }
 
@@ -174,10 +178,9 @@ function stopSpinner() {
     spinnerInterval = null;
   }
   if (spinnerVisible) {
-    // Erase the spinner line: \r + spaces wide enough to cover label + dots,
-    // then \r again so the next write starts at column 0.
-    const blank = " ".repeat(SPINNER_LABEL.length + SPINNER_FRAMES[0].length);
-    termWrite(`\r${blank}\r`);
+    // Wipe the entire spinner row using ANSI erase-to-end-of-line, then
+    // leave the cursor at column 0 so the next writer takes over cleanly.
+    termWrite(`\r\x1b[K`);
     spinnerVisible = false;
   }
 }
