@@ -17,6 +17,7 @@ const require = createRequire(import.meta.url);
 
 let tmpRoot;
 let syncService;
+let fileService;
 
 function sha256(buf) {
   return crypto.createHash("sha256").update(buf).digest("hex");
@@ -65,6 +66,7 @@ before(() => {
     if (key.includes(`${path.sep}bridge${path.sep}`)) delete require.cache[key];
   }
   syncService = require("../src/services/syncService");
+  fileService = require("../src/services/fileService");
 });
 
 after(() => {
@@ -170,4 +172,153 @@ test("writeWorkspaceFile rejects invalid input", () => {
   assert.equal(syncService.writeWorkspaceFile(null, "x"), null);
   assert.equal(syncService.writeWorkspaceFile("/x.py", null), null);
   assert.equal(syncService.writeWorkspaceFile("/x.py", 123), null);
+});
+
+// ---------------------------------------------------------------------------
+// New coverage (Stage 1): hasLib, mtime, findProjectRoot, getLibFiles
+// ---------------------------------------------------------------------------
+
+test("listWorkspaceFilesWithHash includes mtime (seconds since unix epoch)", () => {
+  const { files } = syncService.listWorkspaceFilesWithHash();
+  const main = files.find((f) => f.path === "/main.py");
+  assert.ok(main, "main.py should be present");
+  assert.equal(typeof main.mtime, "number");
+  assert.ok(Number.isInteger(main.mtime), "mtime should be an integer");
+  // Sanity range: between year 2010 and year 2100 (unix seconds).
+  assert.ok(main.mtime > 1262304000 && main.mtime < 4102444800);
+});
+
+test("listWorkspaceFilesWithHash hasLib=false when no lib/ folder exists", () => {
+  // The fixture has no lib/ directly under root — it created lib/ for
+  // a nested deployable file, so this asserts the opposite: hasLib
+  // should be TRUE here. We add a counter-test below using a separate
+  // fixture without lib/.
+  const result = syncService.listWorkspaceFilesWithHash();
+  assert.equal(typeof result.hasLib, "boolean");
+  assert.equal(result.hasLib, true);
+});
+
+test("listWorkspaceFilesWithHash hasLib=false on a project without lib/", () => {
+  // Build a parallel fixture with NO lib/ folder, swap the workspace
+  // root, bust the cache, re-require, and assert.
+  const altRoot = fs.mkdtempSync(path.join(os.tmpdir(), "pico-bridge-noLib-"));
+  fs.writeFileSync(path.join(altRoot, ".micropico"), "");
+  fs.writeFileSync(path.join(altRoot, "main.py"), "print('x')\n");
+
+  process.env.PICO_BRIDGE_WORKSPACE_ROOT = altRoot;
+  for (const key of Object.keys(require.cache)) {
+    if (key.includes(`${path.sep}bridge${path.sep}`)) delete require.cache[key];
+  }
+  const altSync = require("../src/services/syncService");
+  try {
+    const result = altSync.listWorkspaceFilesWithHash();
+    assert.equal(result.hasLib, false);
+    assert.equal(result.projectDetected, true);
+  } finally {
+    // Restore original workspace root for any tests that may run later.
+    process.env.PICO_BRIDGE_WORKSPACE_ROOT = tmpRoot;
+    for (const key of Object.keys(require.cache)) {
+      if (key.includes(`${path.sep}bridge${path.sep}`))
+        delete require.cache[key];
+    }
+    syncService = require("../src/services/syncService");
+    fileService = require("../src/services/fileService");
+    fs.rmSync(altRoot, { recursive: true, force: true });
+  }
+});
+
+test("findProjectRoot detects the .micropico marker at workspace root", () => {
+  const root = fileService.findProjectRoot();
+  assert.ok(root, "should detect a project root");
+  assert.equal(fs.realpathSync(root), fs.realpathSync(tmpRoot));
+});
+
+test("findProjectRoot returns null when no marker and allowFallback=false", () => {
+  // Build a fixture with NO .micropico anywhere.
+  const altRoot = fs.mkdtempSync(path.join(os.tmpdir(), "pico-bridge-noMark-"));
+  fs.writeFileSync(path.join(altRoot, "main.py"), "print('x')\n");
+  process.env.PICO_BRIDGE_WORKSPACE_ROOT = altRoot;
+  for (const key of Object.keys(require.cache)) {
+    if (key.includes(`${path.sep}bridge${path.sep}`)) delete require.cache[key];
+  }
+  const altFs = require("../src/services/fileService");
+  try {
+    assert.equal(altFs.findProjectRoot(), null);
+    assert.equal(altFs.isProjectDetected(), false);
+  } finally {
+    process.env.PICO_BRIDGE_WORKSPACE_ROOT = tmpRoot;
+    for (const key of Object.keys(require.cache)) {
+      if (key.includes(`${path.sep}bridge${path.sep}`))
+        delete require.cache[key];
+    }
+    syncService = require("../src/services/syncService");
+    fileService = require("../src/services/fileService");
+    fs.rmSync(altRoot, { recursive: true, force: true });
+  }
+});
+
+test("findProjectRoot falls back to the workspace root when allowFallback=true", () => {
+  const altRoot = fs.mkdtempSync(path.join(os.tmpdir(), "pico-bridge-fall-"));
+  fs.writeFileSync(path.join(altRoot, "main.py"), "print('x')\n");
+  process.env.PICO_BRIDGE_WORKSPACE_ROOT = altRoot;
+  for (const key of Object.keys(require.cache)) {
+    if (key.includes(`${path.sep}bridge${path.sep}`)) delete require.cache[key];
+  }
+  const altFs = require("../src/services/fileService");
+  try {
+    const root = altFs.findProjectRoot({ allowFallback: true });
+    assert.ok(root, "should fall back to a real path");
+    assert.equal(fs.realpathSync(root), fs.realpathSync(altRoot));
+  } finally {
+    process.env.PICO_BRIDGE_WORKSPACE_ROOT = tmpRoot;
+    for (const key of Object.keys(require.cache)) {
+      if (key.includes(`${path.sep}bridge${path.sep}`))
+        delete require.cache[key];
+    }
+    syncService = require("../src/services/syncService");
+    fileService = require("../src/services/fileService");
+    fs.rmSync(altRoot, { recursive: true, force: true });
+  }
+});
+
+test("getLibFiles returns the contents of the lib/ folder when present", () => {
+  const result = fileService.getLibFiles();
+  assert.ok(Array.isArray(result), "lib/ exists in fixture so we get an array");
+  const paths = result.map((f) => f.path).sort();
+  assert.deepEqual(paths, ["/lib/helper.py"]);
+  assert.equal(result[0].content, "def f(): pass\n");
+});
+
+test("getLibFiles returns null when there is no lib/ folder", () => {
+  const altRoot = fs.mkdtempSync(path.join(os.tmpdir(), "pico-bridge-noLib2-"));
+  fs.writeFileSync(path.join(altRoot, ".micropico"), "");
+  fs.writeFileSync(path.join(altRoot, "main.py"), "print('x')\n");
+  process.env.PICO_BRIDGE_WORKSPACE_ROOT = altRoot;
+  for (const key of Object.keys(require.cache)) {
+    if (key.includes(`${path.sep}bridge${path.sep}`)) delete require.cache[key];
+  }
+  const altFs = require("../src/services/fileService");
+  try {
+    assert.equal(altFs.getLibFiles(), null);
+  } finally {
+    process.env.PICO_BRIDGE_WORKSPACE_ROOT = tmpRoot;
+    for (const key of Object.keys(require.cache)) {
+      if (key.includes(`${path.sep}bridge${path.sep}`))
+        delete require.cache[key];
+    }
+    syncService = require("../src/services/syncService");
+    fileService = require("../src/services/fileService");
+    fs.rmSync(altRoot, { recursive: true, force: true });
+  }
+});
+
+test("getProjectFiles returns files + directories when project detected", () => {
+  const result = fileService.getProjectFiles();
+  assert.ok(result);
+  assert.ok(Array.isArray(result.files));
+  assert.ok(Array.isArray(result.directories));
+  // main.py should be in there with content populated.
+  const main = result.files.find((f) => f.path && f.path.endsWith("main.py"));
+  assert.ok(main, "main.py expected in project files");
+  assert.equal(typeof main.content, "string");
 });

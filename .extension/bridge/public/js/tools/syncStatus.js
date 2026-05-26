@@ -28,6 +28,15 @@ import * as store from "../state/store.js";
 import { termWrite } from "../terminal/output.js";
 import { releaseFocus, trapFocus } from "../ui/focusTrap.js";
 import { diffLines, renderDiffHtml } from "./diff.js";
+import {
+  basenamePico,
+  dirnamePico,
+  escapeAttr,
+  escapeHtml,
+  formatBytes,
+  formatMtime,
+  isFolderMissingLocally,
+} from "./syncStatusHelpers.js";
 
 const MAX_PULL_BYTES = 256 * 1024;
 
@@ -299,41 +308,6 @@ const STATUS_META = {
   orphan: { icon: "🔴", label: "only on device", cls: "sync-row-orphan" },
 };
 
-function formatBytes(n) {
-  if (n == null) return "—";
-  if (n < 1024) return `${n} B`;
-  return `${(n / 1024).toFixed(1)} KB`;
-}
-
-// MicroPython bare-metal ports (rp2, stm32, esp32 without RTC sync) use
-// an epoch of 2000-01-01 instead of 1970-01-01. Detect that by checking
-// for an implausibly old date and shift forward by 30 years.
-const EPOCH_2000_OFFSET = 946684800; // seconds between 1970-01-01 and 2000-01-01
-
-function formatMtime(seconds) {
-  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return "";
-  let s = seconds;
-  // If the timestamp lands before the year 2000 in unix-epoch terms,
-  // it's almost certainly a 2000-epoch value from a bare-metal port.
-  if (s < EPOCH_2000_OFFSET) s += EPOCH_2000_OFFSET;
-  const d = new Date(s * 1000);
-  if (Number.isNaN(d.getTime())) return "";
-  const now = Date.now();
-  const diffMs = now - d.getTime();
-  const absDiff = Math.abs(diffMs);
-  const MIN = 60_000;
-  const HOUR = 3_600_000;
-  const DAY = 86_400_000;
-  let rel;
-  if (absDiff < MIN) rel = "just now";
-  else if (absDiff < HOUR) rel = `${Math.round(absDiff / MIN)}m ago`;
-  else if (absDiff < DAY) rel = `${Math.round(absDiff / HOUR)}h ago`;
-  else if (absDiff < 7 * DAY) rel = `${Math.round(absDiff / DAY)}d ago`;
-  else rel = d.toLocaleDateString();
-  const abs = d.toLocaleString();
-  return `<span class="sync-mtime" title="${escapeAttr(abs)}">🕒 ${escapeHtml(rel)}</span>`;
-}
-
 function renderStatusPanel() {
   const body = document.getElementById("syncBody");
   const summaryEl = document.getElementById("syncSummary");
@@ -406,16 +380,12 @@ function renderGroupedRows(rows) {
       // every row at-or-below this directory is orphan-only, the
       // folder is missing locally and we offer a bulk pull.
       const prefix = dir === "/" ? "/" : dir + "/";
-      const anyWorkspaceUnder = rows.some(
-        (r) => r.workspace && (r.path === dir || r.path.startsWith(prefix)),
-      );
       const orphansUnder = rows.filter(
         (r) =>
           r.status === "orphan" &&
           (r.path === dir || r.path.startsWith(prefix)),
       );
-      const folderMissingLocally =
-        !anyWorkspaceUnder && orphansUnder.length > 0;
+      const folderMissingLocally = isFolderMissingLocally(dir, rows);
 
       // Per-group counts for the header pill.
       const counts = groupRows.reduce(
@@ -506,31 +476,8 @@ function renderRow(r) {
   `;
 }
 
-function dirnamePico(p) {
-  if (!p || p === "/") return "/";
-  const idx = p.lastIndexOf("/");
-  if (idx <= 0) return "/";
-  return p.slice(0, idx);
-}
-
-function basenamePico(p) {
-  if (!p) return "";
-  const idx = p.lastIndexOf("/");
-  return idx >= 0 ? p.slice(idx + 1) : p;
-}
-
 function actionBtn(action, path, label, extra = "") {
   return `<button class="sync-action ${extra}" data-action="${action}" data-path="${escapeAttr(path)}">${label}</button>`;
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-function escapeAttr(s) {
-  return escapeHtml(s).replace(/"/g, "&quot;");
 }
 
 // ---------------------------------------------------------------------------

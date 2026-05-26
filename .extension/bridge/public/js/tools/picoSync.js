@@ -18,11 +18,15 @@ const MARKER_REMINDER =
   "\r\n[Bridge] Add a .micropico file to your project root to enable uploads\r\n";
 
 // --- Debug instrumentation -----------------------------------------------
-// Off by default. Toggle at runtime from the browser devtools console:
+// Currently ON for diagnosing upload issues. Toggle at runtime from the
+// browser devtools console:
 //   window.__BRIDGE_DEBUG_UPLOAD = true   // verbose timing + raw output
-//   window.__BRIDGE_DEBUG_UPLOAD = false  // back to quiet (default)
+//   window.__BRIDGE_DEBUG_UPLOAD = false  // back to quiet
 function dbgEnabled() {
-  return typeof window !== "undefined" && !!window.__BRIDGE_DEBUG_UPLOAD;
+  if (typeof window === "undefined") return false;
+  // Default ON unless explicitly disabled at runtime.
+  if (window.__BRIDGE_DEBUG_UPLOAD === false) return false;
+  return true;
 }
 /** Write a debug line to the terminal AND console. No-op if disabled. */
 function dbg(msg) {

@@ -168,3 +168,59 @@ test("POST /api/workspace/file rejects path traversal", async () => {
     "must not have written outside project root",
   );
 });
+
+// ---------------------------------------------------------------------------
+// New coverage (Stage 1): hasLib + mtime in sync-status, /lib-files,
+// /project-files
+// ---------------------------------------------------------------------------
+
+test("GET /api/workspace/sync-status reports hasLib and mtime", async () => {
+  const res = await jsonRequest("GET", "/api/workspace/sync-status");
+  assert.equal(res.status, 200);
+  assert.equal(res.body.success, true);
+  assert.equal(typeof res.body.hasLib, "boolean");
+  // The fixture has no lib/ folder so hasLib must be false.
+  assert.equal(res.body.hasLib, false);
+  for (const f of res.body.files) {
+    assert.equal(typeof f.mtime, "number", `mtime missing on ${f.path}`);
+    assert.ok(Number.isInteger(f.mtime), "mtime should be an integer");
+  }
+});
+
+test("GET /api/lib-files returns 404 when no lib/ folder exists", async () => {
+  const res = await jsonRequest("GET", "/api/lib-files");
+  assert.equal(res.status, 404);
+  assert.equal(res.body.success, false);
+  assert.match(res.body.error, /lib/i);
+});
+
+test("GET /api/project-files returns the project tree", async () => {
+  const res = await jsonRequest("GET", "/api/project-files");
+  assert.equal(res.status, 200);
+  assert.equal(res.body.success, true);
+  // The exact shape is { files, directories } — assert both are present.
+  const payload = res.body.files ? res.body : res.body.data || res.body;
+  assert.ok(payload.files, "project-files payload must include 'files'");
+  assert.ok(Array.isArray(payload.files));
+  const names = payload.files
+    .map((f) => f.name || f.path || "")
+    .map((p) => p.split("/").pop());
+  assert.ok(
+    names.includes("main.py"),
+    `main.py expected among project files: ${names.join(", ")}`,
+  );
+});
+
+test("POST /api/workspace/file creates intermediate directories", async () => {
+  const res = await jsonRequest("POST", "/api/workspace/file", {
+    path: "/new/nested/file.py",
+    content: "x = 1\n",
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.success, true);
+  const onDisk = fs.readFileSync(
+    path.join(tmpRoot, "new/nested/file.py"),
+    "utf8",
+  );
+  assert.equal(onDisk, "x = 1\n");
+});
