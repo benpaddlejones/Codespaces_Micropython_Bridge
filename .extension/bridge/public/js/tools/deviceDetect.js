@@ -149,6 +149,38 @@ const VERSION_PATTERNS = {
 // Buffer to accumulate REPL output for detection
 let detectionBuffer = "";
 let detectionTimeout = null;
+let spinnerInterval = null;
+let spinnerVisible = false;
+
+const SPINNER_FRAMES = ["   ", ".  ", ".. ", "..."];
+const SPINNER_LABEL = "[Bridge] Detecting device";
+
+function startSpinner() {
+  stopSpinner();
+  let frame = 0;
+  // Print the first frame on its own line so we can keep overwriting it.
+  termWrite(`${SPINNER_LABEL}${SPINNER_FRAMES[0]}`);
+  spinnerVisible = true;
+  spinnerInterval = setInterval(() => {
+    frame = (frame + 1) % SPINNER_FRAMES.length;
+    // \r returns to column 0 so we overwrite the existing label in place.
+    termWrite(`\r${SPINNER_LABEL}${SPINNER_FRAMES[frame]}`);
+  }, 200);
+}
+
+function stopSpinner() {
+  if (spinnerInterval) {
+    clearInterval(spinnerInterval);
+    spinnerInterval = null;
+  }
+  if (spinnerVisible) {
+    // Erase the spinner line: \r + spaces wide enough to cover label + dots,
+    // then \r again so the next write starts at column 0.
+    const blank = " ".repeat(SPINNER_LABEL.length + SPINNER_FRAMES[0].length);
+    termWrite(`\r${blank}\r`);
+    spinnerVisible = false;
+  }
+}
 
 /**
  * Start device detection by analyzing REPL output
@@ -156,6 +188,14 @@ let detectionTimeout = null;
 export function startDetection() {
   detectionBuffer = "";
   store.setDeviceInfo(null);
+
+  // Silence the raw REPL banner while we're detecting so the animated
+  // spinner isn't immediately trampled by the device's boot output.
+  // We still capture the data (the read loop appends to the capture
+  // buffer before checking silent mode), so detection still works.
+  store.setSilentMode(true);
+
+  startSpinner();
 
   // Set up a timeout to process whatever we've collected
   if (detectionTimeout) {
@@ -193,9 +233,17 @@ export function feedDetectionData(data) {
  * Process the detection buffer to identify device
  */
 function processDetectionBuffer() {
-  if (!detectionBuffer) return;
+  if (!detectionBuffer) {
+    stopSpinner();
+    store.setSilentMode(false);
+    return;
+  }
 
   const info = parseDeviceInfo(detectionBuffer);
+
+  stopSpinner();
+  // Re-enable raw REPL output now that the spinner is gone.
+  store.setSilentMode(false);
 
   if (info) {
     store.setDeviceInfo(info);
@@ -208,6 +256,26 @@ function processDetectionBuffer() {
   }
 
   detectionBuffer = "";
+
+  // Nudge the friendly REPL so a fresh `>>>` prompt is drawn under our
+  // detection message — otherwise the cursor sits on a blank line and
+  // the user has to press Enter before they can type anything.
+  nudgeReplPrompt();
+}
+
+/**
+ * Send a single CR to the device so the friendly REPL redraws its
+ * `>>>` prompt. Safe no-op if the writer isn't ready.
+ */
+function nudgeReplPrompt() {
+  const writer = store.getWriter();
+  if (!writer) return;
+  try {
+    // Fire-and-forget; we don't want to block the detection callback.
+    void writer.write("\r");
+  } catch (_e) {
+    /* ignore */
+  }
 }
 
 /**
@@ -247,9 +315,11 @@ export function parseDeviceInfo(text) {
  */
 function announceDevice(info) {
   const variantIcon = info.variant === "micropython" ? "🐍" : "🐍🔵";
-  const msg = `\r\n[Bridge] ${variantIcon} Detected: ${info.name} running ${
-    info.variant === "micropython" ? "MicroPython" : "CircuitPython"
-  } v${info.version}\r\n`;
+  const variantName =
+    info.variant === "micropython" ? "MicroPython" : "CircuitPython";
+  const msg =
+    `\r\n[Bridge] ${variantIcon} Detected: ${info.name} running ${variantName} v${info.version}` +
+    ` — refreshing device file list…\r\n`;
   termWrite(msg);
 }
 

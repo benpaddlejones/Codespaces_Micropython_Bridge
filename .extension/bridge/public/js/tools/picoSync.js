@@ -18,15 +18,13 @@ const MARKER_REMINDER =
   "\r\n[Bridge] Add a .micropico file to your project root to enable uploads\r\n";
 
 // --- Debug instrumentation -----------------------------------------------
-// Currently ON for diagnosing upload issues. Toggle at runtime from the
-// browser devtools console:
+// Off by default. Toggle at runtime from the browser devtools console:
 //   window.__BRIDGE_DEBUG_UPLOAD = true   // verbose timing + raw output
-//   window.__BRIDGE_DEBUG_UPLOAD = false  // back to quiet
+//   window.__BRIDGE_DEBUG_UPLOAD = false  // back to quiet (default)
 function dbgEnabled() {
   if (typeof window === "undefined") return false;
-  // Default ON unless explicitly disabled at runtime.
-  if (window.__BRIDGE_DEBUG_UPLOAD === false) return false;
-  return true;
+  // Default OFF unless explicitly enabled at runtime.
+  return window.__BRIDGE_DEBUG_UPLOAD === true;
 }
 /** Write a debug line to the terminal AND console. No-op if disabled. */
 function dbg(msg) {
@@ -54,6 +52,30 @@ function summarizeOutput(s, max = 200) {
 // they aren't competing for the same race window as everything else).
 const CRITICAL_FILE_BASENAMES = new Set(["main.py", "boot.py"]);
 
+// Any file at or above this size (raw UTF-8 bytes) is uploaded via the
+// chunked append-write path instead of being inlined into a Python
+// script. The RP2040 has ~190 KB of free heap; inlining a 100 KB file
+// as base64 (~133 KB source) plus the decoded buffers easily triggers
+// MemoryError + a soft reboot, which used to be silently masked by the
+// marker-MISSING fallback. 16 KB keeps script source <22 KB even after
+// base64 expansion, which is comfortably below any heap pressure.
+const LARGE_FILE_THRESHOLD = 16 * 1024;
+
+// Raw bytes per chunked write. Each chunk becomes ~4/3 of this in b64,
+// and the Python script wrapping it is ~60 bytes — so peak heap during
+// one write is ~3x the chunk size. 6 KB keeps peak ~18 KB, very safe.
+const CHUNK_SIZE_BYTES = 6 * 1024;
+
+// Patterns in the device output that indicate a real failure (not just
+// a slow response) during an upload. If any of these appear after a
+// marker-missing timeout we treat the batch as FAILED and surface a
+// clear error instead of silently continuing.
+const CRASH_PATTERNS = [
+  /MemoryError/,
+  /Traceback \(most recent call last\)/,
+  /MicroPython v\d/, // soft-reboot banner
+];
+
 // Max retries per file when post-upload verification reports a real
 // size mismatch (i.e. the file on the device is actually wrong).
 const VERIFY_MAX_RETRIES = 2;
@@ -70,6 +92,25 @@ const VERIFY_RESPONSE_RETRIES = 3;
 // every fresh connection (handled via store.isRtcSynced()).
 
 /**
+ * Nudge the friendly REPL so it redraws its `>>>` prompt without the
+ * user having to press Enter. After an upload/delete/verify, the device
+ * has just exited raw-REPL mode (Ctrl+B) but won't emit a prompt until
+ * it sees a CR. Writing a single `\r` triggers it immediately.
+ *
+ * Safe to call when not connected — silently no-ops.
+ */
+async function nudgeReplPrompt() {
+  if (!store.isConnected()) return;
+  const writer = store.getWriter();
+  if (!writer) return;
+  try {
+    await writer.write("\r");
+  } catch (_err) {
+    // Ignore — connection may have closed mid-flight.
+  }
+}
+
+/**
  * Push the host's wall-clock into the Pico's RTC. LFS2 stamps every
  * subsequent file write with the RTC time automatically (mtime=True is
  * the default), so this is all we need for accurate file timestamps —
@@ -79,10 +120,16 @@ const VERIFY_RESPONSE_RETRIES = 3;
 async function syncRtc() {
   const d = new Date();
   // RTC.datetime tuple: (year, month, day, weekday, hour, min, sec, subsec)
-  // weekday: Mon=0..Sun=6 in MicroPython; JS getDay() is Sun=0..Sat=6.
-  const jsDay = d.getDay();
+  // weekday: Mon=0..Sun=6 in MicroPython; JS getUTCDay() is Sun=0..Sat=6.
+  //
+  // IMPORTANT: write the RTC in **UTC**, not local time. The file panel
+  // treats os.stat()[8] as seconds-since-epoch (UTC) when rendering
+  // relative timestamps; if we wrote local wall-clock here, files would
+  // appear off by the host's UTC offset (e.g. "10h ago" for a file
+  // saved seconds earlier in a UTC+10 browser).
+  const jsDay = d.getUTCDay();
   const weekday = (jsDay + 6) % 7;
-  const tuple = `(${d.getFullYear()}, ${d.getMonth() + 1}, ${d.getDate()}, ${weekday}, ${d.getHours()}, ${d.getMinutes()}, ${d.getSeconds()}, 0)`;
+  const tuple = `(${d.getUTCFullYear()}, ${d.getUTCMonth() + 1}, ${d.getUTCDate()}, ${weekday}, ${d.getUTCHours()}, ${d.getUTCMinutes()}, ${d.getUTCSeconds()}, 0)`;
   const code = `try:\n import machine\n machine.RTC().datetime(${tuple})\nexcept Exception as _e:\n pass\n`;
   try {
     await sendRawCommand(code, 200);
@@ -189,6 +236,8 @@ ls('/')
     await sendRawCommand(code, 1000); // Wait longer for recursive listing
   } catch (err) {
     termWrite(`[Error] ${err.message}\r\n`);
+  } finally {
+    await nudgeReplPrompt();
   }
 }
 
@@ -213,6 +262,8 @@ export async function runFile(filePath) {
     await sendRawCommand(data.content);
   } catch (err) {
     termWrite(`[Error] ${err.message}\r\n`);
+  } finally {
+    await nudgeReplPrompt();
   }
 }
 
@@ -261,6 +312,8 @@ export async function uploadFile(filePath) {
     termWrite(`[Bridge] ✓ Uploaded: ${destPath}\r\n`);
   } catch (err) {
     termWrite(`[Error] ${err.message}\r\n`);
+  } finally {
+    await nudgeReplPrompt();
   }
 }
 
@@ -287,7 +340,11 @@ export async function uploadFileByPicoPath(picoPath) {
   if (!data.success) {
     throw new Error(data.error || "Workspace fetch failed");
   }
-  await writeSingleFile(picoPath, data.content);
+  try {
+    await writeSingleFile(picoPath, data.content);
+  } finally {
+    await nudgeReplPrompt();
+  }
 }
 
 /**
@@ -300,6 +357,14 @@ async function writeSingleFile(destPath, content) {
   const dirPath = destPath.substring(0, destPath.lastIndexOf("/"));
   if (dirPath && dirPath !== "/") {
     await ensureDirectory(dirPath);
+  }
+
+  // Large files go through the streaming/append path to keep the
+  // device's peak heap usage tiny. Inlining the whole base64 blob into
+  // a single script would OOM the RP2040 on anything >~80 KB.
+  if (utf8ByteLength(content) >= LARGE_FILE_THRESHOLD) {
+    await writeLargeFileChunked(destPath, content);
+    return;
   }
 
   const b64 = btoa(unescape(encodeURIComponent(content)));
@@ -321,12 +386,92 @@ print('${marker}')
   // stuck device can never deadlock the UI.
   const result = await sendRawCommandUntilMarker(writeCode, marker);
   if (!result.found) {
+    const crash = detectCrash(result.output);
+    if (crash) {
+      termWrite(`[Bridge] ✗ ${destPath} FAILED on device: ${crash}\r\n`);
+      throw new Error(`Device crash during write of ${destPath}: ${crash}`);
+    }
     // Marker never arrived — last-resort blind wait, then continue. The
     // verify pass (Layer 3) will catch a truly failed write and retry.
     termWrite(
       `[Bridge] ! No completion marker for ${destPath} (${Math.round(result.elapsedMs)}ms)\r\n`,
     );
     await sendRawCommand("", computeWaitMs(writeCode.length, payloadBytes));
+  }
+}
+
+/**
+ * Scan device output for a known crash signature (MemoryError, traceback,
+ * or soft-reboot banner). Returns a short description, or null if the
+ * output looks clean.
+ */
+function detectCrash(output) {
+  if (!output) return null;
+  for (const re of CRASH_PATTERNS) {
+    const m = output.match(re);
+    if (m) return m[0];
+  }
+  return null;
+}
+
+/**
+ * Write a large file using many small append-mode chunks. Each chunk
+ * is its own raw-REPL command, so the inlined base64 blob in any single
+ * script never exceeds ~CHUNK_SIZE_BYTES * 4/3. This keeps the device's
+ * peak heap allocation small enough to avoid MemoryError on the RP2040
+ * even for files in the 100 KB+ range.
+ *
+ * Uses 'wb' mode (binary) so the content round-trips byte-for-byte
+ * regardless of encoding.
+ */
+async function writeLargeFileChunked(destPath, content) {
+  const bytes = new TextEncoder().encode(content);
+  const total = bytes.length;
+  const chunkCount = Math.max(1, Math.ceil(total / CHUNK_SIZE_BYTES));
+  dbg(
+    `chunked write ${destPath}: ${total}b in ${chunkCount} chunk(s) of <=${CHUNK_SIZE_BYTES}b`,
+  );
+
+  for (let i = 0; i < chunkCount; i++) {
+    const start = i * CHUNK_SIZE_BYTES;
+    const end = Math.min(start + CHUNK_SIZE_BYTES, total);
+    const slice = bytes.subarray(start, end);
+    // base64-encode binary slice (avoid btoa+string-roundtrip pitfalls).
+    let bin = "";
+    for (let j = 0; j < slice.length; j++) bin += String.fromCharCode(slice[j]);
+    const b64 = btoa(bin);
+
+    // First chunk truncates ('wb'), later chunks append ('ab').
+    const mode = i === 0 ? "wb" : "ab";
+    const marker = newMarker("CHUNK");
+    const code = `import ubinascii
+f = open('${destPath}', '${mode}')
+f.write(ubinascii.a2b_base64('${b64}'))
+f.close()
+print('${marker}')
+`;
+    const hardCap = Math.max(
+      3000,
+      computeWaitMs(code.length, slice.length) * 3,
+    );
+    const result = await sendRawCommandUntilMarker(code, marker, hardCap);
+    if (!result.found) {
+      const crash = detectCrash(result.output);
+      if (crash) {
+        termWrite(
+          `[Bridge] ✗ ${destPath} chunk ${i + 1}/${chunkCount} FAILED on device: ${crash}\r\n`,
+        );
+        throw new Error(
+          `Device crash writing ${destPath} chunk ${i + 1}/${chunkCount}: ${crash}`,
+        );
+      }
+      termWrite(
+        `[Bridge] ! No marker for ${destPath} chunk ${i + 1}/${chunkCount} (${Math.round(result.elapsedMs)}ms)\r\n`,
+      );
+      // Best-effort blind wait then continue — verify pass will catch
+      // a truncated file.
+      await sendRawCommand("", computeWaitMs(code.length, slice.length));
+    }
   }
 }
 
@@ -403,20 +548,54 @@ for d in dirs:
       })
       .sort((a, b) => b.b64Size - a.b64Size);
 
+    // Split out large files (uploaded via chunked append, one at a time)
+    // from small files (safe to inline-batch).
+    const largeFiles = filesWithSize.filter(
+      (f) => f.bytes >= LARGE_FILE_THRESHOLD,
+    );
+    const smallFiles = filesWithSize.filter(
+      (f) => f.bytes < LARGE_FILE_THRESHOLD,
+    );
+
     // Smart batching: group files up to ~4KB batch size
     const MAX_BATCH_SIZE = 4000;
-    const batches = createBatches(filesWithSize, MAX_BATCH_SIZE);
+    const batches = createBatches(smallFiles, MAX_BATCH_SIZE);
+
+    // Large files first \u2014 chunked append-write path, never inlined.
+    let uploadedCount = 0;
+    for (const f of largeFiles) {
+      try {
+        await writeLargeFileChunked(f.path, f.content);
+      } catch (err) {
+        store.setSilentMode(false);
+        termWrite(`[Bridge] Lib upload aborted: ${err.message}\r\n`);
+        throw err;
+      }
+      uploadedCount++;
+    }
 
     // Upload each batch silently
-    let uploadedCount = 0;
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
       const marker = newMarker("BATCH");
       const batchCode = createBatchUploadCode(batch, marker);
       const result = await sendRawCommandUntilMarker(batchCode, marker);
       if (!result.found) {
-        const payloadBytes = batch.reduce((s, f) => s + f.bytes, 0);
-        await sendRawCommand("", computeWaitMs(batchCode.length, payloadBytes));
+        const crash = detectCrash(result.output);
+        if (crash) {
+          termWrite(
+            `[Bridge] \u2717 Lib batch ${i + 1}/${batches.length} FAILED on device: ${crash}\r\n`,
+          );
+          termWrite(
+            `[Bridge]   Files: ${batch.map((f) => f.path).join(", ")}\r\n`,
+          );
+        } else {
+          const payloadBytes = batch.reduce((s, f) => s + f.bytes, 0);
+          await sendRawCommand(
+            "",
+            computeWaitMs(batchCode.length, payloadBytes),
+          );
+        }
       }
       uploadedCount += batch.length;
     }
@@ -433,6 +612,8 @@ for d in dirs:
   } catch (err) {
     store.setSilentMode(false);
     termWrite(`[Error] ${err.message}\r\n`);
+  } finally {
+    await nudgeReplPrompt();
   }
 }
 
@@ -495,8 +676,15 @@ for d in dirs:
       };
     });
     const criticalFiles = filesWithSize.filter((f) => isCriticalPath(f.path));
+    // Large files cannot go in an inline batch (their base64 source
+    // would OOM the device). Split them out and upload one-at-a-time
+    // via the chunked append path FIRST, while the device heap is
+    // freshest.
+    const largeFiles = filesWithSize
+      .filter((f) => !isCriticalPath(f.path) && f.bytes >= LARGE_FILE_THRESHOLD)
+      .sort((a, b) => b.bytes - a.bytes);
     const batchedFiles = filesWithSize
-      .filter((f) => !isCriticalPath(f.path))
+      .filter((f) => !isCriticalPath(f.path) && f.bytes < LARGE_FILE_THRESHOLD)
       .sort((a, b) => b.b64Size - a.b64Size);
 
     // Smart batching
@@ -505,13 +693,34 @@ for d in dirs:
 
     termWrite(
       `  Uploading in ${batches.length} batch(es)` +
+        (largeFiles.length
+          ? ` + ${largeFiles.length} large file(s) (chunked)`
+          : ``) +
         (criticalFiles.length
           ? ` + ${criticalFiles.length} critical file(s) last\r\n`
           : `\r\n`),
     );
 
-    // Upload each batch
+    // Large files first — each one uploaded via chunked append writes
+    // so the device's heap never sees the whole base64 blob at once.
     let uploadedCount = 0;
+    for (const f of largeFiles) {
+      const stopSpinner = startUploadSpinner(
+        `  [large] ${f.path} (${Math.round(f.bytes / 1024)}KB)`,
+      );
+      try {
+        await writeLargeFileChunked(f.path, f.content);
+      } catch (err) {
+        stopSpinner();
+        store.setSilentMode(false);
+        termWrite(`[Bridge] Upload aborted: ${err.message}\r\n`);
+        throw err;
+      }
+      stopSpinner();
+      uploadedCount++;
+    }
+
+    // Upload each batch
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
 
@@ -549,13 +758,29 @@ for d in dirs:
         if (result.found) {
           dbg(`  ✓ marker found in ${elapsed}ms (cap ${hardCap}ms)`);
         } else {
-          dbg(
-            `  ✗ marker MISSING after ${elapsed}ms (cap ${hardCap}ms); ` +
-              `device output tail: ${summarizeOutput(result.output)}`,
-          );
-          const fallbackWait = computeWaitMs(batchCode.length, payloadBytes);
-          dbg(`  falling back to fixed wait ${fallbackWait}ms`);
-          await sendRawCommand("", fallbackWait);
+          const crash = detectCrash(result.output);
+          if (crash) {
+            termWrite(
+              `[Bridge] ✗ Batch ${i + 1}/${batches.length} FAILED on device: ${crash}\r\n`,
+            );
+            termWrite(
+              `[Bridge]   Files in batch: ${batch.map((f) => f.path).join(", ")}\r\n`,
+            );
+            termWrite(
+              `[Bridge]   Verify pass will retry each file individually.\r\n`,
+            );
+            dbg(
+              `  ✗ batch ${i + 1} crash after ${elapsed}ms; device output tail: ${summarizeOutput(result.output)}`,
+            );
+          } else {
+            dbg(
+              `  ✗ marker MISSING after ${elapsed}ms (cap ${hardCap}ms); ` +
+                `device output tail: ${summarizeOutput(result.output)}`,
+            );
+            const fallbackWait = computeWaitMs(batchCode.length, payloadBytes);
+            dbg(`  falling back to fixed wait ${fallbackWait}ms`);
+            await sendRawCommand("", fallbackWait);
+          }
         }
       } finally {
         stopSpinner();
@@ -595,6 +820,8 @@ for d in dirs:
   } catch (err) {
     store.setSilentMode(false);
     termWrite(`[Error] ${err.message}\r\n`);
+  } finally {
+    await nudgeReplPrompt();
   }
 }
 
@@ -655,6 +882,8 @@ print('Done - all files deleted')
     termWrite("[Bridge] ✓ All files deleted\r\n");
   } catch (err) {
     termWrite(`[Error] ${err.message}\r\n`);
+  } finally {
+    await nudgeReplPrompt();
   }
 }
 

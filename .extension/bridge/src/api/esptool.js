@@ -24,7 +24,7 @@ if (!fs.existsSync(FIRMWARE_DIR)) {
 router.get("/esptool/status", async (req, res) => {
   try {
     const result = await execPromise(
-      "esptool.py version 2>&1 || esptool version 2>&1 || echo 'not found'"
+      "esptool.py version 2>&1 || esptool version 2>&1 || echo 'not found'",
     );
     const installed =
       !result.includes("not found") && !result.includes("command not found");
@@ -60,13 +60,13 @@ router.post("/esptool/install", async (req, res) => {
 
   try {
     const result = await execPromise(
-      "pip3 install esptool 2>&1 || pip install esptool 2>&1"
+      "pip3 install esptool 2>&1 || pip install esptool 2>&1",
     );
     console.log("[esptool] Install result:", result);
 
     // Verify installation
     const verifyResult = await execPromise(
-      "esptool.py version 2>&1 || esptool version 2>&1"
+      "esptool.py version 2>&1 || esptool version 2>&1",
     );
     const match = verifyResult.match(/esptool(?:\.py)?\s+v?([\d.]+)/i);
     const version = match ? match[1] : "unknown";
@@ -106,7 +106,7 @@ router.get("/esptool/flash-command/:chip", (req, res) => {
   if (!config) {
     return res.status(400).json({
       error: `Unknown chip: ${chip}. Supported: ${Object.keys(chipConfig).join(
-        ", "
+        ", ",
       )}`,
     });
   }
@@ -235,17 +235,26 @@ router.get("/esptool/downloads", (req, res) => {
  */
 router.delete("/esptool/downloads/:filename", (req, res) => {
   const { filename } = req.params;
-  const filepath = path.join(FIRMWARE_DIR, filename);
 
-  // Security: ensure we're only deleting from firmware dir
-  if (!filepath.startsWith(FIRMWARE_DIR)) {
+  // Security: collapse the parameter to its basename so callers can't
+  // smuggle path traversal (`..`) or absolute paths through the URL.
+  const safeName = path.basename(filename || "");
+  if (!safeName || safeName !== filename || safeName.includes("/")) {
+    return res.status(400).json({ error: "Invalid filename" });
+  }
+
+  const filepath = path.resolve(FIRMWARE_DIR, safeName);
+  if (
+    filepath !== FIRMWARE_DIR &&
+    !filepath.startsWith(FIRMWARE_DIR + path.sep)
+  ) {
     return res.status(403).json({ error: "Invalid path" });
   }
 
   try {
     if (fs.existsSync(filepath)) {
       fs.unlinkSync(filepath);
-      res.json({ success: true, message: `Deleted ${filename}` });
+      res.json({ success: true, message: `Deleted ${safeName}` });
     } else {
       res.status(404).json({ error: "File not found" });
     }

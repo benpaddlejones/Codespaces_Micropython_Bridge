@@ -6,10 +6,14 @@
  */
 
 const fs = require("fs");
+const path = require("path");
 const config = require("../../config");
 const fileService = require("./fileService");
 
 let fileWatcher = null;
+let markerWatcher = null;
+let markerDebounceTimeout = null;
+let watchedRoot = null;
 let fileChangeTimeout = null;
 let restartAttempts = 0;
 let onChangeCallback = null;
@@ -31,9 +35,13 @@ function start(onChange) {
   // Store callback for restart
   onChangeCallback = onChange;
 
+  // Always (re)attach the marker watcher so project switches via
+  // `.micropico` <-> `.micropico.inactive` renames rebind us live.
+  ensureMarkerWatcher();
+
   // Stop existing watcher if any
   if (fileWatcher) {
-    stop();
+    stop({ keepMarkerWatcher: true });
   }
 
   // Check if directory exists
@@ -42,7 +50,7 @@ function start(onChange) {
       console.log(
         `[fileWatcher] Project directory not found: ${
           resolvedProjectDir || "<unset>"
-        }`
+        }`,
       );
       console.log("[fileWatcher] Ensure your project has a .micropico marker");
       scheduleRestart();
@@ -51,7 +59,7 @@ function start(onChange) {
   } catch (err) {
     console.error(
       "[fileWatcher] Error checking project directory:",
-      err.message
+      err.message,
     );
     scheduleRestart();
     return false;
@@ -67,7 +75,7 @@ function start(onChange) {
           if (!filename) return;
 
           const hasValidExtension = extensions.some((ext) =>
-            filename.endsWith(ext)
+            filename.endsWith(ext),
           );
           if (!hasValidExtension) return;
 
@@ -84,7 +92,7 @@ function start(onChange) {
               } catch (callbackErr) {
                 console.error(
                   "[fileWatcher] Callback error:",
-                  callbackErr.message
+                  callbackErr.message,
                 );
               }
             }
@@ -92,10 +100,10 @@ function start(onChange) {
         } catch (handlerErr) {
           console.error(
             "[fileWatcher] Event handler error:",
-            handlerErr.message
+            handlerErr.message,
           );
         }
-      }
+      },
     );
 
     // Handle watcher errors
@@ -110,6 +118,7 @@ function start(onChange) {
     });
 
     console.log("[fileWatcher] Started watching project directory");
+    watchedRoot = resolvedProjectDir;
     restartAttempts = 0; // Reset on success
     return true;
   } catch (err) {
@@ -130,7 +139,7 @@ function scheduleRestart() {
 
   restartAttempts++;
   console.log(
-    `[fileWatcher] Scheduling restart attempt ${restartAttempts}/${MAX_RESTART_ATTEMPTS} in ${RESTART_DELAY}ms`
+    `[fileWatcher] Scheduling restart attempt ${restartAttempts}/${MAX_RESTART_ATTEMPTS} in ${RESTART_DELAY}ms`,
   );
 
   setTimeout(() => {
@@ -143,8 +152,14 @@ function scheduleRestart() {
 /**
  * Stops the file watcher.
  * Safe - handles errors gracefully.
+ *
+ * @param {Object} [opts]
+ * @param {boolean} [opts.keepMarkerWatcher=false] - Leave the .micropico
+ *   marker watcher running so project switches still trigger rebinds.
  */
-function stop() {
+function stop(opts = {}) {
+  const { keepMarkerWatcher = false } = opts;
+
   if (fileChangeTimeout) {
     try {
       clearTimeout(fileChangeTimeout);
@@ -161,10 +176,94 @@ function stop() {
       console.error("[fileWatcher] Error closing watcher:", err.message);
     }
     fileWatcher = null;
+    watchedRoot = null;
     console.log("[fileWatcher] Stopped");
   }
 
+  if (!keepMarkerWatcher) {
+    stopMarkerWatcher();
+  }
+
   // Don't clear onChangeCallback - may be needed for restart
+}
+
+/**
+ * Watch the workspace recursively for `.micropico` / `.micropico.inactive`
+ * marker changes. When a marker is created, deleted, or renamed (e.g. the
+ * user switches the active project from the Bridge Tools view), re-resolve
+ * the project root and restart the file watcher so it tracks the new
+ * active project folder.
+ */
+function ensureMarkerWatcher() {
+  if (markerWatcher) return;
+
+  const { workspaceRoot } = config.paths;
+  if (!workspaceRoot || !fs.existsSync(workspaceRoot)) return;
+
+  try {
+    markerWatcher = fs.watch(
+      workspaceRoot,
+      { recursive: true },
+      (_eventType, filename) => {
+        if (!filename) return;
+        const base = path.basename(filename);
+        if (base !== ".micropico" && base !== ".micropico.inactive") {
+          return;
+        }
+
+        // Debounce - rename pairs fire several events in quick succession.
+        if (markerDebounceTimeout) clearTimeout(markerDebounceTimeout);
+        markerDebounceTimeout = setTimeout(() => {
+          const newRoot = fileService.findProjectRoot();
+          if (newRoot === watchedRoot) return;
+          console.log(
+            `[fileWatcher] Project marker changed -> rebinding to ${
+              newRoot || "<none>"
+            }`,
+          );
+          if (onChangeCallback) {
+            start(onChangeCallback);
+            // Nudge the browser to refresh its file panel against the new root.
+            try {
+              onChangeCallback(".micropico", "project-switch");
+            } catch (cbErr) {
+              console.error(
+                "[fileWatcher] project-switch callback error:",
+                cbErr.message,
+              );
+            }
+          }
+        }, 250);
+      },
+    );
+
+    markerWatcher.on("error", (err) => {
+      console.error("[fileWatcher] Marker watcher error:", err.message);
+      stopMarkerWatcher();
+    });
+  } catch (err) {
+    console.error("[fileWatcher] Failed to start marker watcher:", err.message);
+    markerWatcher = null;
+  }
+}
+
+function stopMarkerWatcher() {
+  if (markerDebounceTimeout) {
+    try {
+      clearTimeout(markerDebounceTimeout);
+    } catch (e) {
+      /* ignore */
+    }
+    markerDebounceTimeout = null;
+  }
+  if (markerWatcher) {
+    try {
+      markerWatcher.close();
+    } catch (err) {
+      console.error("[fileWatcher] Error closing marker watcher:", err.message);
+    }
+    markerWatcher = null;
+  }
 }
 
 /**

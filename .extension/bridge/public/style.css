@@ -646,6 +646,33 @@ select:focus {
   min-width: 120px;
 }
 
+/* Narrow viewports: collapse name + version onto a single line so the
+   block is at most 2 lines (name/version + meta) instead of 3. */
+@media (max-width: 900px) {
+  .device-info {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-rows: auto auto;
+    column-gap: 6px;
+    row-gap: 0;
+    align-items: baseline;
+    min-width: 0;
+  }
+  .device-info .device-name {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+  }
+  .device-info .device-version {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+  }
+  .device-info .device-meta {
+    grid-column: 1 / 3;
+    grid-row: 2 / 3;
+    justify-self: end;
+  }
+}
+
 .device-info .device-name {
   font-size: 11px;
   color: #888;

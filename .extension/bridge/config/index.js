@@ -36,7 +36,23 @@ module.exports = {
   // File watcher settings
   fileWatcher: {
     debounceMs: 500,
-    extensions: [".py"],
+    // Watch all the file types we sync to the device so edits to
+    // configs, data files, and compiled modules also trigger a refresh.
+    extensions: [
+      ".py",
+      ".mpy",
+      ".json",
+      ".txt",
+      ".csv",
+      ".md",
+      ".conf",
+      ".cfg",
+      ".ini",
+      ".toml",
+      ".html",
+      ".css",
+      ".js",
+    ],
     excludeFolders: ["examples"],
     excludeHidden: true,
   },
@@ -48,7 +64,7 @@ module.exports = {
     setHeaders: (res) => {
       res.set(
         "Cache-Control",
-        "no-store, no-cache, must-revalidate, proxy-revalidate"
+        "no-store, no-cache, must-revalidate, proxy-revalidate",
       );
       res.set("Pragma", "no-cache");
       res.set("Expires", "0");

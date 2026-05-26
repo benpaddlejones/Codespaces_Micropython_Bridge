@@ -9,6 +9,24 @@ const config = require("../../config");
 
 const { projectDir, workspaceRoot } = config.paths;
 const PROJECT_MARKER = ".micropico";
+// Extensions that count as "project files" for upload to the device.
+// Keeps the .py-only behaviour of the legacy File picker but lets
+// Upload Project / Upload Lib / file watch pick up data + config files.
+const UPLOADABLE_EXTENSIONS = new Set([
+  ".py",
+  ".mpy",
+  ".json",
+  ".txt",
+  ".csv",
+  ".md",
+  ".conf",
+  ".cfg",
+  ".ini",
+  ".toml",
+  ".html",
+  ".css",
+  ".js",
+]);
 const SEARCH_EXCLUDE_FOLDERS = new Set([
   "node_modules",
   "bower_components",
@@ -154,7 +172,16 @@ function scanDirectory(dir, prefix = "", options = {}) {
         const subResult = scanDirectory(fullPath, relativePath, options);
         files.push(...subResult.files);
         subResult.directories.forEach((d) => directories.add(d));
-      } else if (entry.name.endsWith(".py")) {
+      } else {
+        // Pickers used to be .py-only. For upload paths (includeContent
+        // = true) accept every deployable extension so configs, data
+        // files, compiled modules etc all sync to the device.
+        const ext = path.extname(entry.name).toLowerCase();
+        const accepted = includeContent
+          ? UPLOADABLE_EXTENSIONS.has(ext)
+          : ext === ".py";
+        if (!accepted) continue;
+
         const fileInfo = {
           name: entry.name,
           path: relativePath,
@@ -172,7 +199,7 @@ function scanDirectory(dir, prefix = "", options = {}) {
   } catch (err) {
     console.error(
       `[fileService] Error scanning directory ${dir}:`,
-      err.message
+      err.message,
     );
   }
 
@@ -188,16 +215,24 @@ function listPythonFiles() {
   const projectRoot = findProjectRoot();
   const projectDetected = Boolean(projectRoot);
   const excludeFolders = Array.from(
-    new Set([...config.fileWatcher.excludeFolders, ...SEARCH_EXCLUDE_FOLDERS])
+    new Set([...config.fileWatcher.excludeFolders, ...SEARCH_EXCLUDE_FOLDERS]),
   );
 
-  // Scan from workspace root so users can see all files
-  const { files } = scanDirectory(workspaceRoot, "", { excludeFolders });
+  // Scope the listing to the active project when one is detected so the
+  // file picker only shows files that belong to the current MicroPython
+  // project. Fall back to the workspace root only when no marker exists.
+  const scanRoot = projectRoot || workspaceRoot;
+  const { files } = scanDirectory(scanRoot, "", { excludeFolders });
 
-  // Calculate relative project root path for UI context
+  // Calculate relative project root path for UI context. When we scanned
+  // from the project root, paths returned are already project-relative,
+  // so the UI's "project root" becomes ".".
   let projectRootRelative = null;
   if (projectRoot) {
-    projectRootRelative = path.relative(workspaceRoot, projectRoot);
+    projectRootRelative =
+      projectRoot === scanRoot
+        ? "."
+        : path.relative(workspaceRoot, projectRoot);
     if (projectRootRelative === "") {
       projectRootRelative = ".";
     }
@@ -221,10 +256,28 @@ function getFileContent(relativePath) {
     return null;
   }
 
+  const projectRoot = findProjectRoot();
+  // When a project marker exists, resolve relative paths against the
+  // project root (matches what listPythonFiles returns). Otherwise fall
+  // back to the workspace root.
+  const baseRoot = path.resolve(projectRoot || workspaceRoot);
   const workspacePath = path.resolve(workspaceRoot);
-  const absolutePath = path.resolve(workspacePath, relativePath);
+  let absolutePath = path.resolve(baseRoot, relativePath);
 
-  if (!absolutePath.startsWith(workspacePath)) {
+  // Backwards-compat: if the path doesn't exist under the project root
+  // but does exist under the workspace root, try that as a fallback.
+  if (
+    baseRoot !== workspacePath &&
+    !fs.existsSync(absolutePath) &&
+    fs.existsSync(path.resolve(workspacePath, relativePath))
+  ) {
+    absolutePath = path.resolve(workspacePath, relativePath);
+  }
+
+  if (
+    absolutePath !== workspacePath &&
+    !absolutePath.startsWith(workspacePath + path.sep)
+  ) {
     return null;
   }
 
@@ -233,7 +286,6 @@ function getFileContent(relativePath) {
   }
 
   const content = fs.readFileSync(absolutePath, "utf8");
-  const projectRoot = findProjectRoot();
   const projectDetected = Boolean(projectRoot);
   let destPath = null;
 
@@ -313,10 +365,23 @@ function getProjectFiles() {
 function fileExists(relativePath) {
   if (!relativePath) return false;
 
-  const base = path.resolve(workspaceRoot);
-  const candidate = path.resolve(base, relativePath);
+  const projectRoot = findProjectRoot();
+  const base = path.resolve(projectRoot || workspaceRoot);
+  const workspacePath = path.resolve(workspaceRoot);
+  let candidate = path.resolve(base, relativePath);
 
-  if (!candidate.startsWith(base)) {
+  if (
+    base !== workspacePath &&
+    !fs.existsSync(candidate) &&
+    fs.existsSync(path.resolve(workspacePath, relativePath))
+  ) {
+    candidate = path.resolve(workspacePath, relativePath);
+  }
+
+  if (
+    candidate !== workspacePath &&
+    !candidate.startsWith(workspacePath + path.sep)
+  ) {
     return false;
   }
 

@@ -532,6 +532,7 @@ print('${marker}')
 }
 
 async function actionPull(picoPath) {
+  termWrite(`[Sync] Pulling ${picoPath} from device…\r\n`);
   const content = await readDeviceFile(picoPath);
   await writeWorkspaceFileContent(picoPath, content);
   termWrite(`[Sync] ✓ Pulled ${picoPath} → workspace\r\n`);
@@ -578,6 +579,7 @@ async function actionDelete(picoPath) {
   if (!confirm(`Delete ${picoPath} from the Pico?\n\nThis cannot be undone.`)) {
     return;
   }
+  termWrite(`[Sync] Deleting ${picoPath} from device…\r\n`);
   await deleteDeviceFile(picoPath);
   termWrite(`[Sync] ✓ Deleted ${picoPath} from device\r\n`);
 }

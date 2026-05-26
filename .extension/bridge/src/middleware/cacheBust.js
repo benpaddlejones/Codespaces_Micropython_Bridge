@@ -105,10 +105,17 @@ function createCacheBustMiddleware({ publicDir, buildToken, version }) {
       return next();
     }
 
+    // Malformed percent-encoding (e.g. `%E0%A4%A`) would otherwise throw
+    // a URIError and bubble up as a 500. Defuse it here.
+    let decodedPath;
+    try {
+      decodedPath = decodeURIComponent(requestPath);
+    } catch (_err) {
+      return next();
+    }
+
     // Resolve safely inside publicDir (defence-in-depth against traversal).
-    const candidate = path.resolve(
-      path.join(normalizedPublic, decodeURIComponent(requestPath)),
-    );
+    const candidate = path.resolve(path.join(normalizedPublic, decodedPath));
     if (
       candidate !== normalizedPublic &&
       !candidate.startsWith(normalizedPublic + path.sep)

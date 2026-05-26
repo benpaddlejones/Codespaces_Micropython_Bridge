@@ -76,6 +76,14 @@ export async function sendRawCommand(code, waitMs) {
   // Exit raw REPL: Ctrl+B
   await writer.write("\x02");
   await sleep(50);
+
+  // Friendly REPL doesn't redraw `>>>` until it sees a CR; without
+  // this, the cursor sits on a blank line until the user hits Enter.
+  try {
+    await writer.write("\r");
+  } catch (_e) {
+    /* connection may have closed mid-flight */
+  }
 }
 
 /**
@@ -206,6 +214,12 @@ export async function sendRawCommandUntilMarker(code, marker, maxWaitMs) {
     // Exit raw REPL: Ctrl+B
     await writer.write("\x02");
     await sleep(20);
+    // Nudge friendly REPL into redrawing its `>>>` prompt.
+    try {
+      await writer.write("\r");
+    } catch (_e) {
+      /* connection may have closed mid-flight */
+    }
 
     const output = store.stopCaptureAndGet();
     return { found, elapsedMs: performance.now() - t0, output };
@@ -227,6 +241,12 @@ export async function sendInterrupt() {
   await writer.write("\x03");
   await sleep(100);
   await writer.write("\x02"); // Ctrl+B to ensure normal REPL mode
+  // Nudge friendly REPL into redrawing its `>>>` prompt.
+  try {
+    await writer.write("\r");
+  } catch (_e) {
+    /* ignore */
+  }
 }
 
 /**

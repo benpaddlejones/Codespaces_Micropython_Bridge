@@ -529,12 +529,20 @@ function setupDeviceInfoSubscription() {
 
       const warningClass = info.variant === "circuitpython" ? "warning" : "";
 
+      // Board code (e.g. "PICO") is already implicit in the device name
+      // ("Raspberry Pi Pico"), so omit it from the meta row to save
+      // vertical space. CSS collapses name + version onto one line in
+      // narrow viewports so the whole block is at most 2 lines.
+      const metaBits = [variantName];
+      if (info.buildDate) metaBits.push(info.buildDate);
+      const metaText = metaBits.join(" • ");
+
       deviceInfoEl.innerHTML = `
         <span class="device-name ${warningClass}">${variant} ${info.name}</span>
         <span class="device-version">v${info.version}${outdatedBadge}</span>
-        <span class="device-meta">${variantName} • ${boardName}${info.buildDate ? ` • ${info.buildDate}` : ""}</span>
+        <span class="device-meta">${metaText}</span>
       `;
-      deviceInfoEl.title = `${info.name}\n${variantName} v${info.version}${
+      deviceInfoEl.title = `${info.name}\n${variantName} v${info.version} (${boardName})${
         info.buildDate ? "\nBuild: " + info.buildDate : ""
       }`;
       deviceInfoEl.className = `device-info detected ${warningClass}`;

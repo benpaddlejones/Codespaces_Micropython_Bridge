@@ -33,6 +33,7 @@ const DEPLOYABLE_EXTENSIONS = new Set([
   ".js",
   ".csv",
   ".cfg",
+  ".conf",
   ".ini",
   ".toml",
   ".md",
@@ -176,7 +177,13 @@ function readWorkspaceFile(picoPath) {
 
   const absolute = path.resolve(projectRoot, safeRel);
   const rootResolved = path.resolve(projectRoot);
-  if (!absolute.startsWith(rootResolved)) return null;
+  // Use path-separator boundary to prevent `/foo` matching `/foobar/...`.
+  if (
+    absolute !== rootResolved &&
+    !absolute.startsWith(rootResolved + path.sep)
+  ) {
+    return null;
+  }
 
   if (!fs.existsSync(absolute)) return null;
 
@@ -210,7 +217,13 @@ function writeWorkspaceFile(picoPath, content) {
 
   const absolute = path.resolve(projectRoot, safeRel);
   const rootResolved = path.resolve(projectRoot);
-  if (!absolute.startsWith(rootResolved)) return null;
+  // Use path-separator boundary to prevent `/foo` matching `/foobar/...`.
+  if (
+    absolute !== rootResolved &&
+    !absolute.startsWith(rootResolved + path.sep)
+  ) {
+    return null;
+  }
 
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
   fs.writeFileSync(absolute, content, "utf8");

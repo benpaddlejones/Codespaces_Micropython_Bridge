@@ -33,6 +33,9 @@ export async function connect(baudRate = 115200) {
     updateToolButtons(true);
 
     termWrite(`\r\n[Bridge] Serial Port Opened at ${baudRate} baud\r\n`);
+    termWrite(
+      "[Bridge] Detecting device… (probing MicroPython/CircuitPython banner)\r\n",
+    );
 
     // Start reading
     store.setKeepReading(true);
