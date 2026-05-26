@@ -124,9 +124,26 @@ export function downloadPlotter() {
  * Setup plotter event listeners
  */
 export function setupPlotterEventListeners() {
-  // The legacy `#plotterCheck` toolbar checkbox was removed when the UI
-  // moved to paginated tabs — the Plotter tab itself now toggles
-  // plotter visibility via tabs.js calling togglePlotter().
+  // The plotter is toggled by the `#plotterToggleBtn` button in the
+  // main toolbar. When active, the REPL and plotter share the
+  // workspace vertically (`#main-content.split-view`); when off, only
+  // the REPL is shown. The button label flips between "📈 Plotter"
+  // (currently in REPL view → click to show plotter) and "📟 REPL"
+  // (currently in plotter view → click to return to REPL).
+  const plotterToggleBtn = document.getElementById("plotterToggleBtn");
+  if (plotterToggleBtn) {
+    plotterToggleBtn.addEventListener("click", () => {
+      const next = plotterToggleBtn.getAttribute("aria-pressed") !== "true";
+      togglePlotter(next);
+      plotterToggleBtn.setAttribute("aria-pressed", next ? "true" : "false");
+      plotterToggleBtn.classList.toggle("is-active", next);
+      plotterToggleBtn.textContent = next ? "📟 REPL" : "📈 Plotter";
+      plotterToggleBtn.title = next
+        ? "Hide the live plotter and return to the REPL view"
+        : "Switch between REPL and live plotter view";
+    });
+  }
+
   const plotterClearBtn = document.getElementById("plotterClearBtn");
   const plotterFreezeBtn = document.getElementById("plotterFreezeBtn");
   const plotterDownloadBtn = document.getElementById("plotterDownloadBtn");

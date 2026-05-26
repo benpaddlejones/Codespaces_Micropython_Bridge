@@ -105,6 +105,7 @@ function walk(dir, baseDir, out) {
     out.push({
       path: "/" + rel,
       size: stat.size,
+      mtime: Math.floor(stat.mtimeMs / 1000),
       sha256: sha256Hex(buf),
     });
   }
@@ -135,9 +136,23 @@ function listWorkspaceFilesWithHash() {
       ".";
   }
 
+  // Whether the project has a top-level `lib/` directory. Used by the
+  // UI to disable the "Lib" upload button when there's nothing for it
+  // to do, instead of letting the user click it and see an error.
+  let hasLib = false;
+  if (projectRoot) {
+    try {
+      const stat = fs.statSync(path.join(projectRoot, "lib"));
+      hasLib = stat.isDirectory();
+    } catch {
+      hasLib = false;
+    }
+  }
+
   return {
     projectDetected,
     projectRoot: projectRootRelative,
+    hasLib,
     files,
   };
 }

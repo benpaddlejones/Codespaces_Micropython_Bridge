@@ -4,6 +4,7 @@
  */
 
 import * as store from "../state/store.js";
+import { hasLibFolder } from "../tools/syncStatus.js";
 import { getById } from "./dom.js";
 
 // Tool buttons configuration
@@ -48,6 +49,10 @@ export function updateToolButtons(connected) {
       (id === "uploadLibBtn" || id === "uploadProjectBtn")
     ) {
       reason = "Add a .micropico marker";
+    } else if (id === "uploadLibBtn" && hasLibFolder() === false) {
+      // hasLibFolder() returns null until the first sync completes —
+      // we only disable once we've actually confirmed there's no lib/.
+      reason = "No lib/ folder in this project";
     }
 
     btn.disabled = Boolean(reason);

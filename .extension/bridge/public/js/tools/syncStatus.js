@@ -48,6 +48,12 @@ function buildDeviceListingScript() {
   const end = "__BRIDGE_SYNC_END__";
   // Important: keep the script tight — every byte travels over USB.
   // uhashlib.sha256 ships with every modern MicroPython port.
+  //
+  // Performance notes:
+  //  * Reading in 4 KiB chunks (was 1 KiB) roughly quarters the Python
+  //    loop overhead during hashing, which dominates on the Pico.
+  //  * Skipping `__pycache__` saves walking the bytecode cache that the
+  //    workspace never produces, so it never matches anything anyway.
   const py = `
 import os, uhashlib, ubinascii, json
 def _walk(p, out):
@@ -56,6 +62,8 @@ def _walk(p, out):
     except:
         return
     for n in items:
+        if n == '__pycache__':
+            continue
         fp = (p if p == '/' else p + '/') + n
         try:
             st = os.stat(fp)
@@ -69,12 +77,12 @@ def _walk(p, out):
             try:
                 f = open(fp, 'rb')
                 while True:
-                    chunk = f.read(1024)
+                    chunk = f.read(4096)
                     if not chunk:
                         break
                     h.update(chunk)
                 f.close()
-                out.append({'path': fp, 'size': st[6],
+                out.append({'path': fp, 'size': st[6], 'mtime': st[8],
                             'sha256': ubinascii.hexlify(h.digest()).decode()})
             except:
                 pass
@@ -297,6 +305,35 @@ function formatBytes(n) {
   return `${(n / 1024).toFixed(1)} KB`;
 }
 
+// MicroPython bare-metal ports (rp2, stm32, esp32 without RTC sync) use
+// an epoch of 2000-01-01 instead of 1970-01-01. Detect that by checking
+// for an implausibly old date and shift forward by 30 years.
+const EPOCH_2000_OFFSET = 946684800; // seconds between 1970-01-01 and 2000-01-01
+
+function formatMtime(seconds) {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return "";
+  let s = seconds;
+  // If the timestamp lands before the year 2000 in unix-epoch terms,
+  // it's almost certainly a 2000-epoch value from a bare-metal port.
+  if (s < EPOCH_2000_OFFSET) s += EPOCH_2000_OFFSET;
+  const d = new Date(s * 1000);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = Date.now();
+  const diffMs = now - d.getTime();
+  const absDiff = Math.abs(diffMs);
+  const MIN = 60_000;
+  const HOUR = 3_600_000;
+  const DAY = 86_400_000;
+  let rel;
+  if (absDiff < MIN) rel = "just now";
+  else if (absDiff < HOUR) rel = `${Math.round(absDiff / MIN)}m ago`;
+  else if (absDiff < DAY) rel = `${Math.round(absDiff / HOUR)}h ago`;
+  else if (absDiff < 7 * DAY) rel = `${Math.round(absDiff / DAY)}d ago`;
+  else rel = d.toLocaleDateString();
+  const abs = d.toLocaleString();
+  return `<span class="sync-mtime" title="${escapeAttr(abs)}">🕒 ${escapeHtml(rel)}</span>`;
+}
+
 function renderStatusPanel() {
   const body = document.getElementById("syncBody");
   const summaryEl = document.getElementById("syncSummary");
@@ -332,31 +369,154 @@ function renderStatusPanel() {
     return;
   }
 
-  body.innerHTML = rows
-    .map((r) => {
-      const meta = STATUS_META[r.status];
-      const size = r.workspace?.size ?? r.device?.size;
-      const actions = [];
-      if (r.status === "modified") {
-        actions.push(actionBtn("diff", r.path, "View Diff"));
-        actions.push(actionBtn("push", r.path, "Push →"));
-        actions.push(actionBtn("pull", r.path, "← Pull"));
-      } else if (r.status === "not-deployed") {
-        actions.push(actionBtn("push", r.path, "Push →"));
-      } else if (r.status === "orphan") {
-        actions.push(actionBtn("pull", r.path, "← Pull"));
-        actions.push(actionBtn("delete", r.path, "Delete", "btn-danger"));
-      }
+  body.innerHTML = renderGroupedRows(rows);
+}
+
+/**
+ * Render the rows grouped by directory. Each group gets a header
+ * showing the folder path, file count, and (if the folder exists only
+ * on the device, never in the workspace) a "← Pull folder" button that
+ * recreates the folder + every orphan file beneath it in one click.
+ */
+function renderGroupedRows(rows) {
+  // Bucket rows by their parent directory (Pico-style, e.g. "/" or
+  // "/lib/launcher"). Within each bucket we keep the existing rank
+  // order from `classify()`.
+  const groups = new Map();
+  for (const r of rows) {
+    const dir = dirnamePico(r.path);
+    if (!groups.has(dir)) groups.set(dir, []);
+    groups.get(dir).push(r);
+  }
+
+  // Sort groups by path so parents render above children. Root ("/")
+  // first, then alphabetical.
+  const dirs = Array.from(groups.keys()).sort((a, b) => {
+    if (a === "/") return -1;
+    if (b === "/") return 1;
+    return a.localeCompare(b);
+  });
+
+  return dirs
+    .map((dir) => {
+      const groupRows = groups.get(dir);
+
+      // A directory "exists in the workspace" if any row inside it
+      // (or any deeper row in `rows`) carries a workspace side. If
+      // every row at-or-below this directory is orphan-only, the
+      // folder is missing locally and we offer a bulk pull.
+      const prefix = dir === "/" ? "/" : dir + "/";
+      const anyWorkspaceUnder = rows.some(
+        (r) => r.workspace && (r.path === dir || r.path.startsWith(prefix)),
+      );
+      const orphansUnder = rows.filter(
+        (r) =>
+          r.status === "orphan" &&
+          (r.path === dir || r.path.startsWith(prefix)),
+      );
+      const folderMissingLocally =
+        !anyWorkspaceUnder && orphansUnder.length > 0;
+
+      // Per-group counts for the header pill.
+      const counts = groupRows.reduce(
+        (acc, r) => {
+          acc[r.status] = (acc[r.status] || 0) + 1;
+          return acc;
+        },
+        { synced: 0, modified: 0, "not-deployed": 0, orphan: 0 },
+      );
+
+      const headerPills = [];
+      if (counts.modified)
+        headerPills.push(
+          `<span class="sync-group-pill sync-pill-mod">🟡 ${counts.modified}</span>`,
+        );
+      if (counts["not-deployed"])
+        headerPills.push(
+          `<span class="sync-group-pill sync-pill-new">🔵 ${counts["not-deployed"]}</span>`,
+        );
+      if (counts.orphan)
+        headerPills.push(
+          `<span class="sync-group-pill sync-pill-orphan">🔴 ${counts.orphan}</span>`,
+        );
+      if (counts.synced)
+        headerPills.push(
+          `<span class="sync-group-pill sync-pill-ok">✅ ${counts.synced}</span>`,
+        );
+
+      const headerActions = folderMissingLocally
+        ? `<button class="sync-action" data-action="pull-folder" data-path="${escapeAttr(dir)}" title="Create ${escapeAttr(dir)}/ in the workspace and pull all ${orphansUnder.length} file(s)">← Pull folder</button>`
+        : "";
+
+      const headerNote = folderMissingLocally
+        ? `<span class="sync-group-note" title="This folder does not exist in your workspace yet">📁 missing locally</span>`
+        : "";
+
+      const displayDir = dir === "/" ? "/ (root)" : dir;
+
+      const rowsHtml = groupRows.map(renderRow).join("");
+
       return `
-        <div class="sync-row ${meta.cls}" data-path="${escapeAttr(r.path)}">
-          <span class="sync-status" title="${meta.label}">${meta.icon}</span>
-          <span class="sync-path">${escapeHtml(r.path)}</span>
-          <span class="sync-size">${formatBytes(size)}</span>
-          <span class="sync-actions">${actions.join("")}</span>
+        <div class="sync-group" data-dir="${escapeAttr(dir)}">
+          <div class="sync-group-header">
+            <span class="sync-group-icon">📁</span>
+            <span class="sync-group-dir" title="${escapeAttr(dir)}">${escapeHtml(displayDir)}</span>
+            <span class="sync-group-counts">${headerPills.join(" ")}</span>
+            ${headerNote}
+            ${headerActions ? `<div class="sync-group-actions">${headerActions}</div>` : ""}
+          </div>
+          <div class="sync-group-rows">${rowsHtml}</div>
         </div>
       `;
     })
     .join("");
+}
+
+function renderRow(r) {
+  const meta = STATUS_META[r.status];
+  const size = r.workspace?.size ?? r.device?.size;
+  // Prefer the device's mtime when present (it's what's actually on
+  // the Pico right now); fall back to the workspace mtime for files
+  // that haven't been deployed yet.
+  const mtime = r.device?.mtime ?? r.workspace?.mtime;
+  const mtimeHtml = formatMtime(mtime);
+  const actions = [];
+  if (r.status === "modified") {
+    actions.push(actionBtn("diff", r.path, "Diff"));
+    actions.push(actionBtn("push", r.path, "Push →"));
+    actions.push(actionBtn("pull", r.path, "← Pull"));
+  } else if (r.status === "not-deployed") {
+    actions.push(actionBtn("push", r.path, "Push →"));
+  } else if (r.status === "orphan") {
+    actions.push(actionBtn("pull", r.path, "← Pull"));
+    actions.push(actionBtn("delete", r.path, "Delete", "btn-danger"));
+  }
+  // 'synced' rows intentionally have no buttons — there's no diff.
+  const fileName = basenamePico(r.path);
+  return `
+    <div class="sync-row ${meta.cls}" data-path="${escapeAttr(r.path)}">
+      <div class="sync-path-line">
+        <span class="sync-status" title="${meta.label}">${meta.icon}</span>
+        <span class="sync-path" title="${escapeAttr(r.path)}">${escapeHtml(fileName)}</span>
+        <span class="sync-size">${formatBytes(size)}</span>
+      </div>
+      ${mtimeHtml ? `<div class="sync-meta-line">${mtimeHtml}</div>` : ""}
+      ${actions.length ? `<div class="sync-actions">${actions.join("")}</div>` : ""}
+    </div>
+  `;
+}
+
+function dirnamePico(p) {
+  if (!p || p === "/") return "/";
+  const idx = p.lastIndexOf("/");
+  if (idx <= 0) return "/";
+  return p.slice(0, idx);
+}
+
+function basenamePico(p) {
+  if (!p) return "";
+  const idx = p.lastIndexOf("/");
+  return idx >= 0 ? p.slice(idx + 1) : p;
 }
 
 function actionBtn(action, path, label, extra = "") {
@@ -430,6 +590,43 @@ async function actionPull(picoPath) {
   termWrite(`[Sync] ✓ Pulled ${picoPath} → workspace\r\n`);
 }
 
+/**
+ * Pull every orphan file under `dir` (and any nested subdirectories)
+ * into the workspace. Each `writeWorkspaceFile` call already creates
+ * the parent directories via `fs.mkdirSync({recursive:true})`, so the
+ * folder structure materialises as a side effect of writing the files.
+ */
+async function actionPullFolder(dir) {
+  if (!cachedStatus) throw new Error("Run a sync refresh first");
+  const prefix = dir === "/" ? "/" : dir + "/";
+  const targets = cachedStatus.rows.filter(
+    (r) =>
+      r.status === "orphan" && (r.path === dir || r.path.startsWith(prefix)),
+  );
+  if (targets.length === 0) {
+    termWrite(`[Sync] No orphan files under ${dir} to pull\r\n`);
+    return;
+  }
+  termWrite(`[Sync] Pulling ${targets.length} file(s) from ${dir}…\r\n`);
+  let ok = 0;
+  let failed = 0;
+  for (const r of targets) {
+    try {
+      // Sequential on purpose: the raw REPL is single-threaded and
+      // overlapping reads will corrupt each other's marker capture.
+      const content = await readDeviceFile(r.path);
+      await writeWorkspaceFileContent(r.path, content);
+      ok += 1;
+    } catch (err) {
+      failed += 1;
+      termWrite(`[Sync]   ✗ ${r.path}: ${err.message}\r\n`);
+    }
+  }
+  termWrite(
+    `[Sync] ✓ Pulled ${ok}/${targets.length} file(s) from ${dir}${failed ? ` (${failed} failed)` : ""}\r\n`,
+  );
+}
+
 async function actionDelete(picoPath) {
   if (!confirm(`Delete ${picoPath} from the Pico?\n\nThis cannot be undone.`)) {
     return;
@@ -474,139 +671,47 @@ function hideDiffModal() {
 }
 
 // ---------------------------------------------------------------------------
-// Bulk operations
-// ---------------------------------------------------------------------------
-
-async function pushAll() {
-  if (!cachedStatus) return;
-  const toPush = cachedStatus.rows.filter(
-    (r) => r.status === "not-deployed" || r.status === "modified",
-  );
-  if (toPush.length === 0) {
-    termWrite("[Sync] Nothing to push — workspace and device match\r\n");
-    return;
-  }
-  if (
-    !confirm(
-      `Push ${toPush.length} file(s) to the Pico?\n\n` +
-        toPush
-          .slice(0, 10)
-          .map((r) => `  ${r.path}`)
-          .join("\n") +
-        (toPush.length > 10 ? `\n  …+${toPush.length - 10} more` : ""),
-    )
-  ) {
-    return;
-  }
-  termWrite(`[Sync] Pushing ${toPush.length} file(s)...\r\n`);
-  for (const r of toPush) {
-    try {
-      const content = await fetchWorkspaceFileContent(r.path);
-      await writeFileToDevice(r.path, content);
-      termWrite(`[Sync] ✓ ${r.path}\r\n`);
-    } catch (err) {
-      termWrite(`[Sync] ✗ ${r.path}: ${err.message}\r\n`);
-    }
-  }
-  await refreshSyncStatus();
-}
-
-async function pullAll() {
-  if (!cachedStatus) return;
-  const toPull = cachedStatus.rows.filter(
-    (r) => r.status === "modified" || r.status === "orphan",
-  );
-  if (toPull.length === 0) {
-    termWrite("[Sync] Nothing to pull — workspace is already up to date\r\n");
-    return;
-  }
-
-  if (
-    !confirm(
-      `Pull ${toPull.length} file(s) from device to workspace?\n\n` +
-        `This will overwrite workspace versions for modified files.\n\n` +
-        toPull
-          .slice(0, 10)
-          .map((r) => `  ${r.path}`)
-          .join("\n") +
-        (toPull.length > 10 ? `\n  …+${toPull.length - 10} more` : ""),
-    )
-  ) {
-    return;
-  }
-
-  termWrite(`[Sync] Pulling ${toPull.length} file(s) from device...\r\n`);
-  for (const r of toPull) {
-    try {
-      const content = await readDeviceFile(r.path);
-      await writeWorkspaceFileContent(r.path, content);
-      termWrite(`[Sync] ✓ pull ${r.path}\r\n`);
-    } catch (err) {
-      termWrite(`[Sync] ✗ pull ${r.path}: ${err.message}\r\n`);
-    }
-  }
-  await refreshSyncStatus();
-}
-
-async function mirrorAll() {
-  if (!cachedStatus) return;
-  const toPush = cachedStatus.rows.filter(
-    (r) => r.status === "not-deployed" || r.status === "modified",
-  );
-  const toDelete = cachedStatus.rows.filter((r) => r.status === "orphan");
-  if (toPush.length === 0 && toDelete.length === 0) {
-    termWrite("[Sync] Already mirrored — nothing to do\r\n");
-    return;
-  }
-  if (
-    !confirm(
-      `Mirror workspace → Pico?\n\n` +
-        `Push: ${toPush.length} file(s)\n` +
-        `Delete from Pico: ${toDelete.length} file(s)\n\n` +
-        `This will make the Pico match the workspace exactly.`,
-    )
-  ) {
-    return;
-  }
-  termWrite(
-    `[Sync] Mirror: push ${toPush.length}, delete ${toDelete.length}\r\n`,
-  );
-  for (const r of toPush) {
-    try {
-      const content = await fetchWorkspaceFileContent(r.path);
-      await writeFileToDevice(r.path, content);
-      termWrite(`[Sync] ✓ push ${r.path}\r\n`);
-    } catch (err) {
-      termWrite(`[Sync] ✗ push ${r.path}: ${err.message}\r\n`);
-    }
-  }
-  for (const r of toDelete) {
-    try {
-      await deleteDeviceFile(r.path);
-      termWrite(`[Sync] ✓ delete ${r.path}\r\n`);
-    } catch (err) {
-      termWrite(`[Sync] ✗ delete ${r.path}: ${err.message}\r\n`);
-    }
-  }
-  await refreshSyncStatus();
-}
-
-// ---------------------------------------------------------------------------
 // Public entry points
 // ---------------------------------------------------------------------------
 
-export async function refreshSyncStatus() {
+/**
+ * Reflect the in-flight state into the side panel header so users get
+ * visible feedback without us spamming the terminal on auto-refresh.
+ */
+function setRefreshingUI(refreshing) {
+  const btn = document.getElementById("syncRefreshBtn");
+  const title = document.querySelector("#device-files-panel .side-panel-title");
+  if (btn) {
+    btn.disabled = refreshing;
+    btn.classList.toggle("is-spinning", refreshing);
+  }
+  if (title) {
+    title.textContent = refreshing
+      ? "📟 Device Files — syncing…"
+      : "📟 Device Files";
+  }
+}
+
+/**
+ * Compare workspace ↔ device and update the panel.
+ *
+ * @param {{silent?: boolean}} [opts]
+ *   silent=true suppresses informational "[Sync] …" lines in the
+ *   terminal (errors are still surfaced). Used for auto-refresh on
+ *   connect / after file actions so the terminal stays clean.
+ */
+export async function refreshSyncStatus(opts = {}) {
+  const { silent = false } = opts;
   if (isRefreshing) return;
   if (!store.isConnected()) {
-    termWrite("[Sync] Connect to the Pico first\r\n");
+    if (!silent) termWrite("[Sync] Connect to the Pico first\r\n");
     return;
   }
   isRefreshing = true;
-  const refreshBtn = document.getElementById("syncRefreshBtn");
-  if (refreshBtn) refreshBtn.disabled = true;
+  setRefreshingUI(true);
 
   try {
-    termWrite("[Sync] Comparing workspace ↔ device...\r\n");
+    if (!silent) termWrite("[Sync] Comparing workspace ↔ device…\r\n");
     const [workspace, deviceFiles] = await Promise.all([
       fetchWorkspaceSnapshot(),
       listDeviceFilesWithHash(),
@@ -617,24 +722,66 @@ export async function refreshSyncStatus() {
       summary,
       projectRoot: workspace.projectRoot,
       projectDetected: workspace.projectDetected,
+      hasLib: Boolean(workspace.hasLib),
     };
     renderStatusPanel();
-    termWrite(
-      `[Sync] ${summary.synced} synced · ${summary.modified} modified · ${summary.notDeployed} to deploy · ${summary.orphan} stale\r\n`,
-    );
+    // Let the toolbar disable buttons that need a lib/ folder when
+    // there isn't one (instead of letting the user click and error).
+    try {
+      const { updateToolButtons } = await import("../ui/status.js");
+      updateToolButtons(store.isConnected());
+    } catch {
+      /* status module optional */
+    }
+    if (!silent) {
+      termWrite(
+        `[Sync] ${summary.synced} synced · ${summary.modified} modified · ${summary.notDeployed} to deploy · ${summary.orphan} stale\r\n`,
+      );
+    }
   } catch (err) {
     termWrite(`[Sync] Error: ${err.message}\r\n`);
   } finally {
     isRefreshing = false;
-    if (refreshBtn) refreshBtn.disabled = false;
+    setRefreshingUI(false);
   }
 }
 
+/**
+ * Debounced auto-refresh. Coalesces bursts of file-mutating actions
+ * (e.g. an Upload-All that pushes 30 files) into a single device walk.
+ *
+ * @param {{silent?: boolean, delay?: number}} [opts]
+ */
+let scheduledTimer = null;
+export function scheduleSyncRefresh(opts = {}) {
+  const { silent = true, delay = 600 } = opts;
+  if (!store.isConnected()) return;
+  if (scheduledTimer) clearTimeout(scheduledTimer);
+  scheduledTimer = setTimeout(() => {
+    scheduledTimer = null;
+    refreshSyncStatus({ silent }).catch(() => {
+      /* errors already surfaced */
+    });
+  }, delay);
+}
+
 export function openSyncPanel() {
-  // Back-compat shim: prior versions exposed openSyncPanel() to open a
-  // modal. The Sync UI is now the Files tab. Re-render in case the
-  // caller wanted to ensure the panel content is fresh.
+  // Back-compat shim: prior versions opened a modal here. The Sync UI
+  // now lives in the Device Files side panel and re-renders on demand.
   renderStatusPanel();
+}
+
+/**
+ * Whether the last sync detected a top-level `lib/` folder in the
+ * workspace project. `null` means "we haven't checked yet" — callers
+ * should treat that as "don't disable" so the UI doesn't lock buttons
+ * on initial page load before the first refresh.
+ *
+ * @returns {boolean|null}
+ */
+export function hasLibFolder() {
+  if (!cachedStatus) return null;
+  return Boolean(cachedStatus.hasLib);
 }
 
 /**
@@ -642,16 +789,7 @@ export function openSyncPanel() {
  */
 export function initSyncStatus() {
   const refresh = document.getElementById("syncRefreshBtn");
-  if (refresh) refresh.addEventListener("click", refreshSyncStatus);
-
-  const pullAllBtn = document.getElementById("syncPullAllBtn");
-  if (pullAllBtn) pullAllBtn.addEventListener("click", pullAll);
-
-  const pushAllBtn = document.getElementById("syncPushAllBtn");
-  if (pushAllBtn) pushAllBtn.addEventListener("click", pushAll);
-
-  const mirrorBtn = document.getElementById("syncMirrorBtn");
-  if (mirrorBtn) mirrorBtn.addEventListener("click", mirrorAll);
+  if (refresh) refresh.addEventListener("click", () => refreshSyncStatus());
 
   // Event delegation for per-row action buttons.
   const body = document.getElementById("syncBody");
@@ -666,6 +804,7 @@ export function initSyncStatus() {
         if (action === "push") await actionPush(path);
         else if (action === "pull") await actionPull(path);
         else if (action === "delete") await actionDelete(path);
+        else if (action === "pull-folder") await actionPullFolder(path);
         else if (action === "diff") {
           await actionDiff(path);
           return; // diff doesn't change state — no refresh

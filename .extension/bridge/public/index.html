@@ -59,6 +59,16 @@
           </label>
           <button id="clearBtn">Clear</button>
           <button id="downloadBtn">Download Log</button>
+          <div class="separator"></div>
+          <button
+            id="plotterToggleBtn"
+            type="button"
+            class="view-toggle-btn"
+            aria-pressed="false"
+            title="Switch between REPL and live plotter view"
+          >
+            📈 Plotter
+          </button>
           <div class="spacer"></div>
           <div
             id="serverStatus"
@@ -79,48 +89,9 @@
           </div>
         </div>
 
-        <!-- Tab Strip: paginate the workspace into REPL / Device / Plotter -->
-        <div class="tab-strip" role="tablist" aria-label="Workspace view">
-          <button
-            id="tab-btn-repl"
-            class="tab-btn"
-            data-tab="repl"
-            role="tab"
-            aria-selected="true"
-            aria-controls="tab-panel-repl"
-            tabindex="0"
-            type="button"
-          >
-            💻 REPL
-          </button>
-          <button
-            id="tab-btn-files"
-            class="tab-btn"
-            data-tab="files"
-            role="tab"
-            aria-selected="false"
-            aria-controls="tab-panel-files"
-            tabindex="-1"
-            type="button"
-          >
-            📟 Device
-          </button>
-          <button
-            id="tab-btn-plotter"
-            class="tab-btn"
-            data-tab="plotter"
-            role="tab"
-            aria-selected="false"
-            aria-controls="tab-panel-plotter"
-            tabindex="-1"
-            type="button"
-          >
-            📈 Plotter
-          </button>
-        </div>
-
-        <!-- REPL tab toolbar -->
-        <div class="toolbar tools-bar tab-toolbar" data-tab="repl">
+        <!-- Main Tool Bar: Pico commands. Upload + Wipe live in the
+             Device Files side panel; they aren't repeated here. -->
+        <div class="toolbar tools-bar">
           <!-- Files Group -->
           <div class="tool-group">
             <span class="group-label">Files</span>
@@ -190,51 +161,6 @@
 
           <div class="tool-separator"></div>
 
-          <!-- Device Info (visible on REPL so you always see what's connected) -->
-          <div class="tool-group device-info-group">
-            <span class="group-label">Device</span>
-            <div
-              id="deviceInfo"
-              class="device-info"
-              title="Connect to detect device"
-            >
-              <span class="device-name">Not detected</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Files tab toolbar -->
-        <div class="toolbar tools-bar tab-toolbar" data-tab="files" hidden>
-          <!-- Upload Group -->
-          <div class="tool-group">
-            <span class="group-label">Upload</span>
-            <div class="group-buttons">
-              <button
-                id="uploadFileBtn"
-                class="tool-btn"
-                title="Upload selected file to Pico"
-              >
-                📄 File
-              </button>
-              <button
-                id="uploadLibBtn"
-                class="tool-btn"
-                title="Upload /lib folder to Pico"
-              >
-                📚 Lib
-              </button>
-              <button
-                id="uploadProjectBtn"
-                class="tool-btn btn-upload-all"
-                title="Upload entire project (lib + py_scripts + main.py)"
-              >
-                📦 All
-              </button>
-            </div>
-          </div>
-
-          <div class="tool-separator"></div>
-
           <!-- System Group -->
           <div class="tool-group">
             <span class="group-label">System</span>
@@ -271,14 +197,6 @@
                   class="dropdown-menu dropdown-menu-end firmware-menu"
                 ></ul>
               </div>
-              <button
-                id="deleteAllBtn"
-                class="tool-btn btn-danger"
-                title="⚠️ Delete ALL files on Pico"
-                aria-label="Wipe all files on Pico (destructive)"
-              >
-                🗑️ Wipe
-              </button>
             </div>
           </div>
 
@@ -305,6 +223,18 @@
               >
                 📌 Pinout
               </button>
+            </div>
+          </div>
+
+          <!-- Device Info: always visible so you know what's connected -->
+          <div class="tool-group device-info-group">
+            <span class="group-label">Device</span>
+            <div
+              id="deviceInfo"
+              class="device-info"
+              title="Connect to detect device"
+            >
+              <span class="device-name">Not detected</span>
             </div>
           </div>
         </div>
@@ -371,75 +301,10 @@
       </div>
     </div>
 
-    <div id="main-content">
-      <!-- REPL tab body -->
-      <div
-        id="tab-panel-repl"
-        class="tab-body"
-        data-tab="repl"
-        role="tabpanel"
-        aria-labelledby="tab-btn-repl"
-      >
+    <div id="workspace-row">
+      <div id="main-content">
         <div id="terminal-container"></div>
-      </div>
-
-      <!-- Files tab body: inline Workspace ↔ Pico sync UI -->
-      <div
-        id="tab-panel-files"
-        class="tab-body"
-        data-tab="files"
-        role="tabpanel"
-        aria-labelledby="tab-btn-files"
-        hidden
-      >
-        <div class="files-panel">
-          <div class="files-panel-header">
-            <div>
-              <h2>Workspace ↔ Pico</h2>
-              <div id="syncProjectRoot" class="sync-project-root"></div>
-            </div>
-          </div>
-          <div class="sync-toolbar">
-            <button id="syncRefreshBtn" class="tool-btn btn-sync">
-              🔄 Refresh
-            </button>
-            <button id="syncPullAllBtn" class="tool-btn">
-              📥 Pull All Device Code
-            </button>
-            <button id="syncPushAllBtn" class="tool-btn btn-upload-all">
-              📤 Push All Changes
-            </button>
-            <button
-              id="syncMirrorBtn"
-              class="tool-btn btn-danger"
-              title="Make Pico exactly match workspace (deletes orphans)"
-            >
-              🪞 Mirror (push + delete orphans)
-            </button>
-            <div class="sync-summary" id="syncSummary"></div>
-          </div>
-          <div class="files-panel-body">
-            <div class="sync-header-row">
-              <span class="sync-status"></span>
-              <span class="sync-path">File</span>
-              <span class="sync-size">Size</span>
-              <span class="sync-actions">Actions</span>
-            </div>
-            <div id="syncBody" class="sync-rows"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Plotter tab body -->
-      <div
-        id="tab-panel-plotter"
-        class="tab-body"
-        data-tab="plotter"
-        role="tabpanel"
-        aria-labelledby="tab-btn-plotter"
-        hidden
-      >
-        <div id="plotter-container">
+        <div id="plotter-container" style="display: none">
           <div class="plotter-toolbar">
             <button id="plotterClearBtn" class="tool-btn">🗑️ Clear</button>
             <button id="plotterFreezeBtn" class="tool-btn">⏸️ Freeze</button>
@@ -464,9 +329,92 @@
           <canvas id="plotterCanvas"></canvas>
         </div>
       </div>
+
+      <!-- Collapsible Device Files side panel (VS Code style) -->
+      <aside
+        id="device-files-panel"
+        class="side-panel"
+        aria-label="Device files"
+      >
+        <!-- Collapsed rail: vertical strip that expands the panel on click. -->
+        <button
+          id="sidePanelExpandBtn"
+          class="side-panel-rail"
+          type="button"
+          title="Show Device Files"
+          aria-label="Show Device Files panel"
+        >
+          <span class="rail-icon">📟</span>
+          <span class="rail-label">Device Files</span>
+        </button>
+
+        <div class="side-panel-content">
+          <header class="side-panel-header">
+            <span class="side-panel-title">📟 Device Files</span>
+            <button
+              id="syncRefreshBtn"
+              class="side-panel-icon-btn"
+              type="button"
+              title="Refresh — compare workspace ↔ device"
+              aria-label="Refresh device file list"
+            >
+              🔄
+            </button>
+            <button
+              id="sidePanelCollapseBtn"
+              class="side-panel-icon-btn"
+              type="button"
+              title="Collapse panel"
+              aria-label="Collapse Device Files panel"
+            >
+              »
+            </button>
+          </header>
+
+          <div class="side-panel-toolbar">
+            <button
+              id="uploadFileBtn"
+              class="tool-btn"
+              title="Upload selected file to Pico"
+            >
+              📄 File
+            </button>
+            <button
+              id="uploadLibBtn"
+              class="tool-btn"
+              title="Upload /lib folder to Pico"
+            >
+              📚 Lib
+            </button>
+            <button
+              id="uploadProjectBtn"
+              class="tool-btn btn-upload-all"
+              title="Upload entire project (lib + py_scripts + main.py)"
+            >
+              📦 All
+            </button>
+            <div class="side-panel-toolbar-spacer"></div>
+            <button
+              id="deleteAllBtn"
+              class="tool-btn btn-danger"
+              title="⚠️ Delete ALL files on Pico"
+              aria-label="Wipe all files on Pico (destructive)"
+            >
+              🗑️ Wipe
+            </button>
+          </div>
+
+          <div id="syncProjectRoot" class="sync-project-root"></div>
+          <div class="sync-summary" id="syncSummary"></div>
+
+          <div class="side-panel-body">
+            <div id="syncBody" class="sync-rows"></div>
+          </div>
+        </div>
+      </aside>
     </div>
 
-    <div class="input-bar" data-tab="repl">
+    <div class="input-bar">
       <input
         type="text"
         id="serialInput"

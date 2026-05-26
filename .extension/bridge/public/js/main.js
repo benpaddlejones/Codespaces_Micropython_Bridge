@@ -53,8 +53,11 @@ import {
   uploadLib,
   uploadProject,
 } from "./tools/picoSync.js";
-import { initSyncStatus } from "./tools/syncStatus.js";
-import { initTabs } from "./tools/tabs.js";
+import {
+  initSyncStatus,
+  refreshSyncStatus,
+  scheduleSyncRefresh,
+} from "./tools/syncStatus.js";
 import { addListener, getById, getValue, setValue } from "./ui/dom.js";
 import { initPinoutViewer, setPinoutMetadata } from "./ui/pinout.js";
 import { initStatusUI, updateFileButtons } from "./ui/status.js";
@@ -231,14 +234,55 @@ function init() {
   setupPlotterEventListeners();
   initPinoutViewer();
   initSyncStatus();
-
-  // Paginated UI: REPL / Files / Plotter. Must run AFTER the per-tab
-  // modules have wired their own listeners so e.g. the first activation
-  // of the Files tab can trigger a Sync refresh.
-  initTabs();
+  initDeviceFilesSidePanel();
 
   // Load workspace files
   loadWorkspaceFiles();
+}
+
+// === Device Files side panel (VS Code style collapsible) ===
+
+const SIDE_PANEL_KEY = "picoBridge.deviceFilesPanel";
+let deviceFilesAutoRefreshed = false;
+
+function setDeviceFilesPanelCollapsed(collapsed) {
+  const panel = getById("device-files-panel");
+  if (!panel) return;
+  panel.classList.toggle("collapsed", collapsed);
+  try {
+    localStorage.setItem(SIDE_PANEL_KEY, collapsed ? "collapsed" : "open");
+  } catch {
+    /* localStorage may be disabled */
+  }
+  if (!collapsed && !deviceFilesAutoRefreshed && store.isConnected()) {
+    deviceFilesAutoRefreshed = true;
+    setTimeout(() => {
+      refreshSyncStatus({ silent: false }).catch(() => {
+        /* errors already surfaced in the UI */
+      });
+    }, 50);
+  }
+}
+
+function initDeviceFilesSidePanel() {
+  const panel = getById("device-files-panel");
+  if (!panel) return;
+
+  let initiallyCollapsed = false;
+  try {
+    const stored = localStorage.getItem(SIDE_PANEL_KEY);
+    if (stored === "collapsed") initiallyCollapsed = true;
+  } catch {
+    /* ignore */
+  }
+  panel.classList.toggle("collapsed", initiallyCollapsed);
+
+  addListener("sidePanelExpandBtn", "click", () =>
+    setDeviceFilesPanelCollapsed(false),
+  );
+  addListener("sidePanelCollapseBtn", "click", () =>
+    setDeviceFilesPanelCollapsed(true),
+  );
 }
 
 // === Event Listener Setup ===
@@ -331,23 +375,33 @@ function setupToolListeners() {
   });
 
   // Upload single file
-  addListener("uploadFileBtn", "click", () => {
+  addListener("uploadFileBtn", "click", async () => {
     const selectedFile = getSelectedFile();
     if (selectedFile) {
-      uploadFile(selectedFile);
+      await uploadFile(selectedFile);
+      scheduleSyncRefresh();
     } else {
       termWrite("\r\n[Bridge] Please select a file to upload\r\n");
     }
   });
 
   // Upload lib folder
-  addListener("uploadLibBtn", "click", uploadLib);
+  addListener("uploadLibBtn", "click", async () => {
+    await uploadLib();
+    scheduleSyncRefresh();
+  });
 
   // Upload entire project
-  addListener("uploadProjectBtn", "click", uploadProject);
+  addListener("uploadProjectBtn", "click", async () => {
+    await uploadProject();
+    scheduleSyncRefresh();
+  });
 
   // Delete all files
-  addListener("deleteAllBtn", "click", deleteAllFiles);
+  addListener("deleteAllBtn", "click", async () => {
+    await deleteAllFiles();
+    scheduleSyncRefresh();
+  });
 
   // Stop code
   addListener("stopBtn", "click", stopCode);
@@ -447,6 +501,7 @@ function setupFirmwareDropdown() {
 function setupDeviceInfoSubscription() {
   updateDeviceReferenceLinks(null);
 
+  let wasDetected = false;
   store.subscribe("device", (deviceState) => {
     const deviceInfoEl = getById("deviceInfo");
     if (!deviceInfoEl) return;
@@ -454,6 +509,12 @@ function setupDeviceInfoSubscription() {
     if (deviceState.detected && deviceState.info) {
       const info = deviceState.info;
       updateDeviceReferenceLinks(info);
+      // First detection after connect — kick a sync refresh so the
+      // Device Files panel is populated without the user clicking.
+      if (!wasDetected) {
+        wasDetected = true;
+        scheduleSyncRefresh({ silent: true, delay: 300 });
+      }
       const variant = info.variant === "micropython" ? "🐍" : "🐍🔵";
       const variantName =
         info.variant === "micropython" ? "MicroPython" : "CircuitPython";
@@ -479,6 +540,7 @@ function setupDeviceInfoSubscription() {
       deviceInfoEl.className = `device-info detected ${warningClass}`;
     } else {
       updateDeviceReferenceLinks(null);
+      wasDetected = false;
       deviceInfoEl.innerHTML = '<span class="device-name">Not detected</span>';
       deviceInfoEl.title = "Connect to detect device";
       deviceInfoEl.className = "device-info";
