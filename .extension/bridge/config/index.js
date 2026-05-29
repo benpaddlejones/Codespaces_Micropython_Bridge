@@ -15,7 +15,11 @@ module.exports = {
   // Server settings
   server: {
     port: process.env.PORT || 3000,
-    host: "0.0.0.0",
+    // Bind to loopback by default. VS Code / Codespaces port forwarding
+    // connects over localhost, so this is both sufficient and safer than
+    // exposing the bridge on every interface. Override with PICO_BRIDGE_HOST
+    // only when a non-forwarded setup genuinely needs it.
+    host: process.env.PICO_BRIDGE_HOST || "127.0.0.1",
   },
 
   // PTY bridge settings
@@ -77,8 +81,10 @@ module.exports = {
     getArgs: (linkPath) => [
       "-d",
       "-d",
-      `pty,raw,echo=0,link=${linkPath},mode=666`,
-      "pty,raw,echo=0,mode=666",
+      // mode=600: owner-only access to the PTY/symlink so other local users
+      // on a shared host cannot read or write the device serial stream.
+      `pty,raw,echo=0,link=${linkPath},mode=600`,
+      "pty,raw,echo=0,mode=600",
     ],
   },
 };

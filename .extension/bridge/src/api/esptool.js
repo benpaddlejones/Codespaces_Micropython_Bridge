@@ -111,6 +111,17 @@ router.get("/esptool/flash-command/:chip", (req, res) => {
     });
   }
 
+  // The returned strings are copy-pasted into the user's shell, so reject any
+  // port/filename containing shell metacharacters to prevent command
+  // injection at paste time. Ports look like /dev/ttyUSB0 or COM3; firmware
+  // names are plain basenames.
+  if (port !== undefined && !/^[\w./:-]+$/.test(port)) {
+    return res.status(400).json({ error: "Invalid port" });
+  }
+  if (filename !== undefined && path.basename(filename) !== filename) {
+    return res.status(400).json({ error: "Invalid filename" });
+  }
+
   const firmwarePath = filename
     ? path.join(FIRMWARE_DIR, filename)
     : "<firmware.bin>";

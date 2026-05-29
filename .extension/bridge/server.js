@@ -34,6 +34,10 @@ const ptyBridge = require("./src/pty");
 const apiRoutes = require("./src/api");
 const { fileWatcher } = require("./src/services");
 const { createCacheBustMiddleware } = require("./src/middleware/cacheBust");
+const {
+  createSecurityMiddleware,
+  createSocketOriginGuard,
+} = require("./src/middleware/security");
 
 // Read version from the extension's package.json so the UI always shows
 // the real installed version (instead of a hardcoded literal that drifts).
@@ -82,21 +86,31 @@ const io = new Server(server, {
   pingInterval: 25000,
   connectTimeout: 45000,
   maxHttpBufferSize: 1e6,
-  // Reconnection is handled client-side, but allow it
-  allowEIO3: true,
 });
+
+// Reject cross-site socket handshakes (mirrors the REST origin check) so a
+// malicious page cannot open a socket and write to the connected device.
+io.use(createSocketOriginGuard());
 
 // Track server state for health monitoring
 let serverReady = false;
 let ptyInitialized = false;
 let lastPtyError = null;
 
+// Single-writer guarantee: only one connected browser tab may write to the
+// PTY at a time, otherwise two tabs both drive the one mpremote REPL and
+// produce interleaved/garbled input. The first tab to send data becomes the
+// controller; others are read-only until it disconnects.
+let activeControllerId = null;
+
 // =============================================================================
 // Middleware Configuration
 // =============================================================================
 
 // Serve static files from public directory (development mode - no caching)
-// First: cache-bust middleware rewrites HTML/JS to append ?v=<BUILD_TOKEN>
+// First: security headers + cross-site (CSRF) protection on every request.
+app.use(createSecurityMiddleware());
+// Next: cache-bust middleware rewrites HTML/JS to append ?v=<BUILD_TOKEN>
 // to every local asset URL and ES module import. This guarantees the
 // browser never serves a stale module graph after a server restart.
 app.use(
@@ -218,10 +232,29 @@ io.on("connection", (socket) => {
   }
 
   // Data from Pico (via browser) -> PTY (for mpremote in Codespace)
+  let warnedReadOnly = false;
   socket.on(
     "serial-data",
     errorHandler.safeSocketHandler((data) => {
       processGuard.recordActivity();
+
+      // Enforce a single active writer. The first tab to send claims control;
+      // any other tab's writes are dropped (read-only) to avoid garbling the
+      // shared REPL.
+      if (activeControllerId === null) {
+        activeControllerId = socket.id;
+      }
+      if (activeControllerId !== socket.id) {
+        if (!warnedReadOnly) {
+          warnedReadOnly = true;
+          socket.emit(
+            "status",
+            "Read-only: another tab is controlling the device.",
+          );
+        }
+        return;
+      }
+
       ptyBridge.write(data);
     }, "serial-data"),
   );
@@ -242,6 +275,10 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("[socket] Browser client disconnected");
+    // Release control so another tab can take over.
+    if (activeControllerId === socket.id) {
+      activeControllerId = null;
+    }
     try {
       removeDataHandler();
     } catch (err) {
@@ -401,6 +438,10 @@ async function startServer() {
 
   server.listen(actualPort, host, async () => {
     serverReady = true;
+    // Machine-readable port line so the extension host can learn the real
+    // port even when an alternative port had to be chosen (avoids the
+    // extension polling/opening the wrong port).
+    console.log(`PICO_BRIDGE_PORT=${actualPort}`);
     console.log(`[server] ✅ Bridge server running on port ${actualPort}`);
     console.log(
       `[server] Open the 'Ports' tab in VS Code to access the web interface.`,

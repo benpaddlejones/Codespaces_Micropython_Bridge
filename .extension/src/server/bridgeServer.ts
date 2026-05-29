@@ -20,10 +20,12 @@ import { Logger, getConfig } from "../utils";
 const execAsync = promisify(exec);
 
 /**
- * Kill any processes running on the specified ports.
+ * Kill stale bridge-server processes running on the specified ports.
  *
- * Runs `lsof` to discover PIDs bound to each port and sends `SIGKILL`
- * to free them. Waits briefly after killing to let the OS release the port.
+ * Discovers PIDs bound to each port with `lsof`, then — to avoid killing an
+ * unrelated process that merely happens to share the port — verifies the
+ * process command line looks like the bridge (`server.js`) before sending a
+ * signal. Tries a graceful `SIGTERM` first, escalating to `SIGKILL`.
  *
  * @param ports - Array of port numbers to clear
  * @param logger - Logger instance for status messages
@@ -32,6 +34,7 @@ async function killProcessesOnPorts(
   ports: number[],
   logger: Logger,
 ): Promise<void> {
+  let killedAny = false;
   for (const port of ports) {
     try {
       // Find PIDs using the port
@@ -40,22 +43,44 @@ async function killProcessesOnPorts(
       );
       const pids = stdout.trim().split("\n").filter(Boolean);
 
-      if (pids.length > 0) {
-        logger.info(`Found processes on port ${port}: ${pids.join(", ")}`);
-        for (const pid of pids) {
-          try {
-            await execAsync(`kill -9 ${pid} 2>/dev/null || true`);
-            logger.info(`Killed process ${pid} on port ${port}`);
-          } catch {
-            // Process may have already exited
-          }
+      for (const pid of pids) {
+        // Confirm the PID is actually the bridge before killing it.
+        let cmdline = "";
+        try {
+          const { stdout: ps } = await execAsync(
+            `ps -p ${pid} -o args= 2>/dev/null || true`,
+          );
+          cmdline = ps.trim();
+        } catch {
+          // ps failed; skip rather than risk killing the wrong process.
+          continue;
         }
-        // Wait for ports to be released
-        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        if (!/server\.js/.test(cmdline)) {
+          logger.warn(
+            `Port ${port} held by an unrelated process (PID ${pid}) - not killing.`,
+          );
+          continue;
+        }
+
+        try {
+          await execAsync(`kill -TERM ${pid} 2>/dev/null || true`);
+          // Give it a moment to exit gracefully, then force-kill.
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          await execAsync(`kill -KILL ${pid} 2>/dev/null || true`);
+          logger.info(`Stopped stale bridge process ${pid} on port ${port}`);
+          killedAny = true;
+        } catch {
+          // Process may have already exited
+        }
       }
     } catch (error) {
       logger.warn(`Could not check/kill processes on port ${port}: ${error}`);
     }
+  }
+  if (killedAny) {
+    // Wait for ports to be released
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }
 
@@ -166,11 +191,11 @@ export class BridgeServer implements vscode.Disposable {
       this.updateStatusBar("starting");
       this.logger.info(`Starting bridge server on port ${this._port}...`);
 
-      // Kill any existing processes on ports 3000 and 3001
+      // Kill any existing bridge processes on the configured port
       this.logger.info(
-        "Killing any existing processes on ports 3000 and 3001...",
+        `Killing any existing bridge processes on port ${this._port}...`,
       );
-      await killProcessesOnPorts([3000, 3001], this.logger);
+      await killProcessesOnPorts([this._port], this.logger);
 
       // Determine workspace root for project access
       const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -206,6 +231,22 @@ export class BridgeServer implements vscode.Disposable {
       this.serverProcess.stdout?.on("data", (data: Buffer) => {
         const message = data.toString().trim();
         if (message) {
+          // The server prints `PICO_BRIDGE_PORT=<n>` once it has bound. If it
+          // had to fall back to an alternative port, adopt it here so health
+          // polling, the status bar, and the browser open all use the real
+          // port instead of desyncing.
+          const portMatch = message.match(/PICO_BRIDGE_PORT=(\d+)/);
+          if (portMatch) {
+            const actualPort = parseInt(portMatch[1], 10);
+            if (actualPort && actualPort !== this._port) {
+              this.logger.info(
+                `Bridge reported port ${actualPort} (configured ${this._port}); adopting it.`,
+              );
+              this._port = actualPort;
+              this.updateStatusBar();
+              this.updateContext();
+            }
+          }
           this.logger.info(`[server] ${message}`);
         }
       });
