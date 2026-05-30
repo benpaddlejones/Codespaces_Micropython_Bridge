@@ -4,6 +4,16 @@ All notable changes to the Pi Pico to Codespaces Bridge extension.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.40] - 2026-05-30
+
+- **Performance**: Project Files panel now paints its styled shell instantly on load, with a "Loading project…" placeholder shown until the file tree is ready — no more waiting for the panel to appear after everything else.
+- **Fixed**: Eliminated a render race where the panel could stay blank — the webview message listener is now wired up before the HTML is set, and an initial render is pushed as soon as the view resolves.
+- **Fixed**: Project Files panel keeps its content and styling when hidden and reshown (`retainContextWhenHidden`), so it no longer loses its CSS on layout changes or when the server starts.
+- **Changed**: Each Python file shows a single device action (Run / Upload via Browser) when the server is running, replacing the two redundant device buttons.
+- **Fixed**: Per-file action icons (Run in Emulator, Debug, device) now use the official VS Code codicon glyphs at native size, so they match the rest of the UI.
+- **Fixed**: Broad recursive file watcher no longer triggers a render storm — changes under `.git`, `.venv`, `node_modules`, `__pycache__`, and other cache/VCS folders are ignored.
+- **Changed**: Removed the redundant title-bar buttons from the Project Files view; per-file actions live on each row instead.
+
 ## [2.3.34] - 2026-05-30
 
 - **Performance**: Panel rendering is no longer laggy — logs are batched per animation frame, pin lookups are cached, and SVG assets are only read from disk once.
