@@ -6,7 +6,11 @@
 import { getSocket } from "../socket/index.js";
 import * as store from "../state/store.js";
 import { setStatus, termWrite } from "../terminal/output.js";
-import { feedDetectionData, startDetection } from "../tools/deviceDetect.js";
+import {
+  feedDetectionData,
+  setDetectionUsbInfo,
+  startDetection,
+} from "../tools/deviceDetect.js";
 import { updateToolButtons } from "../ui/status.js";
 
 /**
@@ -24,6 +28,7 @@ export async function connect(baudRate = 115200) {
   try {
     // Request the port
     const port = await navigator.serial.requestPort({});
+    const usbInfo = typeof port.getInfo === "function" ? port.getInfo() : null;
 
     // Open the port
     await port.open({ baudRate });
@@ -62,6 +67,7 @@ export async function connect(baudRate = 115200) {
     }
 
     // Start device detection
+    setDetectionUsbInfo(usbInfo);
     startDetection();
   } catch (err) {
     console.error("Connection error:", err);
@@ -75,6 +81,7 @@ export async function connect(baudRate = 115200) {
  */
 export async function disconnect() {
   store.setKeepReading(false);
+  setDetectionUsbInfo(null);
 
   try {
     const reader = store.getReader();

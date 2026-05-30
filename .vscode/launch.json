@@ -11,16 +11,9 @@
     },
     {
       "name": "MicroPython (Emulator)",
-      "type": "debugpy",
+      "type": "micropython-emulator",
       "request": "launch",
-      "program": "${workspaceFolder}/.extension/emulator/mock/runner.py",
-      "args": ["${file}"],
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "env": {
-        "MICROPYTHON_MOCK": "1",
-        "MOCK_BOARD": "raspberry-pi-pico"
-      }
+      "program": "${file}"
     },
     {
       "name": "Python: Current File",

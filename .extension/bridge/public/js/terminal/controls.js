@@ -15,6 +15,7 @@
  *   bottom of the xterm buffer (i.e. they're reading history).
  */
 
+import { clearOutput } from "./output.js";
 import { getTerminal, isAtBottom, scrollToBottom } from "./setup.js";
 
 // --- Pause state ----------------------------------------------------------
@@ -131,11 +132,15 @@ export function initTerminalControls(hostContainer) {
     <button type="button" class="term-ctrl-btn jump-btn" title="Scroll to bottom" hidden>
       ↓ Jump to bottom
     </button>
+    <button type="button" class="term-ctrl-btn clear-btn" title="Clear terminal output">
+      🗑️ Clear output
+    </button>
   `;
   host.appendChild(bar);
 
   pauseBtn = bar.querySelector(".pause-btn");
   jumpBtn = bar.querySelector(".jump-btn");
+  const clearBtn = bar.querySelector(".clear-btn");
   pauseCountEl = bar.querySelector(".term-ctrl-count");
 
   pauseBtn.addEventListener("click", () => setPaused(!paused));
@@ -143,6 +148,11 @@ export function initTerminalControls(hostContainer) {
     scrollToBottom();
     refreshJumpVisibility();
   });
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      clearOutput();
+    });
+  }
 
   // Subscribe to xterm scroll events. Use both onScroll (viewport changes)
   // and onLineFeed (new content) — either can change at-bottom state.

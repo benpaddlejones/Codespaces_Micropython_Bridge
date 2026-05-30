@@ -1,7 +1,7 @@
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import * as path from "path";
 import * as vscode from "vscode";
-import { Logger, resolveUri } from "../utils";
+import { Logger, resolvePythonExecutableOrWarn, resolveUri } from "../utils";
 import { EmulatorWebview } from "./webviewProvider";
 
 // Re-export Pylance configuration functions
@@ -201,7 +201,12 @@ export class EmulatorManager {
     // Save the script path for replay
     this.lastScriptPath = uri.fsPath;
 
-    const pythonExecutable = this.getPythonExecutable();
+    const pythonExecutable = await resolvePythonExecutableOrWarn(uri);
+    if (!pythonExecutable) {
+      // resolvePythonExecutableOrWarn already showed the user an error
+      return;
+    }
+
     const runnerPath = path.join(
       this.context.extensionPath,
       "emulator",
@@ -244,14 +249,9 @@ export class EmulatorManager {
         error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to launch emulator runner: ${errorMessage}`);
 
-      // Provide user-friendly error messages based on error type
       let userMessage = "Failed to launch MicroPython emulator.";
-      if (errorMessage.includes("ENOENT")) {
-        userMessage =
-          "Python not found. Please install Python 3 or configure 'picoBridge.emulator.pythonExecutable' in settings.";
-      } else if (errorMessage.includes("EACCES")) {
-        userMessage =
-          "Permission denied when launching Python. Check file permissions.";
+      if (errorMessage.includes("EACCES") || errorMessage.includes("EPERM")) {
+        userMessage = `Permission denied running Python. Check file permissions for "${pythonExecutable}".`;
       } else {
         userMessage += ` Error: ${errorMessage}`;
       }
@@ -406,18 +406,5 @@ export class EmulatorManager {
       this.process = undefined;
     }
     this.stdoutBuffer = "";
-  }
-
-  /**
-   * Resolve the Python executable to use for launching the emulator.
-   *
-   * Reads `picoBridge.emulator.pythonExecutable` from VS Code settings,
-   * defaulting to `"python3"` if not configured.
-   *
-   * @returns The Python executable name or absolute path
-   */
-  private getPythonExecutable(): string {
-    const config = vscode.workspace.getConfiguration("picoBridge.emulator");
-    return config.get<string>("pythonExecutable", "python3");
   }
 }

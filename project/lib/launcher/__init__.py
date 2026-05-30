@@ -41,6 +41,14 @@ def run():
     stop_pin = Pin(config.STOP_PIN_NUMBER, Pin.IN, Pin.PULL_UP)
 
     def callback(stop_pin):
+        """Handle stop-pin IRQ by raising KeyboardInterrupt.
+
+        Args:
+            stop_pin: The Pin instance that triggered the interrupt.
+
+        Raises:
+            KeyboardInterrupt: Always raised to stop the running script.
+        """
         raise KeyboardInterrupt("Stop pin button pressed")
 
     stop_pin.irq(trigger=Pin.IRQ_FALLING, handler=callback)

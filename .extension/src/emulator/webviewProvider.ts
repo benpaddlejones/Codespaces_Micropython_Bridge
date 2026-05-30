@@ -16,6 +16,9 @@ type PanelMessageHandler = (message: unknown) => void;
 export class EmulatorWebview implements vscode.Disposable {
   private panel: vscode.WebviewPanel | undefined;
   private currentBoard: string = "pico";
+  private htmlTemplateCache: string | undefined;
+  private readonly boardSvgCache = new Map<string, string>();
+  private readonly pinoutSvgCache = new Map<string, string | null>();
 
   /**
    * Create a new EmulatorWebview instance.
@@ -113,11 +116,14 @@ export class EmulatorWebview implements vscode.Disposable {
    */
   private sendBoardSvg(board: string): void {
     const svgPath = this.getBoardSvgPath(board);
-    if (fs.existsSync(svgPath)) {
-      const svgContent = fs.readFileSync(svgPath, "utf8");
+    const svgContent = this.readTextFileCached(
+      this.boardSvgCache,
+      svgPath,
+      `Board SVG not found: ${svgPath}`,
+    );
+    if (svgContent !== null) {
       this.postMessage({ type: "init", boardSvg: svgContent });
     } else {
-      this.logger.warn(`Board SVG not found: ${svgPath}`);
       this.postMessage({
         type: "init",
         boardSvg: `<svg viewBox="0 0 200 100"><text x="100" y="50" text-anchor="middle" fill="#888">Board: ${board}</text></svg>`,
@@ -134,12 +140,40 @@ export class EmulatorWebview implements vscode.Disposable {
    */
   private sendPinoutSvg(board: string): void {
     const svgPath = this.getPinoutSvgPath(board);
-    if (fs.existsSync(svgPath)) {
-      const svgContent = fs.readFileSync(svgPath, "utf8");
+    const svgContent = this.readTextFileCached(
+      this.pinoutSvgCache,
+      svgPath,
+      `Pinout SVG not found: ${svgPath}`,
+    );
+    if (svgContent !== null) {
       this.postMessage({ type: "pinout_svg", svg: svgContent });
     } else {
-      this.logger.warn(`Pinout SVG not found: ${svgPath}`);
       this.postMessage({ type: "pinout_svg", svg: null });
+    }
+  }
+
+  /**
+   * Read a UTF-8 text file once and cache the result for future requests.
+   *
+   * Returns null when the file is unavailable.
+   */
+  private readTextFileCached(
+    cache: Map<string, string | null>,
+    filePath: string,
+    notFoundLogMessage: string,
+  ): string | null {
+    if (cache.has(filePath)) {
+      return cache.get(filePath) ?? null;
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, "utf8");
+      cache.set(filePath, content);
+      return content;
+    } catch {
+      this.logger.warn(notFoundLogMessage);
+      cache.set(filePath, null);
+      return null;
     }
   }
 
@@ -223,7 +257,9 @@ export class EmulatorWebview implements vscode.Disposable {
     const stylePath = path.join(webviewRoot, "style.css");
     const scriptPath = path.join(webviewRoot, "js", "main.js");
 
-    const htmlTemplate = fs.readFileSync(htmlPath, "utf8");
+    if (!this.htmlTemplateCache) {
+      this.htmlTemplateCache = fs.readFileSync(htmlPath, "utf8");
+    }
     const nonce = crypto.randomBytes(16).toString("base64");
 
     const styleUri = webview
@@ -234,7 +270,7 @@ export class EmulatorWebview implements vscode.Disposable {
       .toString();
 
     const cspSource = webview.cspSource;
-    return htmlTemplate
+    return this.htmlTemplateCache
       .replace("style.css", styleUri)
       .replace("js/main.js", scriptUri)
       .replace(

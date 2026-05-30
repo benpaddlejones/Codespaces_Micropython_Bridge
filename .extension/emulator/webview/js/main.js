@@ -121,20 +121,120 @@ let isPaused = false;
 // Board SVG content (will be set by extension)
 let boardSvgContent = null;
 
+// Keep log buffers bounded to avoid expensive unbounded text growth.
+const MAX_EVENT_LOG_LINES = 400;
+const MAX_CONSOLE_LOG_LINES = 800;
+const MAX_I2C_LOG_LINES = 500;
+const MAX_ADC_LOG_LINES = 500;
+
+const eventLogLines = [];
+const consoleLogLines = [];
+const i2cLogLines = [];
+const adcLogLines = [];
+
+let eventLogDirty = false;
+let consoleLogDirty = false;
+let i2cLogDirty = false;
+let adcLogDirty = false;
+let logsRenderScheduled = false;
+
+const pinElementCache = new Map();
+
+function pushPrepend(lines, line, maxLines) {
+  lines.unshift(line);
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+  }
+}
+
+function pushAppend(lines, line, maxLines) {
+  lines.push(line);
+  if (lines.length > maxLines) {
+    lines.shift();
+  }
+}
+
+function scheduleLogsRender() {
+  if (logsRenderScheduled) {
+    return;
+  }
+  logsRenderScheduled = true;
+
+  requestAnimationFrame(() => {
+    logsRenderScheduled = false;
+
+    if (eventLogDirty && eventLogEl) {
+      eventLogEl.textContent = eventLogLines.join("\n");
+      eventLogEl.scrollTop = 0;
+      eventLogDirty = false;
+    }
+
+    if (consoleLogDirty && consoleOutputEl) {
+      consoleOutputEl.textContent = consoleLogLines.join("");
+      consoleOutputEl.scrollTop = 0;
+      consoleLogDirty = false;
+    }
+
+    if (i2cLogDirty && i2cLogEl) {
+      i2cLogEl.textContent = i2cLogLines.join("\n");
+      i2cLogEl.scrollTop = i2cLogEl.scrollHeight;
+      i2cLogDirty = false;
+    }
+
+    if (adcLogDirty && adcLogEl) {
+      adcLogEl.textContent = adcLogLines.join("\n");
+      adcLogEl.scrollTop = 0;
+      adcLogDirty = false;
+    }
+  });
+}
+
+function clearLogBuffer(lines, dirtySetter) {
+  lines.length = 0;
+  dirtySetter();
+  scheduleLogsRender();
+}
+
+function rebuildPinElementCache() {
+  pinElementCache.clear();
+  const pinIndicators = boardContainer?.querySelectorAll(
+    ".pin-indicator[id^='pin-']",
+  );
+  pinIndicators?.forEach((pinEl) => {
+    const id = pinEl.id.startsWith("pin-") ? pinEl.id.slice(4) : pinEl.id;
+    pinElementCache.set(id, pinEl);
+  });
+}
+
+function getPinElement(pin) {
+  if (pin === null || pin === undefined) {
+    return null;
+  }
+
+  const pinId = String(pin).replace(/^GP/i, "");
+  const cached = pinElementCache.get(pinId);
+  if (cached) {
+    return cached;
+  }
+
+  const pinEl = boardContainer?.querySelector(`#pin-${pinId}`) || null;
+  if (pinEl) {
+    pinElementCache.set(pinId, pinEl);
+  }
+  return pinEl;
+}
+
 function logEvent(message) {
   const timestamp = new Date().toLocaleTimeString();
-  // Prepend so newest entries appear at top
-  eventLogEl.textContent =
-    `[${timestamp}] ${message}\n` + eventLogEl.textContent;
-  eventLogEl.scrollTop = 0;
+  pushPrepend(eventLogLines, `[${timestamp}] ${message}`, MAX_EVENT_LOG_LINES);
+  eventLogDirty = true;
+  scheduleLogsRender();
 }
 
 function appendConsole(text) {
-  if (consoleOutputEl) {
-    // Prepend so newest entries appear at top
-    consoleOutputEl.textContent = text + consoleOutputEl.textContent;
-    consoleOutputEl.scrollTop = 0;
-  }
+  pushPrepend(consoleLogLines, text, MAX_CONSOLE_LOG_LINES);
+  consoleLogDirty = true;
+  scheduleLogsRender();
 }
 
 function logI2C(direction, addr, data, memAddr = null) {
@@ -147,10 +247,15 @@ function logI2C(direction, addr, data, memAddr = null) {
   let dataStr = Array.isArray(data)
     ? data.map((b) => "0x" + b.toString(16).padStart(2, "0")).join(" ")
     : data;
-  i2cLogEl.textContent += `[${timestamp}] ${direction} addr=0x${addr
-    .toString(16)
-    .padStart(2, "0")}${memStr}: ${dataStr}\n`;
-  i2cLogEl.scrollTop = i2cLogEl.scrollHeight;
+  pushAppend(
+    i2cLogLines,
+    `[${timestamp}] ${direction} addr=0x${addr
+      .toString(16)
+      .padStart(2, "0")}${memStr}: ${dataStr}`,
+    MAX_I2C_LOG_LINES,
+  );
+  i2cLogDirty = true;
+  scheduleLogsRender();
 }
 
 /**
@@ -160,9 +265,7 @@ function logI2C(direction, addr, data, memAddr = null) {
  * @param {boolean} active - Whether the pin is active
  */
 function setPinMode(pin, mode, active = true) {
-  if (pin === null || pin === undefined) return;
-
-  const pinEl = boardContainer?.querySelector(`#pin-${pin}`);
+  const pinEl = getPinElement(pin);
   if (!pinEl) return;
 
   // Remove ALL mode classes first (both old and new naming conventions)
@@ -194,9 +297,7 @@ function setPinMode(pin, mode, active = true) {
  * @param {boolean} persistent - Whether to keep mode color after flash (default: true for I2C/UART, false for ADC)
  */
 function flashPinActivity(pin, protocol = "i2c", persistent = null) {
-  if (pin === null || pin === undefined) return;
-
-  const pinEl = boardContainer?.querySelector(`#pin-${pin}`);
+  const pinEl = getPinElement(pin);
   if (!pinEl) return;
 
   // Determine if mode should persist after flash
@@ -240,6 +341,7 @@ function loadBoardSvg(svgContent) {
   if (boardContainer && svgContent) {
     boardContainer.innerHTML = svgContent;
     boardSvgContent = svgContent;
+    rebuildPinElementCache();
     // Apply any existing pin states to the SVG
     Object.entries(pinStates).forEach(([pin, state]) => {
       updatePinVisual(pin, state.value, state.mode);
@@ -290,7 +392,7 @@ function updatePinVisual(pin, value, mode = "digital") {
   }
 
   // Update pin indicator in SVG with mode color
-  const pinIndicator = boardContainer?.querySelector(`#pin-${pinNum}`);
+  const pinIndicator = getPinElement(pinNum);
   if (pinIndicator) {
     // Remove old mode classes
     pinIndicator.classList.remove(
@@ -332,51 +434,45 @@ function updatePinVisual(pin, value, mode = "digital") {
  * Called when script exits naturally.
  */
 function clearPinModes() {
-  const allPinIndicators = boardContainer?.querySelectorAll(".pin-indicator");
-  if (allPinIndicators) {
-    allPinIndicators.forEach((pinEl) => {
-      // Remove ALL possible mode classes (both old and new naming conventions)
-      pinEl.classList.remove(
-        "active",
-        "activity-flash",
-        // Old naming convention
-        "pin-high",
-        "pin-low",
-        "pin-pwm",
-        // New naming convention
-        "digital-mode",
-        "digital-out",
-        "digital-in",
-        "pwm-mode",
-        "adc-mode",
-        "i2c-mode",
-        "uart-mode",
-      );
-    });
-  }
+  pinElementCache.forEach((pinEl) => {
+    // Remove ALL possible mode classes (both old and new naming conventions)
+    pinEl.classList.remove(
+      "active",
+      "activity-flash",
+      // Old naming convention
+      "pin-high",
+      "pin-low",
+      "pin-pwm",
+      // New naming convention
+      "digital-mode",
+      "digital-out",
+      "digital-in",
+      "pwm-mode",
+      "adc-mode",
+      "i2c-mode",
+      "uart-mode",
+    );
+  });
 }
 
 function resetAll() {
   // Reset all pin indicators - clear all mode and activity classes
-  const allPinIndicators = boardContainer?.querySelectorAll(".pin-indicator");
-  if (allPinIndicators) {
-    allPinIndicators.forEach((pinEl) => {
-      pinEl.classList.remove(
-        "active",
-        "activity-flash",
-        "digital-mode",
-        "digital-out",
-        "digital-in",
-        "pwm-mode",
-        "adc-mode",
-        "i2c-mode",
-        "uart-mode",
-        "pin-high",
-        "pin-low",
-        "pin-pwm",
-      );
-    });
-  }
+  pinElementCache.forEach((pinEl) => {
+    pinEl.classList.remove(
+      "active",
+      "activity-flash",
+      "digital-mode",
+      "digital-out",
+      "digital-in",
+      "pwm-mode",
+      "adc-mode",
+      "i2c-mode",
+      "uart-mode",
+      "pin-high",
+      "pin-low",
+      "pin-pwm",
+    );
+  });
 
   // Reset pin states tracking
   Object.keys(pinStates).forEach((pin) => {
@@ -399,22 +495,22 @@ function resetAll() {
   Object.keys(adcPins).forEach((key) => delete adcPins[key]);
 
   // Reset logs
-  if (eventLogEl) {
-    eventLogEl.textContent = "";
-  }
-  if (consoleOutputEl) {
-    consoleOutputEl.textContent = "";
-  }
-  if (i2cLogEl) {
-    i2cLogEl.textContent = "";
-  }
+  clearLogBuffer(eventLogLines, () => {
+    eventLogDirty = true;
+  });
+  clearLogBuffer(consoleLogLines, () => {
+    consoleLogDirty = true;
+  });
+  clearLogBuffer(i2cLogLines, () => {
+    i2cLogDirty = true;
+  });
   if (i2cLastWriteEl) {
     i2cLastWriteEl.textContent = "-";
   }
   // Reset ADC panel
-  if (adcLogEl) {
-    adcLogEl.textContent = "";
-  }
+  clearLogBuffer(adcLogLines, () => {
+    adcLogDirty = true;
+  });
   if (adcLastReadEl) {
     adcLastReadEl.querySelector(".adc-pin").textContent = "-";
     adcLastReadEl.querySelector(".adc-value").textContent = "-";
@@ -503,8 +599,7 @@ window.addEventListener("message", (event) => {
     case "pin_update":
       // For digital input reads, just flash temporarily (don't persist like output)
       if (message.mode === "IN") {
-        const pinNum = String(message.pin).replace(/^GP/i, "");
-        const pinEl = boardContainer?.querySelector(`#pin-${pinNum}`);
+        const pinEl = getPinElement(message.pin);
         if (pinEl) {
           // Temporarily add digital-in styling
           pinEl.classList.add("active", "digital-in");
@@ -635,12 +730,14 @@ window.addEventListener("message", (event) => {
       }
 
       // Log the read
-      if (adcLogEl) {
-        const timestamp = new Date().toLocaleTimeString();
-        adcLogEl.textContent =
-          `[${timestamp}] GP${message.pin}: ${message.value} (${message.voltage_mv}mV)\n` +
-          adcLogEl.textContent;
-      }
+      const timestamp = new Date().toLocaleTimeString();
+      pushPrepend(
+        adcLogLines,
+        `[${timestamp}] GP${message.pin}: ${message.value} (${message.voltage_mv}mV)`,
+        MAX_ADC_LOG_LINES,
+      );
+      adcLogDirty = true;
+      scheduleLogsRender();
       logEvent(`ADC GP${message.pin} read: ${message.value}`);
       break;
 
@@ -783,15 +880,17 @@ window.addEventListener("message", (event) => {
 // Event listeners
 if (clearLogBtn) {
   clearLogBtn.addEventListener("click", () => {
-    eventLogEl.textContent = "";
+    clearLogBuffer(eventLogLines, () => {
+      eventLogDirty = true;
+    });
   });
 }
 
 if (clearConsoleBtn) {
   clearConsoleBtn.addEventListener("click", () => {
-    if (consoleOutputEl) {
-      consoleOutputEl.textContent = "";
-    }
+    clearLogBuffer(consoleLogLines, () => {
+      consoleLogDirty = true;
+    });
   });
 }
 
@@ -833,9 +932,9 @@ if (copyConsoleBtn) {
 
 if (clearI2cBtn) {
   clearI2cBtn.addEventListener("click", () => {
-    if (i2cLogEl) {
-      i2cLogEl.textContent = "";
-    }
+    clearLogBuffer(i2cLogLines, () => {
+      i2cLogDirty = true;
+    });
     if (i2cLastWriteEl) {
       i2cLastWriteEl.textContent = "-";
     }
@@ -1052,9 +1151,9 @@ updateI2cResponseStatus();
 // ADC panel event listeners
 if (clearAdcBtn) {
   clearAdcBtn.addEventListener("click", () => {
-    if (adcLogEl) {
-      adcLogEl.textContent = "";
-    }
+    clearLogBuffer(adcLogLines, () => {
+      adcLogDirty = true;
+    });
     if (adcLastReadEl) {
       adcLastReadEl.querySelector(".adc-pin").textContent = "-";
       adcLastReadEl.querySelector(".adc-value").textContent = "-";

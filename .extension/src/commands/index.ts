@@ -9,7 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { BridgeServer } from "../server";
-import { Logger, resolveUri } from "../utils";
+import { Logger, resolvePythonExecutableOrWarn, resolveUri } from "../utils";
 import {
   ensureSingleActiveProject,
   findAllProjectMarkers,
@@ -31,28 +31,28 @@ import {
 export function registerCommands(
   context: vscode.ExtensionContext,
   server: BridgeServer,
-  logger: Logger
+  logger: Logger,
 ): void {
   // Server lifecycle commands
   context.subscriptions.push(
     vscode.commands.registerCommand("picoBridge.startServer", async () => {
       logger.info("Command: startServer");
       await server.start();
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("picoBridge.stopServer", async () => {
       logger.info("Command: stopServer");
       await server.stop();
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("picoBridge.openBrowser", async () => {
       logger.info("Command: openBrowser");
       await server.openInBrowser();
-    })
+    }),
   );
 
   // Show logs command
@@ -60,7 +60,7 @@ export function registerCommands(
     vscode.commands.registerCommand("picoBridge.showLogs", () => {
       logger.info("Command: showLogs");
       logger.show();
-    })
+    }),
   );
 
   // File operations - these send messages via WebSocket to the bridge UI
@@ -83,7 +83,7 @@ export function registerCommands(
         if (!server.isRunning) {
           const start = await vscode.window.showInformationMessage(
             "Bridge server is not running. Start it first?",
-            "Start Server"
+            "Start Server",
           );
           if (start === "Start Server") {
             await server.start();
@@ -96,10 +96,10 @@ export function registerCommands(
         // The bridge UI handles file execution
         await server.openInBrowser();
         vscode.window.showInformationMessage(
-          `Ready to run ${uri.fsPath}. Connect to device in browser and use the Run button.`
+          `Ready to run ${uri.fsPath}. Connect to device in browser and use the Run button.`,
         );
-      }
-    )
+      },
+    ),
   );
 
   context.subscriptions.push(
@@ -119,17 +119,17 @@ export function registerCommands(
 
         if (!server.isRunning) {
           vscode.window.showWarningMessage(
-            "Bridge server is not running. Start it first."
+            "Bridge server is not running. Start it first.",
           );
           return;
         }
 
         await server.openInBrowser();
         vscode.window.showInformationMessage(
-          `Ready to upload ${uri.fsPath}. Use the File Manager in the browser interface.`
+          `Ready to upload ${uri.fsPath}. Use the File Manager in the browser interface.`,
         );
-      }
-    )
+      },
+    ),
   );
 
   context.subscriptions.push(
@@ -138,16 +138,16 @@ export function registerCommands(
 
       if (!server.isRunning) {
         vscode.window.showWarningMessage(
-          "Bridge server is not running. Start it first."
+          "Bridge server is not running. Start it first.",
         );
         return;
       }
 
       await server.openInBrowser();
       vscode.window.showInformationMessage(
-        "Use the Sync feature in the browser interface to upload the project folder."
+        "Use the Sync feature in the browser interface to upload the project folder.",
       );
-    })
+    }),
   );
 
   context.subscriptions.push(
@@ -156,16 +156,16 @@ export function registerCommands(
 
       if (!server.isRunning) {
         vscode.window.showWarningMessage(
-          "Bridge server is not running. Start it first."
+          "Bridge server is not running. Start it first.",
         );
         return;
       }
 
       await server.openInBrowser();
       vscode.window.showInformationMessage(
-        "Connect to device in browser to view files."
+        "Connect to device in browser to view files.",
       );
-    })
+    }),
   );
 
   // REPL and device control commands
@@ -175,16 +175,16 @@ export function registerCommands(
 
       if (!server.isRunning) {
         vscode.window.showWarningMessage(
-          "Bridge server is not running. Start it first."
+          "Bridge server is not running. Start it first.",
         );
         return;
       }
 
       await server.openInBrowser();
       vscode.window.showInformationMessage(
-        "The REPL is available in the browser terminal."
+        "The REPL is available in the browser terminal.",
       );
-    })
+    }),
   );
 
   context.subscriptions.push(
@@ -193,16 +193,16 @@ export function registerCommands(
 
       if (!server.isRunning) {
         vscode.window.showWarningMessage(
-          "Bridge server is not running. Start it first."
+          "Bridge server is not running. Start it first.",
         );
         return;
       }
 
       await server.openInBrowser();
       vscode.window.showInformationMessage(
-        "Use the Soft Reset button in the browser interface."
+        "Use the Soft Reset button in the browser interface.",
       );
-    })
+    }),
   );
 
   context.subscriptions.push(
@@ -211,16 +211,16 @@ export function registerCommands(
 
       if (!server.isRunning) {
         vscode.window.showWarningMessage(
-          "Bridge server is not running. Start it first."
+          "Bridge server is not running. Start it first.",
         );
         return;
       }
 
       await server.openInBrowser();
       vscode.window.showInformationMessage(
-        "Use the Hard Reset button in the browser interface."
+        "Use the Hard Reset button in the browser interface.",
       );
-    })
+    }),
   );
 
   context.subscriptions.push(
@@ -229,16 +229,16 @@ export function registerCommands(
 
       if (!server.isRunning) {
         vscode.window.showWarningMessage(
-          "Bridge server is not running. Start it first."
+          "Bridge server is not running. Start it first.",
         );
         return;
       }
 
       await server.openInBrowser();
       vscode.window.showInformationMessage(
-        "Use the Stop button in the browser interface."
+        "Use the Stop button in the browser interface.",
       );
-    })
+    }),
   );
 
   // Tree view refresh - triggers refresh of device files in browser interface
@@ -247,9 +247,9 @@ export function registerCommands(
       logger.info("Command: refreshFiles");
       // Device file listing is handled by the browser interface
       vscode.window.showInformationMessage(
-        "Files will be refreshed when device is connected."
+        "Files will be refreshed when device is connected.",
       );
-    })
+    }),
   );
 
   // Project setup commands
@@ -257,7 +257,7 @@ export function registerCommands(
     vscode.commands.registerCommand("picoBridge.createProject", async () => {
       logger.info("Command: createProject (Advanced)");
       await createAdvancedProject(context, logger);
-    })
+    }),
   );
 
   context.subscriptions.push(
@@ -266,8 +266,8 @@ export function registerCommands(
       async () => {
         logger.info("Command: createBasicProject");
         await createBasicProject(logger);
-      }
-    )
+      },
+    ),
   );
 
   context.subscriptions.push(
@@ -276,8 +276,8 @@ export function registerCommands(
       async () => {
         logger.info("Command: setupExistingProject");
         await setupExistingProject(logger);
-      }
-    )
+      },
+    ),
   );
 
   context.subscriptions.push(
@@ -291,13 +291,13 @@ export function registerCommands(
           const editor = vscode.window.activeTextEditor;
           if (!editor || editor.document.languageId !== "python") {
             vscode.window.showWarningMessage(
-              "Open a Python file to debug it in the emulator"
+              "Open a Python file to debug it in the emulator",
             );
             return;
           }
           if (editor.document.isUntitled) {
             vscode.window.showWarningMessage(
-              "Save the Python file before debugging it in the emulator"
+              "Save the Python file before debugging it in the emulator",
             );
             return;
           }
@@ -309,7 +309,7 @@ export function registerCommands(
 
         if (targetUri.scheme !== "file") {
           vscode.window.showWarningMessage(
-            "Only filesystem-based Python files can be debugged"
+            "Only filesystem-based Python files can be debugged",
           );
           return;
         }
@@ -317,14 +317,14 @@ export function registerCommands(
         const document = await vscode.workspace.openTextDocument(targetUri);
         if (document.languageId !== "python") {
           vscode.window.showWarningMessage(
-            "The selected file is not a Python file"
+            "The selected file is not a Python file",
           );
           return;
         }
 
         if (document.isUntitled) {
           vscode.window.showWarningMessage(
-            "Save the Python file before debugging it in the emulator"
+            "Save the Python file before debugging it in the emulator",
           );
           return;
         }
@@ -333,21 +333,23 @@ export function registerCommands(
           await document.save();
         }
 
-        const config = vscode.workspace.getConfiguration("picoBridge.emulator");
-        const pythonExecutable = config.get<string>(
-          "pythonExecutable",
-          "python3"
-        );
         const runnerPath = path.join(
           context.extensionPath,
           "emulator",
           "mock",
-          "runner.py"
+          "runner.py",
         );
+        const pythonExecutable = await resolvePythonExecutableOrWarn(
+          document.uri,
+        );
+        if (!pythonExecutable) {
+          // User has been shown an actionable error; abort.
+          return;
+        }
 
         const debugConfiguration: vscode.DebugConfiguration = {
           name: "Pico Bridge: Debug Emulator",
-          type: "python",
+          type: "debugpy",
           request: "launch",
           program: runnerPath,
           args: [document.uri.fsPath],
@@ -362,16 +364,16 @@ export function registerCommands(
 
         const started = await vscode.debug.startDebugging(
           undefined,
-          debugConfiguration
+          debugConfiguration,
         );
 
         if (!started) {
           vscode.window.showErrorMessage(
-            "Failed to start debugging session. Ensure the Python extension is installed."
+            "Failed to start debugging session. Check the Output panel for details.",
           );
         }
-      }
-    )
+      },
+    ),
   );
 
   // Add sample scripts command
@@ -379,7 +381,7 @@ export function registerCommands(
     vscode.commands.registerCommand("picoBridge.addSampleScripts", async () => {
       logger.info("Command: addSampleScripts");
       await addSampleScripts(context, logger);
-    })
+    }),
   );
 
   // View pinout command
@@ -387,9 +389,9 @@ export function registerCommands(
     vscode.commands.registerCommand("picoBridge.viewPinout", async () => {
       logger.info("Command: viewPinout");
       vscode.window.showInformationMessage(
-        "Pinout diagrams are shown in the Emulator panel when you select a board type."
+        "Pinout diagrams are shown in the Emulator panel when you select a board type.",
       );
-    })
+    }),
   );
 
   // Documentation commands - open external URLs
@@ -400,28 +402,28 @@ export function registerCommands(
         logger.info("Command: openMicroPythonDocs");
         const url = vscode.Uri.parse("https://docs.micropython.org/en/latest/");
         await vscode.env.openExternal(url);
-      }
-    )
+      },
+    ),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("picoBridge.openDebugpyDocs", async () => {
       logger.info("Command: openDebugpyDocs");
       const url = vscode.Uri.parse(
-        "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/tree/main/.extension#-debugpy-integration"
+        "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/tree/main/.extension#-debugpy-integration",
       );
       await vscode.env.openExternal(url);
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("picoBridge.openEmulatorDocs", async () => {
       logger.info("Command: openEmulatorDocs");
       const url = vscode.Uri.parse(
-        "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/tree/main/.extension#-micropython-emulator-no-hardware-required"
+        "https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/tree/main/.extension#-micropython-emulator-no-hardware-required",
       );
       await vscode.env.openExternal(url);
-    })
+    }),
   );
 
   // Switch Active Project command
@@ -439,7 +441,7 @@ export function registerCommands(
 
       if (projects.length === 0) {
         vscode.window.showInformationMessage(
-          "No MicroPython projects found. Use 'Create Project' to create one."
+          "No MicroPython projects found. Use 'Create Project' to create one.",
         );
         return;
       }
@@ -448,7 +450,7 @@ export function registerCommands(
         const projectName =
           path.relative(workspaceRoot, projects[0].path) || "(workspace root)";
         vscode.window.showInformationMessage(
-          `Only one project exists: ${projectName}`
+          `Only one project exists: ${projectName}`,
         );
         return;
       }
@@ -459,11 +461,11 @@ export function registerCommands(
         const projectName =
           path.relative(workspaceRoot, selected) || "(workspace root)";
         vscode.window.showInformationMessage(
-          `Active project set to: ${projectName}`
+          `Active project set to: ${projectName}`,
         );
         logger.info(`Switched active project to: ${selected}`);
       }
-    })
+    }),
   );
 
   logger.info("All commands registered");
@@ -540,13 +542,13 @@ async function createBasicProject(logger: Logger): Promise<void> {
     // Create empty main.py
     fs.writeFileSync(
       path.join(projectPath, "main.py"),
-      "# MicroPython main.py\n# Write your code here\n\n"
+      "# MicroPython main.py\n# Write your code here\n\n",
     );
 
     // Create .micropico marker
     fs.writeFileSync(
       path.join(projectPath, ".micropico"),
-      "This folder contains a MicroPython project\n"
+      "This folder contains a MicroPython project\n",
     );
 
     // If other active projects exist, ask user which should be active
@@ -554,7 +556,7 @@ async function createBasicProject(logger: Logger): Promise<void> {
       const choice = await vscode.window.showInformationMessage(
         `Project '${projectName}' created. Make it the active project?`,
         "Yes, make it active",
-        "No, just create files"
+        "No, just create files",
       );
       if (choice === "Yes, make it active") {
         // Deactivate other projects, keep new one active
@@ -569,12 +571,12 @@ async function createBasicProject(logger: Logger): Promise<void> {
         const newMarkerPath = path.join(projectPath, ".micropico");
         const inactiveMarkerPath = path.join(
           projectPath,
-          ".micropico.inactive"
+          ".micropico.inactive",
         );
         if (fs.existsSync(newMarkerPath)) {
           fs.renameSync(newMarkerPath, inactiveMarkerPath);
           logger.info(
-            `Marked ${projectName} as inactive - keeping previous project active`
+            `Marked ${projectName} as inactive - keeping previous project active`,
           );
         }
       }
@@ -582,12 +584,12 @@ async function createBasicProject(logger: Logger): Promise<void> {
 
     logger.info(`Basic project created at: ${projectPath}`);
     vscode.window.showInformationMessage(
-      `Basic project '${projectName}' created! Open main.py to start coding.`
+      `Basic project '${projectName}' created! Open main.py to start coding.`,
     );
 
     // Refresh workspace
     vscode.commands.executeCommand(
-      "workbench.files.action.refreshFilesExplorer"
+      "workbench.files.action.refreshFilesExplorer",
     );
 
     // Open main.py
@@ -597,7 +599,7 @@ async function createBasicProject(logger: Logger): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`Failed to create basic project: ${errorMessage}`);
     vscode.window.showErrorMessage(
-      `Failed to create basic project: ${errorMessage}`
+      `Failed to create basic project: ${errorMessage}`,
     );
   }
 }
@@ -624,7 +626,7 @@ async function createBasicProject(logger: Logger): Promise<void> {
  */
 async function createAdvancedProject(
   context: vscode.ExtensionContext,
-  logger: Logger
+  logger: Logger,
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -665,7 +667,7 @@ async function createAdvancedProject(
       // Fallback: create empty lib folder
       fs.mkdirSync(path.join(projectPath, "lib"), { recursive: true });
       logger.warn(
-        "lib/launcher not found in extension bundle, created empty lib folder"
+        "lib/launcher not found in extension bundle, created empty lib folder",
       );
     }
 
@@ -678,7 +680,7 @@ async function createAdvancedProject(
       // Create default main.py
       fs.writeFileSync(
         path.join(projectPath, "main.py"),
-        "# MicroPython main.py with advanced debugging\n# Write your code here\n\n"
+        "# MicroPython main.py with advanced debugging\n# Write your code here\n\n",
       );
     }
 
@@ -708,7 +710,7 @@ async function createAdvancedProject(
       context.extensionPath,
       "emulator",
       "mock",
-      "runner.py"
+      "runner.py",
     );
 
     const launchConfig = {
@@ -739,16 +741,16 @@ async function createAdvancedProject(
 
     fs.writeFileSync(
       path.join(vscodeDest, "launch.json"),
-      JSON.stringify(launchConfig, null, 4)
+      JSON.stringify(launchConfig, null, 4),
     );
     logger.info(
-      "Created .vscode/launch.json with emulator debug configuration"
+      "Created .vscode/launch.json with emulator debug configuration",
     );
 
     // Create .micropico marker
     fs.writeFileSync(
       path.join(projectPath, ".micropico"),
-      "This folder contains a MicroPython project\n"
+      "This folder contains a MicroPython project\n",
     );
 
     // If other active projects exist, ask user which should be active
@@ -756,7 +758,7 @@ async function createAdvancedProject(
       const choice = await vscode.window.showInformationMessage(
         `Project '${projectName}' created. Make it the active project?`,
         "Yes, make it active",
-        "No, just create files"
+        "No, just create files",
       );
       if (choice === "Yes, make it active") {
         // Deactivate other projects, keep new one active
@@ -771,12 +773,12 @@ async function createAdvancedProject(
         const newMarkerPath = path.join(projectPath, ".micropico");
         const inactiveMarkerPath = path.join(
           projectPath,
-          ".micropico.inactive"
+          ".micropico.inactive",
         );
         if (fs.existsSync(newMarkerPath)) {
           fs.renameSync(newMarkerPath, inactiveMarkerPath);
           logger.info(
-            `Marked ${projectName} as inactive - keeping previous project active`
+            `Marked ${projectName} as inactive - keeping previous project active`,
           );
         }
       }
@@ -784,12 +786,12 @@ async function createAdvancedProject(
 
     logger.info(`Advanced project created at: ${projectPath}`);
     vscode.window.showInformationMessage(
-      `Advanced project '${projectName}' created with debugging support!`
+      `Advanced project '${projectName}' created with debugging support!`,
     );
 
     // Refresh workspace
     vscode.commands.executeCommand(
-      "workbench.files.action.refreshFilesExplorer"
+      "workbench.files.action.refreshFilesExplorer",
     );
 
     // Open main.py
@@ -799,7 +801,7 @@ async function createAdvancedProject(
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`Failed to create advanced project: ${errorMessage}`);
     vscode.window.showErrorMessage(
-      `Failed to create advanced project: ${errorMessage}`
+      `Failed to create advanced project: ${errorMessage}`,
     );
   }
 }
@@ -868,7 +870,7 @@ async function setupExistingProject(logger: Logger): Promise<void> {
 
     if (fs.existsSync(activeMarker) || fs.existsSync(inactiveMarker)) {
       vscode.window.showInformationMessage(
-        `'${projectName}' is already a MicroPython project. Use 'Switch Active Project' to change the active project.`
+        `'${projectName}' is already a MicroPython project. Use 'Switch Active Project' to change the active project.`,
       );
       return;
     }
@@ -878,14 +880,14 @@ async function setupExistingProject(logger: Logger): Promise<void> {
       const choice = await vscode.window.showInformationMessage(
         `Make '${projectName}' the active project?`,
         "Yes, make it active",
-        "No, just mark as project"
+        "No, just mark as project",
       );
 
       if (choice === "Yes, make it active") {
         // Create active marker and deactivate others
         fs.writeFileSync(
           activeMarker,
-          "This folder contains a MicroPython project\n"
+          "This folder contains a MicroPython project\n",
         );
         const allProjectsNow = [
           ...existingActiveProjects.map((p) => ({ path: p, isActive: true })),
@@ -897,7 +899,7 @@ async function setupExistingProject(logger: Logger): Promise<void> {
         // Default: create inactive marker (keeps existing project active)
         fs.writeFileSync(
           inactiveMarker,
-          "This folder contains a MicroPython project (inactive)\n"
+          "This folder contains a MicroPython project (inactive)\n",
         );
         logger.info(`Marked ${projectName} as inactive project`);
       }
@@ -905,18 +907,18 @@ async function setupExistingProject(logger: Logger): Promise<void> {
       // No other projects - this becomes the active project
       fs.writeFileSync(
         activeMarker,
-        "This folder contains a MicroPython project\n"
+        "This folder contains a MicroPython project\n",
       );
     }
 
     logger.info(`Setup MicroPython project at: ${selectedPath}`);
     vscode.window.showInformationMessage(
-      `Setup complete! "${projectName}" is now a MicroPython project.`
+      `Setup complete! "${projectName}" is now a MicroPython project.`,
     );
 
     // Refresh workspace
     vscode.commands.executeCommand(
-      "workbench.files.action.refreshFilesExplorer"
+      "workbench.files.action.refreshFilesExplorer",
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -939,7 +941,7 @@ async function setupExistingProject(logger: Logger): Promise<void> {
 async function copyDirectory(
   source: string,
   destination: string,
-  logger: Logger
+  logger: Logger,
 ): Promise<void> {
   // Create destination if it doesn't exist
   if (!fs.existsSync(destination)) {
@@ -993,7 +995,7 @@ async function copyDirectory(
  */
 async function addSampleScripts(
   context: vscode.ExtensionContext,
-  logger: Logger
+  logger: Logger,
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -1007,7 +1009,7 @@ async function addSampleScripts(
   const projectRoot = await ensureSingleActiveProject(workspaceRoot);
   if (!projectRoot) {
     vscode.window.showErrorMessage(
-      "No active project found. Create a project first using 'Create Project' or 'Setup Existing Project'."
+      "No active project found. Create a project first using 'Create Project' or 'Setup Existing Project'.",
     );
     return;
   }
@@ -1021,7 +1023,7 @@ async function addSampleScripts(
       "The 'sample-scripts' folder already exists. Do you want to overwrite existing files?",
       { modal: true },
       "Overwrite",
-      "Cancel"
+      "Cancel",
     );
     if (overwrite !== "Overwrite") {
       return;
@@ -1099,7 +1101,7 @@ async function addSampleScripts(
 
     if (copiedCount === 0) {
       vscode.window.showWarningMessage(
-        "No sample scripts were found. Sample scripts may not be bundled with this version."
+        "No sample scripts were found. Sample scripts may not be bundled with this version.",
       );
       return;
     }
@@ -1110,13 +1112,13 @@ async function addSampleScripts(
     logger.info(`Added ${copiedCount} sample scripts to sample-scripts folder`);
     vscode.window.showInformationMessage(
       `Added ${copiedCount} sample scripts to '${path.basename(
-        projectRoot
-      )}/sample-scripts' folder!`
+        projectRoot,
+      )}/sample-scripts' folder!`,
     );
 
     // Refresh file explorer
     vscode.commands.executeCommand(
-      "workbench.files.action.refreshFilesExplorer"
+      "workbench.files.action.refreshFilesExplorer",
     );
 
     // Open the folder in explorer
@@ -1126,7 +1128,7 @@ async function addSampleScripts(
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`Failed to add sample scripts: ${errorMessage}`);
     vscode.window.showErrorMessage(
-      `Failed to add sample scripts: ${errorMessage}`
+      `Failed to add sample scripts: ${errorMessage}`,
     );
   }
 }

@@ -7,6 +7,7 @@ import {
   computeWaitMs,
   ensureDirectory,
   newMarker,
+  parseRawResult,
   sendRawCommand,
   sendRawCommandUntilMarker,
 } from "../serial/rawRepl.js";
@@ -371,11 +372,15 @@ async function writeSingleFile(destPath, content) {
   const payloadBytes = utf8ByteLength(content);
   const marker = newMarker("WROTE");
 
+  // Binary-safe write: decode the base64 straight to bytes and write in
+  // 'wb' mode. Going through .decode() + text mode 'w' (the old path)
+  // corrupted any non-UTF-8 byte and could mangle CR/LF. This mirrors the
+  // chunked large-file path and Arduino's micropython.js fs_save.
   // LFS2 stamps mtime from the RTC on close(); syncRtc() was called by
   // the entry-point upload function. No explicit os.utime needed.
   const writeCode = `import ubinascii
-f = open('${destPath}', 'w')
-f.write(ubinascii.a2b_base64('${b64}').decode())
+f = open('${destPath}', 'wb')
+f.write(ubinascii.a2b_base64('${b64}'))
 f.close()
 print('${marker}')
 `;
@@ -385,6 +390,20 @@ print('${marker}')
   // estimate. Falls back to ~3x the estimate as a hard timeout so a
   // stuck device can never deadlock the UI.
   const result = await sendRawCommandUntilMarker(writeCode, marker);
+
+  // Surface a genuine device-side traceback even when the exec frame
+  // closed (found === true): the raw REPL reports exceptions in the
+  // segment between the two \x04 bytes, which parseRawResult extracts.
+  const parsed = parseRawResult(result.output);
+  if (parsed.stderr && parsed.stderr.trim()) {
+    termWrite(
+      `[Bridge] ✗ ${destPath} FAILED on device:\r\n${parsed.stderr}\r\n`,
+    );
+    throw new Error(
+      `Device error writing ${destPath}: ${parsed.stderr.trim().split("\n").pop()}`,
+    );
+  }
+
   if (!result.found) {
     const crash = detectCrash(result.output);
     if (crash) {
@@ -936,8 +955,8 @@ files = {
   }
   code += `}
 for path, b64 in files.items():
-    f = open(path, 'w')
-    f.write(ubinascii.a2b_base64(b64).decode())
+    f = open(path, 'wb')
+    f.write(ubinascii.a2b_base64(b64))
     f.close()
 `;
   if (marker) {

@@ -20,6 +20,7 @@
 
 import {
   computeWaitMs,
+  ensureDirectory,
   newMarker,
   sendRawCommandAndCapture,
   sendRawCommandUntilMarker,
@@ -219,6 +220,36 @@ except Exception as _e:
   }
 }
 
+/**
+ * Rename (move) a file on the Pico via `os.rename`, mirroring Arduino's
+ * micropython.js `fs_rename`. The caller is expected to have already
+ * created the destination directory if it's new. Caller refreshes the
+ * panel afterwards.
+ */
+async function renameDeviceFile(oldPath, newPath) {
+  const oldEsc = oldPath.replace(/'/g, "\\'");
+  const newEsc = newPath.replace(/'/g, "\\'");
+  const marker = newMarker("REN");
+  const py = `
+import os
+try:
+    os.rename('${oldEsc}', '${newEsc}')
+    print('${marker}:ok')
+except Exception as _e:
+    print('${marker}:err:' + str(_e))
+`;
+  const result = await sendRawCommandUntilMarker(py, marker);
+  if (!result.found) {
+    throw new Error("Rename confirmation marker did not arrive");
+  }
+  if (result.output.includes(`${marker}:err`)) {
+    const errLine = result.output
+      .split(/\r?\n/)
+      .find((l) => l.includes(`${marker}:err`));
+    throw new Error(errLine || "Device rename failed");
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Workspace-side helpers
 // ---------------------------------------------------------------------------
@@ -292,9 +323,28 @@ function classify(workspaceFiles, deviceFiles) {
     notDeployed: rows.filter((r) => r.status === "not-deployed").length,
     orphan: rows.filter((r) => r.status === "orphan").length,
     total: rows.length,
+    workspaceTotal: workspaceFiles.length,
+    deviceTotal: deviceFiles.length,
   };
 
   return { rows, summary };
+}
+
+function getPanelMode(summary) {
+  if (summary.deviceTotal === 0 && summary.workspaceTotal > 0) {
+    return "device-empty";
+  }
+  if (summary.workspaceTotal === 0 && summary.deviceTotal > 0) {
+    return "repo-empty";
+  }
+  if (
+    summary.workspaceTotal > 0 &&
+    summary.deviceTotal > 0 &&
+    (summary.modified > 0 || summary.notDeployed > 0 || summary.orphan > 0)
+  ) {
+    return "diff";
+  }
+  return "default";
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +372,7 @@ function renderStatusPanel() {
   }
 
   const { rows, summary, projectRoot, projectDetected } = cachedStatus;
+  const panelMode = getPanelMode(summary);
 
   if (projEl) {
     if (!projectDetected) {
@@ -338,12 +389,96 @@ function renderStatusPanel() {
     <span class="sync-pill sync-pill-orphan">🔴 ${summary.orphan} stale</span>
   `;
 
+  renderBulkActions(summary, panelMode);
+
   if (rows.length === 0) {
     body.innerHTML = `<div class="sync-empty">No deployable files found in workspace or on device.</div>`;
     return;
   }
 
-  body.innerHTML = renderGroupedRows(rows);
+  if (panelMode === "device-empty") {
+    body.innerHTML = `<div class="sync-empty">Device is empty. Use <strong>Push All</strong> to deploy your workspace files.</div>`;
+    return;
+  }
+
+  let rowsToRender = rows;
+  if (panelMode === "diff") {
+    // In diff mode, this is a device panel: only render files that are
+    // present on the device to avoid mixing in workspace-only entries.
+    rowsToRender = rows.filter((r) => Boolean(r.device));
+  }
+
+  if (rowsToRender.length === 0) {
+    body.innerHTML = `<div class="sync-empty">No device files to display.</div>`;
+    return;
+  }
+
+  body.innerHTML = renderGroupedRows(rowsToRender);
+}
+
+/**
+ * Render the two bulk direction buttons (Push All / Pull All) into the
+ * `#syncBulkActions` bar. We deliberately offer only the two explicit
+ * directions — never an automatic "Sync" — because a two-way sync would
+ * have to invent a conflict-resolution policy for `modified` files
+ * (same path, different content on each side). Making the user pick a
+ * direction *is* the conflict resolution: Push wins with the workspace
+ * copy, Pull wins with the device copy.
+ *
+ * Each button is hidden when it has nothing to do, and its hover title
+ * spells out exactly what it will overwrite.
+ *
+ * @param {{synced:number, modified:number, notDeployed:number, orphan:number, workspaceTotal:number, deviceTotal:number}} summary
+ * @param {"device-empty"|"repo-empty"|"diff"|"default"} panelMode
+ */
+function renderBulkActions(summary, panelMode) {
+  const bar = document.getElementById("syncBulkActions");
+  if (!bar) return;
+
+  // Push = workspace → device: everything not yet on the device
+  // (not-deployed) plus files that differ (modified, workspace wins).
+  const pushCount = summary.notDeployed + summary.modified;
+  // Pull = device → workspace: files only on the device (orphan) plus
+  // files that differ (modified, device wins).
+  const pullCount = summary.orphan + summary.modified;
+
+  const buttons = [];
+  if (panelMode === "device-empty") {
+    buttons.push(
+      `<button class="sync-bulk-btn btn-push" data-action="push-all" ` +
+        `title="Push workspace → device: upload the entire project to the Pico">` +
+        `📤 Push All →</button>`,
+    );
+  } else if (panelMode === "repo-empty") {
+    buttons.push(
+      `<button class="sync-bulk-btn btn-pull" data-action="pull-all" ` +
+        `title="Pull device → workspace: copy all device files into the repo">` +
+        `← Pull All 📥</button>`,
+    );
+  } else {
+    if (pushCount > 0) {
+      const conflictNote = summary.modified
+        ? ` (overwrites ${summary.modified} modified file(s) on the device)`
+        : "";
+      buttons.push(
+        `<button class="sync-bulk-btn btn-push" data-action="push-all" ` +
+          `title="Push workspace → device: deploy ${pushCount} file(s) to the Pico${conflictNote}">` +
+          `📤 Push All →</button>`,
+      );
+    }
+    if (pullCount > 0) {
+      const conflictNote = summary.modified
+        ? ` (overwrites ${summary.modified} modified file(s) in the workspace)`
+        : "";
+      buttons.push(
+        `<button class="sync-bulk-btn btn-pull" data-action="pull-all" ` +
+          `title="Pull device → workspace: copy ${pullCount} file(s) from the Pico into the repo${conflictNote}">` +
+          `← Pull All 📥</button>`,
+      );
+    }
+  }
+
+  bar.innerHTML = buttons.join("");
 }
 
 /**
@@ -459,6 +594,7 @@ function renderRow(r) {
     actions.push(actionBtn("push", r.path, "Push →"));
   } else if (r.status === "orphan") {
     actions.push(actionBtn("pull", r.path, "← Pull"));
+    actions.push(actionBtn("rename", r.path, "Rename"));
     actions.push(actionBtn("delete", r.path, "Delete", "btn-danger"));
   }
   // 'synced' rows intentionally have no buttons — there's no diff.
@@ -532,10 +668,46 @@ print('${marker}')
 }
 
 async function actionPull(picoPath) {
+  // Warn before overwriting an existing repo file. A row is `modified`
+  // when the same path exists in both the workspace and the device with
+  // different content — pulling it discards the local version. New
+  // (orphan) files don't exist in the repo yet, so they need no warning.
+  const row = cachedStatus?.rows.find((r) => r.path === picoPath);
+  if (row?.status === "modified") {
+    if (
+      !confirm(
+        `⚠️ Pull will OVERWRITE ${picoPath} in your repo with the version ` +
+          `from the Pico.\n\nYour local changes to this file will be lost. Continue?`,
+      )
+    ) {
+      termWrite(`[Sync] Pull cancelled — ${picoPath} left unchanged\r\n`);
+      return;
+    }
+  }
   termWrite(`[Sync] Pulling ${picoPath} from device…\r\n`);
-  const content = await readDeviceFile(picoPath);
-  await writeWorkspaceFileContent(picoPath, content);
-  termWrite(`[Sync] ✓ Pulled ${picoPath} → workspace\r\n`);
+  const deviceContent = await readDeviceFile(picoPath);
+  let verified = false;
+  let attempts = 0;
+  const maxAttempts = 3;
+  while (!verified && attempts < maxAttempts) {
+    await writeWorkspaceFileContent(picoPath, deviceContent);
+    const wsContent = await fetchWorkspaceFileContent(picoPath);
+    if (wsContent === deviceContent) {
+      verified = true;
+      break;
+    }
+    attempts++;
+    termWrite(
+      `[Sync]   Verification failed for ${picoPath}, retrying (${attempts}/${maxAttempts})...\r\n`,
+    );
+  }
+  if (verified) {
+    termWrite(`[Sync] ✓ Pulled ${picoPath} → workspace\r\n`);
+  } else {
+    termWrite(
+      `[Sync]   ✗ Verification failed after ${maxAttempts} attempts for ${picoPath}\r\n`,
+    );
+  }
 }
 
 /**
@@ -562,9 +734,30 @@ async function actionPullFolder(dir) {
     try {
       // Sequential on purpose: the raw REPL is single-threaded and
       // overlapping reads will corrupt each other's marker capture.
-      const content = await readDeviceFile(r.path);
-      await writeWorkspaceFileContent(r.path, content);
-      ok += 1;
+      const deviceContent = await readDeviceFile(r.path);
+      let verified = false;
+      let attempts = 0;
+      const maxAttempts = 3;
+      while (!verified && attempts < maxAttempts) {
+        await writeWorkspaceFileContent(r.path, deviceContent);
+        const wsContent = await fetchWorkspaceFileContent(r.path);
+        if (wsContent === deviceContent) {
+          verified = true;
+          break;
+        }
+        attempts++;
+        termWrite(
+          `[Sync]   Verification failed for ${r.path}, retrying (${attempts}/${maxAttempts})...\r\n`,
+        );
+      }
+      if (verified) {
+        ok += 1;
+      } else {
+        failed += 1;
+        termWrite(
+          `[Sync]   ✗ Verification failed after ${maxAttempts} attempts for ${r.path}\r\n`,
+        );
+      }
     } catch (err) {
       failed += 1;
       termWrite(`[Sync]   ✗ ${r.path}: ${err.message}\r\n`);
@@ -575,6 +768,120 @@ async function actionPullFolder(dir) {
   );
 }
 
+/**
+ * Push every workspace file that isn't already in sync to the device
+ * (workspace → device). Targets `not-deployed` and `modified` rows; for
+ * `modified` the workspace copy wins — that's the conflict policy this
+ * button represents.
+ */
+async function actionPushAll() {
+  if (!cachedStatus) throw new Error("Run a sync refresh first");
+  const targets = cachedStatus.rows.filter(
+    (r) => r.status === "not-deployed" || r.status === "modified",
+  );
+  if (targets.length === 0) {
+    termWrite("[Sync] Nothing to push — workspace already deployed\r\n");
+    return;
+  }
+  const { uploadProject } = await import("./picoSync.js");
+
+  // Keep one command path: Push All now reuses the same Upload All
+  // implementation as the toolbar's "📦 All" button.
+  if (
+    !confirm(
+      `Push workspace to Pico using Upload All?` +
+        `\n\nThis runs the same command as the 📦 All button.` +
+        `\nFiles to update: ${targets.length}.` +
+        (cachedStatus.summary.modified
+          ? `\n\nThis overwrites ${cachedStatus.summary.modified} file(s) that differ on the device.`
+          : ""),
+    )
+  ) {
+    return;
+  }
+  termWrite("[Sync] Running Upload All pipeline…\r\n");
+  await uploadProject();
+}
+
+/**
+ * Pull every device file that isn't already in sync into the workspace
+ * (device → workspace). Targets `orphan` and `modified` rows; for
+ * `modified` the device copy wins — that's the conflict policy this
+ * button represents.
+ */
+async function actionPullAll() {
+  if (!cachedStatus) throw new Error("Run a sync refresh first");
+  const targets = cachedStatus.rows.filter(
+    (r) => r.status === "orphan" || r.status === "modified",
+  );
+  if (targets.length === 0) {
+    termWrite("[Sync] Nothing to pull — workspace already matches device\r\n");
+    return;
+  }
+
+  // Conflict guard: a pull only OVERWRITES existing repo files when a row
+  // is `modified` (present in both places, different content). `orphan`
+  // rows are brand-new files in the workspace, so they need no warning.
+  // If any existing repo files would change, require explicit approval
+  // and list exactly which files are affected.
+  const overwrites = targets
+    .filter((r) => r.status === "modified")
+    .map((r) => r.path);
+  if (overwrites.length > 0) {
+    const list = overwrites.join("\n  • ");
+    if (
+      !confirm(
+        `⚠️ Pull will OVERWRITE ${overwrites.length} existing file(s) in your repo ` +
+          `with the version from the Pico:\n\n  • ${list}\n\n` +
+          `These local changes will be lost. Continue?`,
+      )
+    ) {
+      termWrite("[Sync] Pull cancelled — repo files left unchanged\r\n");
+      return;
+    }
+  }
+
+  termWrite(`[Sync] Pulling ${targets.length} file(s) from device…\r\n`);
+  let ok = 0;
+  let failed = 0;
+  for (const r of targets) {
+    try {
+      // Sequential: overlapping raw-REPL reads corrupt each other's
+      // marker capture.
+      const deviceContent = await readDeviceFile(r.path);
+      let verified = false;
+      let attempts = 0;
+      const maxAttempts = 3;
+      while (!verified && attempts < maxAttempts) {
+        await writeWorkspaceFileContent(r.path, deviceContent);
+        const wsContent = await fetchWorkspaceFileContent(r.path);
+        if (wsContent === deviceContent) {
+          verified = true;
+          break;
+        }
+        attempts++;
+        termWrite(
+          `[Sync]   Verification failed for ${r.path}, retrying (${attempts}/${maxAttempts})...\r\n`,
+        );
+      }
+      if (verified) {
+        ok += 1;
+      } else {
+        failed += 1;
+        termWrite(
+          `[Sync]   ✗ Verification failed after ${maxAttempts} attempts for ${r.path}\r\n`,
+        );
+      }
+    } catch (err) {
+      failed += 1;
+      termWrite(`[Sync]   ✗ ${r.path}: ${err.message}\r\n`);
+    }
+  }
+  termWrite(
+    `[Sync] ✓ Pulled ${ok}/${targets.length} file(s)${failed ? ` (${failed} failed)` : ""}\r\n`,
+  );
+}
+
 async function actionDelete(picoPath) {
   if (!confirm(`Delete ${picoPath} from the Pico?\n\nThis cannot be undone.`)) {
     return;
@@ -582,6 +889,37 @@ async function actionDelete(picoPath) {
   termWrite(`[Sync] Deleting ${picoPath} from device…\r\n`);
   await deleteDeviceFile(picoPath);
   termWrite(`[Sync] ✓ Deleted ${picoPath} from device\r\n`);
+}
+
+/**
+ * Prompt for a new device path and rename (move) the file on the Pico.
+ * The destination directory is created on the device first if needed
+ * (covering the mkdir case), so a file can be moved into a brand-new
+ * folder in one step.
+ */
+async function actionRename(picoPath) {
+  const next = window.prompt(
+    `Rename device file:\n${picoPath}\n\nEnter the new device path ` +
+      `(use "/" to place it in a folder):`,
+    picoPath,
+  );
+  if (next === null) return; // user cancelled
+
+  // Normalise: collapse whitespace, force a single leading slash.
+  let newPath = next.trim().replace(/\/{2,}/g, "/");
+  if (!newPath) return;
+  if (!newPath.startsWith("/")) newPath = "/" + newPath;
+  if (newPath === picoPath) return;
+
+  // Create the destination directory on the device if it's new.
+  const dir = dirnamePico(newPath);
+  if (dir && dir !== "/") {
+    await ensureDirectory(dir);
+  }
+
+  termWrite(`[Sync] Renaming ${picoPath} → ${newPath} on device…\r\n`);
+  await renameDeviceFile(picoPath, newPath);
+  termWrite(`[Sync] ✓ Renamed to ${newPath}\r\n`);
 }
 
 async function actionDiff(picoPath) {
@@ -740,6 +1078,26 @@ export function initSyncStatus() {
   const refresh = document.getElementById("syncRefreshBtn");
   if (refresh) refresh.addEventListener("click", () => refreshSyncStatus());
 
+  // Bulk direction buttons (Push All / Pull All) live above the file list.
+  const bulkBar = document.getElementById("syncBulkActions");
+  if (bulkBar) {
+    bulkBar.addEventListener("click", async (evt) => {
+      const btn = evt.target.closest(".sync-bulk-btn");
+      if (!btn) return;
+      const action = btn.dataset.action;
+      btn.disabled = true;
+      try {
+        if (action === "push-all") await actionPushAll();
+        else if (action === "pull-all") await actionPullAll();
+        await refreshSyncStatus();
+      } catch (err) {
+        termWrite(`[Sync] ${action} failed: ${err.message}\r\n`);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   // Event delegation for per-row action buttons.
   const body = document.getElementById("syncBody");
   if (body) {
@@ -752,6 +1110,7 @@ export function initSyncStatus() {
       try {
         if (action === "push") await actionPush(path);
         else if (action === "pull") await actionPull(path);
+        else if (action === "rename") await actionRename(path);
         else if (action === "delete") await actionDelete(path);
         else if (action === "pull-folder") await actionPullFolder(path);
         else if (action === "diff") {

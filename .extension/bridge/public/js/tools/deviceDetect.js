@@ -6,6 +6,9 @@
 import * as store from "../state/store.js";
 import { termWrite } from "../terminal/output.js";
 
+// Raspberry Pi Trading Ltd USB vendor ID used by official Pico boards.
+const RPI_USB_VENDOR_ID = 0x2e8a;
+
 // Known board signatures from REPL banners.
 //
 // IMPORTANT: ordering matters — first match wins, so the most specific
@@ -151,6 +154,7 @@ let detectionBuffer = "";
 let detectionTimeout = null;
 let spinnerInterval = null;
 let spinnerVisible = false;
+let detectionUsbInfo = null;
 
 const SPINNER_FRAMES = ["   ", ".  ", ".. ", "..."];
 const SPINNER_LABEL = "[Bridge] Detecting device";
@@ -183,6 +187,14 @@ function stopSpinner() {
     termWrite(`\r\x1b[K`);
     spinnerVisible = false;
   }
+}
+
+/**
+ * Provide connection metadata that can refine board detection.
+ * @param {{usbVendorId?: number, usbProductId?: number}|null} info
+ */
+export function setDetectionUsbInfo(info) {
+  detectionUsbInfo = info || null;
 }
 
 /**
@@ -299,7 +311,7 @@ export function parseDeviceInfo(text) {
       const dateMatch = text.match(/(\d{4}-\d{2}-\d{2})/);
       const buildDate = dateMatch ? dateMatch[1] : null;
 
-      return {
+      const detected = {
         board,
         variant,
         name,
@@ -307,10 +319,50 @@ export function parseDeviceInfo(text) {
         buildDate,
         raw: text.substring(0, 500), // Keep first 500 chars for debugging
       };
+
+      return normalizeDetectedBoard(detected, text);
     }
   }
 
   return null;
+}
+
+/**
+ * Avoid over-specific board labels when USB identity disagrees.
+ * Some generic RP2040 firmware can include "Raspberry Pi Pico" in the
+ * banner text. If USB vendor is not Raspberry Pi, classify as generic.
+ */
+function normalizeDetectedBoard(info, text) {
+  if (!info || info.variant !== "micropython") {
+    return info;
+  }
+
+  const board = String(info.board || "");
+  const usbVendorId = detectionUsbInfo?.usbVendorId;
+  const mentionsRp2040 = /RP2040/i.test(text);
+  // If the USB vendor is not Raspberry Pi and the banner mentions RP2040, always call it Generic RP2040
+  if (
+    usbVendorId != null &&
+    usbVendorId !== RPI_USB_VENDOR_ID &&
+    mentionsRp2040
+  ) {
+    return {
+      ...info,
+      board: "rp2040",
+      name: "Generic RP2040",
+    };
+  }
+  // If the board is not a known Pico family, leave as detected
+  const looksLikePicoFamily =
+    board === "pico" ||
+    board === "pico_w" ||
+    board === "pico2" ||
+    board === "pico2_w";
+  if (!looksLikePicoFamily) {
+    return info;
+  }
+  // If USB vendor is Raspberry Pi or unknown, keep as Pico
+  return info;
 }
 
 /**

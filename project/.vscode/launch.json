@@ -5,7 +5,7 @@
       "name": "MicroPython (Emulator)",
       "type": "debugpy",
       "request": "launch",
-      "program": "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.3.31/emulator/mock/runner.py",
+      "program": "/home/node/.vscode-remote/extensions/benpaddlejones.pico-bridge-2.3.33/emulator/mock/runner.py",
       "args": ["${file}"],
       "console": "integratedTerminal",
       "justMyCode": false,

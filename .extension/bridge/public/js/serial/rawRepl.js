@@ -32,58 +32,172 @@ export function computeWaitMs(codeBytes, payloadBytes = 0) {
   return WAIT_FLOOR_MS + txMs + procMs;
 }
 
+// --- Raw REPL protocol markers -------------------------------------------
+// Standard MicroPython raw REPL framing. After Ctrl-A the device prints the
+// banner; after Ctrl-D it replies `OK`, then stdout, then \x04, then any
+// traceback, then \x04>. We watch for these instead of sleeping blindly
+// (the approach Arduino's micropython.js uses). Every wait falls back to a
+// time budget so a device that drops a byte — or doesn't speak the exact
+// protocol — can never deadlock the UI.
+const RAW_REPL_BANNER = "raw REPL; CTRL-B to exit";
+const EXEC_END_MARKER = "\x04>";
+const BANNER_WAIT_MS = 500;
+
 /**
- * Send raw command to Pico via raw REPL mode
- * @param {string} code - Python code to execute
- * @param {number} waitMs - Wait time after execution. If omitted, a value
- *   is derived from the code length using computeWaitMs(). Pass an
- *   explicit number to override (e.g. when you know the device work is
- *   negligible and the default would be wasteful).
+ * Poll the capture buffer until `needle` appears or `hardCapMs` elapses.
+ * Falls back to a plain sleep when the store can't be peeked.
+ * @returns {Promise<boolean>} true if the needle was observed.
  */
-export async function sendRawCommand(code, waitMs) {
+async function waitForInCapture(needle, hardCapMs, pollMs = 20) {
+  if (!store.peekCapture) {
+    await sleep(hardCapMs);
+    return false;
+  }
+  const t0 = performance.now();
+  while (performance.now() - t0 < hardCapMs) {
+    const buf = store.peekCapture();
+    if (buf && buf.includes(needle)) return true;
+    await sleep(pollMs);
+  }
+  return false;
+}
+
+/**
+ * Parse a raw-REPL execution result frame.
+ * Frame shape: `OK<stdout>\x04<stderr>\x04>`.
+ * @param {string} buffer - capture buffer that contains the frame.
+ * @returns {{ok: boolean, stdout: string, stderr: string}}
+ */
+export function parseRawResult(buffer) {
+  const text = typeof buffer === "string" ? buffer : "";
+  const endIdx = text.lastIndexOf(EXEC_END_MARKER);
+  if (endIdx === -1) {
+    // No frame end seen (e.g. blind-sleep fallback path) — treat the whole
+    // buffer as stdout and assume success.
+    return { ok: true, stdout: text, stderr: "" };
+  }
+  const frame = text.slice(0, endIdx); // OK<stdout>\x04<stderr>
+  const sepIdx = frame.lastIndexOf("\x04");
+  const stderr = sepIdx === -1 ? "" : frame.slice(sepIdx + 1);
+  const body = sepIdx === -1 ? frame : frame.slice(0, sepIdx); // OK<stdout>
+  const okIdx = body.indexOf("OK");
+  const stdout = okIdx === -1 ? body : body.slice(okIdx + 2);
+  return { ok: stderr.trim() === "", stdout, stderr };
+}
+
+/**
+ * Core raw-REPL exec shared by {@link sendRawCommand} and
+ * {@link sendRawCommandUntilMarker}. Handles capture, the entry-banner
+ * handshake, chunked send, and completion detection (a caller marker and/or
+ * the device's `\x04>` frame end), all bounded by a hard time cap.
+ *
+ * @param {string} code - Python source to run.
+ * @param {{waitMs?: number, marker?: string, hardCap?: number}} [opts]
+ * @returns {Promise<{found: boolean, elapsedMs: number, output: string}>}
+ */
+async function rawExec(code, opts = {}) {
   const writer = store.getWriter();
   if (!writer) {
     throw new Error("Not connected to Pico");
   }
 
+  const { marker } = opts;
   const effectiveWait =
-    typeof waitMs === "number" ? waitMs : computeWaitMs(code.length);
+    typeof opts.waitMs === "number" ? opts.waitMs : computeWaitMs(code.length);
+  // For marker-bearing payloads keep the historical 3x headroom; otherwise
+  // the per-exec frame end (\x04>) arrives quickly, so the budget is just a
+  // safety net and need never exceed the old blind-sleep duration.
+  const hardCap =
+    typeof opts.hardCap === "number"
+      ? opts.hardCap
+      : marker
+        ? Math.max(2000, effectiveWait * 3)
+        : effectiveWait;
 
-  // Single Ctrl+C to interrupt any running code
-  await writer.write("\x03");
-  await sleep(50);
+  // Only manage capture if nobody upstream already is, so we never clobber
+  // an outer capture (e.g. sendRawCommandAndCapture).
+  const ownsCapture = !store.isCapturing();
+  if (ownsCapture) store.startCapture();
 
-  // Enter raw REPL mode: Ctrl+A
-  await writer.write("\x01");
-  await sleep(100);
-
-  // Send the code in chunks to avoid buffer issues. 256-byte chunks with
-  // a 2 ms gap give ~110 KB/s on the host side — well under the USB CDC
-  // FIFO size and within the Pico's parse rate.
-  const chunkSize = 256;
-  for (let i = 0; i < code.length; i += chunkSize) {
-    const chunk = code.slice(i, i + chunkSize);
-    await writer.write(chunk);
-    await sleep(2);
-  }
-
-  // Execute: Ctrl+D
-  await writer.write("\x04");
-
-  // Wait for execution to complete
-  await sleep(effectiveWait);
-
-  // Exit raw REPL: Ctrl+B
-  await writer.write("\x02");
-  await sleep(50);
-
-  // Friendly REPL doesn't redraw `>>>` until it sees a CR; without
-  // this, the cursor sits on a blank line until the user hits Enter.
+  const t0 = performance.now();
+  let found = false;
   try {
-    await writer.write("\r");
-  } catch (_e) {
-    /* connection may have closed mid-flight */
+    // Double Ctrl-C (CR first) reliably breaks a running loop before we
+    // enter raw mode — matches pyboard.py / Arduino micropython.js.
+    await writer.write("\r\x03\x03");
+    await sleep(50);
+
+    // Enter raw REPL (Ctrl-A) and wait for the device banner rather than a
+    // blind delay. Fall back to a short sleep if the banner never shows.
+    await writer.write("\x01");
+    const sawBanner = await waitForInCapture(RAW_REPL_BANNER, BANNER_WAIT_MS);
+    if (!sawBanner) await sleep(50);
+
+    // Stream the source in 256-byte chunks with a small inter-chunk gap —
+    // well under the USB CDC FIFO size and within the Pico's parse rate.
+    const chunkSize = 256;
+    for (let i = 0; i < code.length; i += chunkSize) {
+      await writer.write(code.slice(i, i + chunkSize));
+      await sleep(2);
+    }
+
+    // Execute: Ctrl+D
+    await writer.write("\x04");
+
+    // Completion: resolve as soon as the device prints the caller marker or
+    // closes the exec frame with `\x04>`, whichever lands first; the hard
+    // cap stops a stuck device hanging the UI.
+    if (store.peekCapture) {
+      const POLL_MS = 20;
+      while (performance.now() - t0 < hardCap) {
+        const buf = store.peekCapture();
+        if (buf) {
+          if (marker && buf.includes(marker)) {
+            found = true;
+            break;
+          }
+          if (buf.includes(EXEC_END_MARKER)) {
+            found = true;
+            break;
+          }
+        }
+        await sleep(POLL_MS);
+      }
+    } else {
+      // No peekable buffer — honour the blind wait budget.
+      await sleep(effectiveWait);
+    }
+
+    // Exit raw REPL (Ctrl+B), then nudge the friendly prompt to redraw.
+    await writer.write("\x02");
+    await sleep(20);
+    try {
+      await writer.write("\r");
+    } catch (_e) {
+      /* connection may have closed mid-flight */
+    }
+
+    const output = ownsCapture
+      ? store.stopCaptureAndGet()
+      : store.peekCapture
+        ? store.peekCapture()
+        : "";
+    return { found, elapsedMs: performance.now() - t0, output };
+  } finally {
+    if (ownsCapture && store.isCapturing()) store.stopCaptureAndGet();
   }
+}
+
+/**
+ * Send raw command to Pico via raw REPL mode.
+ * @param {string} code - Python code to execute.
+ * @param {number} [waitMs] - Optional hard upper bound on the completion
+ *   wait. If omitted, a value is derived from the code length via
+ *   computeWaitMs(); execution still returns early as soon as the device
+ *   closes the exec frame (`\x04>`).
+ */
+export async function sendRawCommand(code, waitMs) {
+  await rawExec(code, { waitMs });
 }
 
 /**
@@ -144,87 +258,17 @@ export function newMarker(tag = "DONE") {
  * @returns {Promise<{found: boolean, elapsedMs: number, output: string}>}
  */
 export async function sendRawCommandUntilMarker(code, marker, maxWaitMs) {
-  const writer = store.getWriter();
-  if (!writer) {
-    throw new Error("Not connected to Pico");
-  }
   if (!marker || typeof marker !== "string") {
     throw new Error("sendRawCommandUntilMarker: marker is required");
   }
 
-  // Hard upper bound: 3x the payload-aware estimate, never less than 2 s.
-  const hardCap =
-    typeof maxWaitMs === "number"
-      ? maxWaitMs
-      : Math.max(2000, computeWaitMs(code.length) * 3);
-
-  // Poll interval: short enough to feel instant on small files, long
-  // enough to keep CPU wake noise off the UI thread.
-  const POLL_MS = 20;
-
+  // Hide the raw REPL chatter (markers, OK acks) from the user terminal for
+  // the duration; restored even if rawExec throws.
   const wasSilent = store.isSilentMode();
   store.setSilentMode(true);
-  store.startCapture();
-  const t0 = performance.now();
-  let found = false;
-
   try {
-    // Single Ctrl+C to interrupt any running code, then enter raw REPL.
-    await writer.write("\x03");
-    await sleep(50);
-    await writer.write("\x01");
-    await sleep(100);
-
-    // Send the code (same chunking as sendRawCommand).
-    const chunkSize = 256;
-    for (let i = 0; i < code.length; i += chunkSize) {
-      const chunk = code.slice(i, i + chunkSize);
-      await writer.write(chunk);
-      await sleep(2);
-    }
-
-    // Execute: Ctrl+D
-    await writer.write("\x04");
-
-    // Poll the capture buffer for the marker.
-    while (performance.now() - t0 < hardCap) {
-      // Peek without consuming so other code paths can also see it.
-      const buf = store.peekCapture ? store.peekCapture() : null;
-      if (buf && buf.includes(marker)) {
-        found = true;
-        break;
-      }
-      // Fallback for older store versions: stop+restart capture is
-      // destructive, so only use it if peekCapture isn't available.
-      if (!store.peekCapture) {
-        // Should not happen post-2.1.11; here as a defensive guard.
-        const snapshot = store.stopCaptureAndGet();
-        if (snapshot.includes(marker)) {
-          store.startCapture();
-          store.appendCapture(snapshot); // restore so callers see it
-          found = true;
-          break;
-        }
-        store.startCapture();
-        store.appendCapture(snapshot);
-      }
-      await sleep(POLL_MS);
-    }
-
-    // Exit raw REPL: Ctrl+B
-    await writer.write("\x02");
-    await sleep(20);
-    // Nudge friendly REPL into redrawing its `>>>` prompt.
-    try {
-      await writer.write("\r");
-    } catch (_e) {
-      /* connection may have closed mid-flight */
-    }
-
-    const output = store.stopCaptureAndGet();
-    return { found, elapsedMs: performance.now() - t0, output };
+    return await rawExec(code, { marker, hardCap: maxWaitMs });
   } finally {
-    if (store.isCapturing()) store.stopCaptureAndGet();
     store.setSilentMode(wasSilent);
   }
 }
