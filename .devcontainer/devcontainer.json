@@ -1,6 +1,6 @@
 {
   "name": "Pico Bridge Extension Dev",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bullseye",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -9,7 +9,8 @@
         "github.vscode-pull-request-github",
         "ms-vscode.extension-test-runner",
         "streetsidesoftware.code-spell-checker",
-        "streetsidesoftware.code-spell-checker-british-english"
+        "streetsidesoftware.code-spell-checker-british-english",
+        "yusifaliyevpro.vscicons"
       ]
     }
   },
