@@ -1,6 +1,6 @@
 # Pi Pico to Codespaces Bridge
 
-[![Version](https://img.shields.io/badge/Version-2.3.40-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.3.41-green)](CHANGELOG.md)
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/items?itemName=pico-bridge.pico-bridge)
 [![MicroPython](https://img.shields.io/badge/MicroPython-1.20%2B-00b2a9?logo=python&logoColor=white)](https://micropython.org/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Pico%20Ready-c51a4a?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/documentation/microcontrollers/)

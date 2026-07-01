@@ -233,10 +233,22 @@ io.on("connection", (socket) => {
 
   // Data from Pico (via browser) -> PTY (for mpremote in Codespace)
   let warnedReadOnly = false;
+  // Cap a single serial payload well under the socket's maxHttpBufferSize so a
+  // buggy/hostile client cannot flood the PTY in one message.
+  const MAX_SERIAL_CHUNK = 64 * 1024;
   socket.on(
     "serial-data",
     errorHandler.safeSocketHandler((data) => {
       processGuard.recordActivity();
+
+      // Validate at the boundary: only forward reasonably-sized strings to the
+      // PTY. Non-string/oversized payloads are dropped rather than trusted.
+      if (typeof data !== "string" || data.length === 0) {
+        return;
+      }
+      if (data.length > MAX_SERIAL_CHUNK) {
+        data = data.slice(0, MAX_SERIAL_CHUNK);
+      }
 
       // Enforce a single active writer. The first tab to send claims control;
       // any other tab's writes are dropped (read-only) to avoid garbling the

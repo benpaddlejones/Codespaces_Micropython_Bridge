@@ -4,6 +4,13 @@ All notable changes to the Pi Pico to Codespaces Bridge extension.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.41] - 2026-07-01
+
+- **Fixed**: Cancelling the browser's serial port picker no longer shows a red "Error" state — it now reports a friendly "Connection cancelled" message.
+- **Fixed**: Unplugging or resetting the device mid-session no longer produces uncaught `NetworkError` / `UnknownError` promise rejections; the read and write stream pipes are now caught and routed through a single cleanup path.
+- **Fixed**: Disconnecting after a device was lost no longer throws "reader has been released" — teardown steps are individually guarded and idempotent, so the UI resets cleanly and reconnection works.
+- **Security**: The `serial-data` socket handler now validates input at the boundary — non-string/empty payloads are dropped and a single chunk is capped at 64 KB to prevent flooding the shared REPL.
+
 ## [2.3.40] - 2026-05-30
 
 - **Performance**: Project Files panel now paints its styled shell instantly on load, with a "Loading project…" placeholder shown until the file tree is ready — no more waiting for the panel to appear after everything else.
