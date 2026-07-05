@@ -37,6 +37,52 @@ def open_log_file():
         return None
 
 
+def format_timestamp():
+    """Format the current time as a human-readable string."""
+    timestamp = utime.localtime() if hasattr(utime, "localtime") else None
+    if not timestamp:
+        return "UNKNOWN-TIME"
+    return "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
+        timestamp[0],
+        timestamp[1],
+        timestamp[2],
+        timestamp[3],
+        timestamp[4],
+        timestamp[5],
+    )
+
+
+def replay_and_clear_log():
+    """
+    Print any crash logged by an earlier unattended run, then clear the log.
+
+    main.py runs the moment the board gets USB power - before the student
+    has connected a terminal - so a crash in that boot run is invisible.
+    log_exception() preserves it in the log file; this function delivers
+    it on the next run and re-arms the mailbox by truncating the file.
+    """
+    try:
+        with open(config.LOG_FILE, "r") as log_file:
+            content = log_file.read()
+    except OSError:
+        return  # No log file yet - nothing to replay
+
+    if not content.strip():
+        return
+
+    print("--- A previous run crashed before you connected ---")
+    print(content.rstrip())
+    print("--- End of previous crash log ---")
+
+    # The error has been delivered - clear it so the next boot crash
+    # can be captured (log_exception only writes to an empty log).
+    try:
+        with open(config.LOG_FILE, "w"):
+            pass
+    except OSError:
+        pass
+
+
 def log_exception(
     title, error, trace_text, location_override=None, get_error_location=None
 ):
@@ -55,20 +101,7 @@ def log_exception(
         return
 
     try:
-        # Get timestamp
-        timestamp = utime.localtime() if hasattr(utime, "localtime") else None
-        stamp = (
-            "{}-{}-{} {}:{}:{}".format(
-                timestamp[0],
-                timestamp[1],
-                timestamp[2],
-                timestamp[3],
-                timestamp[4],
-                timestamp[5],
-            )
-            if timestamp
-            else "UNKNOWN-TIME"
-        )
+        stamp = format_timestamp()
 
         # Get location
         if location_override:

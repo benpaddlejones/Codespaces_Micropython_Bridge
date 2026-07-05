@@ -39,6 +39,7 @@ import {
   getAllBoards,
   getFirmwareInfo,
 } from "./tools/firmware.js";
+import { scanI2cDevices } from "./tools/i2cScan.js";
 import {
   enterBootloader,
   hardReset,
@@ -363,6 +364,9 @@ function setupToolListeners() {
   addListener("refreshFilesBtn", "click", () => {
     loadWorkspaceFiles();
   });
+
+  // I2C device scan
+  addListener("i2cScanBtn", "click", scanI2cDevices);
 
   // Run file
   addListener("runFileBtn", "click", () => {

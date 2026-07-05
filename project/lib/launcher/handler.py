@@ -4,36 +4,50 @@ Main exception handling and reporting.
 """
 
 import sys
-import utime
 
-import config
-from .errors import get_guidance
+from .errors import get_guidance, get_errno_hint
 from .files import print_available_files
 from . import traceback as tb
 from .context import print_code_context, get_error_location
-from .logging import log_exception
+from .logging import log_exception, format_timestamp
+
+
+def _format_error_message(error):
+    """Return the exception's own message text, or None if it has none."""
+    try:
+        text = str(error)
+    except Exception:
+        return None
+    text = text.strip()
+    return text or None
 
 
 def handle_exception(title, error):
     """
     Handle and report an exception with full context.
 
+    Output order is deliberately "concrete first, advice second":
+    the error message and location, then the code context, then the
+    guidance, then the traceback.
+
     Args:
         title: Error type title (e.g., "IMPORT ERROR")
         error: The exception
     """
-    print(title)
+    # 1. Title plus MicroPython's own message - the most specific clue the
+    # student gets, so it must lead rather than hide inside the traceback.
+    message = _format_error_message(error)
+    if message:
+        print("{}: {}".format(title, message))
+    else:
+        print(title)
 
-    # Print guidance messages
-    messages = get_guidance(title)
-    for line in messages:
-        print(line)
+    # Translate bare errno codes ("OSError: 5") into plain English.
+    errno_hint = get_errno_hint(error)
+    if errno_hint:
+        print(errno_hint)
 
-    # Show available files for import errors
-    if title == "IMPORT ERROR":
-        print_available_files()
-
-    # Get error location
+    # 2. Resolve the error location.
     filename, line_no = get_error_location(error, tb)
 
     # Capture traceback
@@ -72,23 +86,28 @@ def handle_exception(title, error):
     if filename or line_no:
         print("Location: {}:{}".format(filename or "unknown", line_no or "?"))
 
-    # Print timestamp
-    print(
-        "Timestamp: {}".format(
-            utime.localtime() if hasattr(utime, "localtime") else "unknown"
-        )
-    )
-
-    # Print code context
+    # 3. Code context - show the student their own code.
     print_code_context(
         error, tb, override_location=(filename, line_no), trace_frames=trace_frames
     )
 
-    # Print traceback
-    print("--- Traceback ---")
-    sys.stdout.write(trace_text)
+    # 4. Guidance - what this error type means and what to do next.
+    for line in get_guidance(title):
+        print(line)
 
-    # Log exception
+    # Show available files for import errors
+    if title == "IMPORT ERROR":
+        print_available_files()
+
+    # 5. Traceback, with launcher/main.py frames filtered out so the
+    # student's own call chain is what they read.
+    print("--- Traceback ---")
+    sys.stdout.write(tb.filter_launcher_frames(trace_text))
+
+    # 6. Timestamp (shared formatter with the log file).
+    print("Timestamp: {}".format(format_timestamp()))
+
+    # Log exception (full, unfiltered traceback for forensics)
     log_exception(
         title,
         error,

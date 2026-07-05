@@ -19,6 +19,7 @@ const TOOL_BUTTONS = [
   { id: "hardResetBtn", label: "⚡ Hard" },
   { id: "bootloaderBtn", label: "💾 Boot" },
   { id: "deleteAllBtn", label: "🗑️ Wipe" },
+  { id: "i2cScanBtn", label: "🔍 I2C" },
 ];
 
 /**

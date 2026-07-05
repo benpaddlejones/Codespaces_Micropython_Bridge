@@ -1059,6 +1059,24 @@ export function openSyncPanel() {
 }
 
 /**
+ * Clear the cached device listing and reset the Device Files panel.
+ * Called on disconnect: the snapshot describes a device that is no
+ * longer connected, so keeping it on screen is misleading.
+ */
+export function clearSyncStatus() {
+  cachedStatus = null;
+  if (scheduledTimer) {
+    clearTimeout(scheduledTimer);
+    scheduledTimer = null;
+  }
+  renderStatusPanel();
+  const body = document.getElementById("syncBody");
+  if (body) {
+    body.innerHTML = `<div class="sync-empty">Device disconnected. Connect and click <strong>Refresh</strong> to list device files.</div>`;
+  }
+}
+
+/**
  * Whether the last sync detected a top-level `lib/` folder in the
  * workspace project. `null` means "we haven't checked yet" — callers
  * should treat that as "don't disable" so the UI doesn't lock buttons

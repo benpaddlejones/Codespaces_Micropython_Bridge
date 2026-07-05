@@ -4,6 +4,18 @@ All notable changes to the Pi Pico to Codespaces Bridge extension.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.43] - 2026-07-05
+
+- **Added**: 🔍 I2C scan button — probes every documented I2C pin pair for the detected board (Pico/ESP32 families), reports each device address with a best-guess identification (30+ known sensors/displays), shows live per-pair progress, and flags floating buses with missing pull-ups.
+- **Fixed**: Disconnecting now fully releases the serial port (stream pipes are awaited before closing), so you can reconnect immediately without power-cycling the device.
+- **Fixed**: The Device Files panel clears when the device disconnects, instead of showing a stale listing from a board that is no longer connected.
+- **Fixed**: Bridge server reliability — the extension auto-restarts the server if it crashes (or after the web UI's Restart button), force-kills a hung stop after 5 seconds, and PTY/socat recovery no longer runs competing reconnect loops.
+- **Changed**: The browser UI relies on Socket.io's built-in exponential-backoff reconnection instead of a manual retry loop that hammered the Codespaces proxy.
+- **Changed**: Launcher error reports are now student-first — the real error message leads (`NAME ERROR: name 'led' isn't defined`), followed by location, highlighted code context, guidance, and a traceback without launcher frames; timestamps are human-readable.
+- **Added**: Bare `OSError` codes are translated to plain English (e.g. `Errno 5 (EIO): Hardware input/output failed - check wiring, power and connections.`), and `AttributeError`, `IndexError`, `KeyError`, `ZeroDivisionError` and `MemoryError` now have their own guidance.
+- **Fixed**: Error locations are accurate — errors inside functions point at the failing line (deepest frame), and an `OSError` errno is never misread as a line number.
+- **Added**: Crashes from unattended boot runs (before you connect) are replayed on the next run from the on-device `error_log.txt`, which then clears itself.
+
 ## [2.3.41] - 2026-07-01
 
 - **Fixed**: Cancelling the browser's serial port picker no longer shows a red "Error" state — it now reports a friendly "Connection cancelled" message.

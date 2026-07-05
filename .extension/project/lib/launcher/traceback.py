@@ -21,11 +21,17 @@ def get_traceback_location(error):
     """
     Extract filename and line number from exception traceback.
 
+    Returns the DEEPEST non-launcher frame - the line where the error
+    actually happened - not the outermost call site. For an error inside
+    a function, students must be pointed at the failing line in the
+    function body, not at the line that called it.
+
     Returns:
         tuple: (filename, line_number) or (None, None)
     """
     current = getattr(error, "__traceback__", None)
     fallback = (None, None)
+    best = None
 
     while current:
         frame = getattr(current, "tb_frame", None)
@@ -36,13 +42,13 @@ def get_traceback_location(error):
 
         if isinstance(potential_filename, str):
             fallback = (potential_filename, current.tb_lineno)
-            # Skip launcher file
+            # Skip launcher file; keep the deepest remaining frame.
             if not LAUNCHER_FILENAME or potential_filename != LAUNCHER_FILENAME:
-                return fallback
+                best = fallback
 
         current = current.tb_next
 
-    return fallback
+    return best if best else fallback
 
 
 def parse_location_from_args(error):
@@ -74,6 +80,11 @@ def parse_location_from_args(error):
                 return arg[1][0], arg[1][1]
 
         if isinstance(arg, int):
+            # A bare int arg is only a line number for syntax-style errors.
+            # For OSError it is an errno (e.g. OSError(5)) - treating it as
+            # a line number fabricates a bogus "line 5" location.
+            if isinstance(error, OSError):
+                continue
             return None, arg
 
     return None, None
@@ -172,3 +183,54 @@ def parse_location_from_trace_text(trace_text):
     if frames:
         return frames[-1]
     return None, None
+
+
+def _is_launcher_frame(filename):
+    """Return True if a frame filename belongs to the launcher plumbing."""
+    if not filename:
+        return False
+    if LAUNCHER_FILENAME and filename == LAUNCHER_FILENAME:
+        return True
+    if "lib/launcher/" in filename:
+        return True
+    return filename in ("main.py", "/main.py")
+
+
+def filter_launcher_frames(trace_text):
+    """
+    Remove launcher/main.py frames from a traceback for display, so the
+    student reads their own call chain instead of the launcher plumbing.
+
+    The full unfiltered traceback is still written to the error log. If
+    filtering would remove every frame (an error inside the launcher
+    itself), the original text is returned unchanged.
+    """
+    if not trace_text:
+        return trace_text
+
+    lines = trace_text.splitlines()
+    kept = []
+    kept_a_frame = False
+    skipping = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('File "'):
+            start = stripped.find('"') + 1
+            end = stripped.find('"', start)
+            frame_file = stripped[start:end] if end > start else None
+            skipping = _is_launcher_frame(frame_file)
+            if skipping:
+                continue
+            kept_a_frame = True
+        elif skipping and (line.startswith("    ") or line.startswith("\t")):
+            # Source-echo line belonging to a skipped frame.
+            continue
+        else:
+            skipping = False
+        kept.append(line)
+
+    if not kept_a_frame:
+        return trace_text
+
+    return "\n".join(kept) + ("\n" if trace_text.endswith("\n") else "")

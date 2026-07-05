@@ -105,6 +105,8 @@ export class BridgeServer implements vscode.Disposable {
   private _isStopping: boolean = false;
   private _port: number;
   private _startTime: Date | undefined;
+  private restartAttempts: number = 0;
+  private restartTimer: NodeJS.Timeout | undefined;
   private readonly logger: Logger;
   private readonly statusBarItem: vscode.StatusBarItem;
   private readonly context: vscode.ExtensionContext;
@@ -264,11 +266,24 @@ export class BridgeServer implements vscode.Disposable {
         this.logger.info(
           `Server process exited with code ${code}, signal ${signal}`,
         );
+        const wasRunning = this._isRunning;
+        const uptimeMs = this._startTime
+          ? Date.now() - this._startTime.getTime()
+          : 0;
         this._isRunning = false;
         this._startTime = undefined;
         this.updateStatusBar();
         this.updateContext();
         this._onStatusChange.fire(this.status);
+
+        // Auto-restart on unexpected exit. The extension is the server's
+        // supervisor: the bridge's own /api/restart endpoint exits with
+        // code 0 and *expects* a process manager to bring it back, and a
+        // crash should not leave the bridge (and the browser UI on port
+        // 3000) permanently dead.
+        if (wasRunning && !this._isStopping && !this.disposed) {
+          this.scheduleRestart(uptimeMs);
+        }
       });
 
       // Handle process error
@@ -333,6 +348,13 @@ export class BridgeServer implements vscode.Disposable {
    * before force-killing the process with `SIGKILL`.
    */
   async stop(): Promise<void> {
+    // Cancel any pending auto-restart: an explicit stop is intentional.
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = undefined;
+    }
+    this.restartAttempts = 0;
+
     if (!this._isRunning || !this.serverProcess) {
       this.logger.info("Bridge server is not running");
       return;
@@ -353,11 +375,14 @@ export class BridgeServer implements vscode.Disposable {
       // Send SIGTERM to gracefully stop
       processToKill.kill("SIGTERM");
 
-      // Wait for process to exit
+      // Wait for process to exit. NOTE: `ChildProcess.killed` only means "a
+      // signal was sent", not "the process exited", so we track actual exit
+      // ourselves to decide whether the SIGKILL escalation is needed.
       await new Promise<void>((resolve) => {
+        let exited = false;
         const timeout = setTimeout(() => {
           // Force kill if not stopped after 5 seconds
-          if (processToKill && !processToKill.killed) {
+          if (!exited) {
             this.logger.warn("Force killing server process...");
             processToKill.kill("SIGKILL");
           }
@@ -365,6 +390,7 @@ export class BridgeServer implements vscode.Disposable {
         }, 5000);
 
         processToKill.once("exit", () => {
+          exited = true;
           clearTimeout(timeout);
           resolve();
         });
@@ -542,6 +568,57 @@ export class BridgeServer implements vscode.Disposable {
   }
 
   /**
+   * Schedule an automatic restart after the server process exits
+   * unexpectedly (crash, OOM kill, or the bridge's own /api/restart
+   * endpoint, which exits and relies on a supervisor to relaunch it).
+   *
+   * Uses linear backoff and gives up after a few rapid failures so a
+   * genuinely broken server does not restart-loop forever. A server that
+   * ran stably for over a minute resets the failure counter.
+   *
+   * @param uptimeMs - How long the process ran before exiting
+   */
+  private scheduleRestart(uptimeMs: number): void {
+    const MAX_RESTART_ATTEMPTS = 3;
+    const RESTART_BASE_DELAY = 2000;
+    const STABLE_UPTIME_MS = 60000;
+
+    // A long healthy run means this is a fresh failure, not a crash loop.
+    if (uptimeMs > STABLE_UPTIME_MS) {
+      this.restartAttempts = 0;
+    }
+
+    if (this.restartAttempts >= MAX_RESTART_ATTEMPTS) {
+      this.logger.error(
+        `Bridge server crashed ${MAX_RESTART_ATTEMPTS} times in quick succession - not restarting automatically`,
+      );
+      this.updateStatusBar("error");
+      vscode.window.showErrorMessage(
+        "Pico Bridge server keeps crashing. Check the output log, then start it manually.",
+      );
+      return;
+    }
+
+    this.restartAttempts++;
+    const delay = RESTART_BASE_DELAY * this.restartAttempts;
+    this.logger.warn(
+      `Bridge server exited unexpectedly - restarting in ${delay}ms (attempt ${this.restartAttempts}/${MAX_RESTART_ATTEMPTS})`,
+    );
+    this.updateStatusBar("starting");
+
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = undefined;
+      if (this.disposed || this._isRunning || this._isStopping) {
+        return;
+      }
+      this.serverProcess = undefined;
+      this.start().catch((err) => {
+        this.logger.error(`Automatic restart failed: ${err}`);
+      });
+    }, delay);
+  }
+
+  /**
    * Dispose all resources owned by this instance.
    *
    * Force-kills the server process if it is still running and
@@ -552,6 +629,12 @@ export class BridgeServer implements vscode.Disposable {
       return;
     }
     this.disposed = true;
+
+    // Cancel any pending auto-restart
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = undefined;
+    }
 
     // Synchronously kill the process if running
     if (this.serverProcess && !this.serverProcess.killed) {

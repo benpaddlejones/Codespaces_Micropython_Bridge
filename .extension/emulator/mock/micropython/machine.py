@@ -534,20 +534,25 @@ class SoftI2C(I2C):
 
     def __init__(
         self,
-        *,
         scl: Pin,
         sda: Pin,
+        *,
         freq: int = 400000,
+        timeout: int = 50000,
     ) -> None:
         """Create a software (bit-banged) I2C bus.
 
-        Mirrors `machine.SoftI2C` from MicroPython.
+        Mirrors `machine.SoftI2C` from MicroPython: `scl` and `sda` are
+        positional-or-keyword, and `timeout` is the maximum clock-stretch
+        wait in microseconds.
 
         Args:
             scl: Pin used for the clock line.
             sda: Pin used for the data line.
             freq: Target SCL frequency in Hz.
+            timeout: Clock-stretch timeout in microseconds.
         """
+        self._timeout = timeout
         super().__init__(0, scl=scl, sda=sda, freq=freq)
 
 

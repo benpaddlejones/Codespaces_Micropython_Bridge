@@ -16,7 +16,17 @@ let socket = null;
 export function initSocket() {
   if (socket) return socket;
 
-  socket = io();
+  // Rely on Socket.io's built-in reconnection (exponential backoff with
+  // jitter). Through the Codespaces HTTPS proxy the tunnel can drop on
+  // idle/network blips, so retry forever but cap the backoff at 10s to
+  // reconnect promptly without hammering the proxy.
+  socket = io({
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 10000,
+    timeout: 20000,
+  });
 
   // Connection events
   socket.on("connect", () => {
@@ -38,6 +48,14 @@ export function initSocket() {
     console.log("Socket.io connection error");
     store.setServerConnected(false);
     updateServerStatusUI(false);
+  });
+
+  // Log reconnection progress for diagnostics
+  socket.io.on("reconnect_attempt", (attempt) => {
+    console.log(`Socket.io reconnect attempt ${attempt}...`);
+  });
+  socket.io.on("reconnect", (attempt) => {
+    console.log(`Socket.io reconnected after ${attempt} attempt(s)`);
   });
 
   // Serial data from server (from mpremote/tools)
@@ -67,13 +85,9 @@ export function initSocket() {
   // Initial status check
   updateServerStatusUI(socket.connected);
 
-  // Auto-reconnect attempt every 5 seconds when disconnected
-  setInterval(() => {
-    if (!socket.connected) {
-      console.log("Attempting to reconnect to server...");
-      socket.connect();
-    }
-  }, 5000);
+  // NOTE: Socket.io's built-in reconnection handles retries. Do not add a
+  // manual reconnect interval here - calling socket.connect() on a timer
+  // resets the backoff and floods the Codespaces proxy with handshakes.
 
   return socket;
 }
@@ -139,11 +153,13 @@ export async function restartServer() {
   // Show helpful message
   alert(
     "Server Restart\n\n" +
-      "If the server doesn't reconnect automatically:\n\n" +
-      "1. Open VS Code terminal\n" +
-      "2. Run: bash .devcontainer/start-bridge.sh\n\n" +
-      "Or use the Command Palette (Ctrl+Shift+P):\n" +
-      "Tasks: Run Task → Start Pico Bridge",
+      "The server will restart automatically (the VS Code extension " +
+      "supervises it).\n\n" +
+      "If it doesn't reconnect within a few seconds:\n\n" +
+      "1. Go back to VS Code\n" +
+      "2. Click the 'Pico Bridge' item in the status bar, or run\n" +
+      "   'Pico Bridge: Start Server' from the Command Palette " +
+      "(Ctrl+Shift+P)",
   );
 }
 

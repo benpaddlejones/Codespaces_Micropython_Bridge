@@ -9,15 +9,7 @@ import config
 
 
 def list_directory(path):
-    """List directory contents, returning None on error.
-
-    Args:
-        path: Filesystem path to list.
-
-    Returns:
-        list[str] or None: Sorted list of entry names, or None if the
-            directory cannot be read.
-    """
+    """List directory contents, returning None on error."""
     try:
         return sorted(uos.listdir(path))
     except OSError:

@@ -19,6 +19,7 @@ Configuration is in config.py (next to main.py)
 import config
 from . import traceback as tb
 from .handler import handle_exception
+from .logging import replay_and_clear_log
 
 
 def run():
@@ -29,15 +30,12 @@ def run():
     """
     import sys
     from machine import Pin
-    import micropython
 
-    # Validate config values early to give clear errors
-    if not isinstance(config.FILE_NAME, str) or not config.FILE_NAME:
-        raise ValueError("config.FILE_NAME must be a non-empty string")
-    if not isinstance(config.STOP_PIN_NUMBER, int):
-        raise TypeError("config.STOP_PIN_NUMBER must be an integer")
-    if not isinstance(config.CONTEXT_RADIUS, int) or config.CONTEXT_RADIUS < 0:
-        raise ValueError("config.CONTEXT_RADIUS must be a non-negative integer")
+    # Deliver any crash logged by a previous unattended run (the boot run
+    # fires before the student can connect), then clear it. If this run is
+    # attended, the student finally sees why the board "did nothing"; if it
+    # is another unattended boot, the log is re-armed for this run's crash.
+    replay_and_clear_log()
 
     # Set launcher filename for traceback filtering
     if "__file__" in globals():
@@ -46,32 +44,16 @@ def run():
     # Add script directory to path
     sys.path.append(config.SCRIPT_DIRECTORY)
 
-    # Setup stop pin interrupt.
-    # Raising exceptions directly in an IRQ handler is unsafe on real
-    # MicroPython (limited stack, potential state corruption).  Instead,
-    # use micropython.schedule() to defer the raise to a safe context.
+    # Setup stop pin interrupt
+    # NOTE: Raising an exception inside an IRQ handler is not guaranteed to
+    # propagate to the main thread on all MicroPython ports - verify on
+    # hardware; micropython.schedule() is the portable alternative.
     stop_pin = Pin(config.STOP_PIN_NUMBER, Pin.IN, Pin.PULL_UP)
 
-    def _raise_keyboard_interrupt(_):
-        """Scheduled helper that raises KeyboardInterrupt in a safe context."""
+    def callback(stop_pin):
         raise KeyboardInterrupt("Stop pin button pressed")
 
-    def callback(stop_pin):
-        """IRQ handler that defers the KeyboardInterrupt via micropython.schedule."""
-        micropython.schedule(_raise_keyboard_interrupt, None)
-
     stop_pin.irq(trigger=Pin.IRQ_FALLING, handler=callback)
-
-    # Error type to title mapping
-    _ERROR_TITLES = {
-        ImportError: "IMPORT ERROR",
-        NameError: "NAME ERROR",
-        SyntaxError: "SYNTAX ERROR",
-        TypeError: "TYPE ERROR",
-        ValueError: "VALUE ERROR",
-        OSError: "OS ERROR",
-        RuntimeError: "RUNTIME ERROR",
-    }
 
     # Run the script with exception handling
     try:
@@ -80,9 +62,32 @@ def run():
         __import__(config.FILE_NAME)
     except KeyboardInterrupt:
         print("KEYBOARD INTERRUPT")
+    except ImportError as e:
+        handle_exception("IMPORT ERROR", e)
+    except NameError as e:
+        handle_exception("NAME ERROR", e)
+    except SyntaxError as e:
+        handle_exception("SYNTAX ERROR", e)
+    except AttributeError as e:
+        handle_exception("ATTRIBUTE ERROR", e)
+    except IndexError as e:
+        handle_exception("INDEX ERROR", e)
+    except KeyError as e:
+        handle_exception("KEY ERROR", e)
+    except ZeroDivisionError as e:
+        handle_exception("ZERO DIVISION ERROR", e)
+    except TypeError as e:
+        handle_exception("TYPE ERROR", e)
+    except ValueError as e:
+        handle_exception("VALUE ERROR", e)
+    except MemoryError as e:
+        handle_exception("MEMORY ERROR", e)
+    except OSError as e:
+        handle_exception("OS ERROR", e)
+    except RuntimeError as e:
+        handle_exception("RUNTIME ERROR", e)
     except Exception as e:
-        title = _ERROR_TITLES.get(type(e), "UNEXPECTED ERROR")
-        handle_exception(title, e)
+        handle_exception("UNEXPECTED ERROR", e)
 
 
 # Export main components

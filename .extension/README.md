@@ -1,6 +1,6 @@
 # Pi Pico to Codespaces Bridge
 
-[![Version](https://img.shields.io/badge/Version-2.3.41-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.3.43-green)](https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/blob/main/.extension/CHANGELOG.md)
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/items?itemName=pico-bridge.pico-bridge)
 [![MicroPython](https://img.shields.io/badge/MicroPython-1.20%2B-00b2a9?logo=python&logoColor=white)](https://micropython.org/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Pico%20Ready-c51a4a?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/documentation/microcontrollers/)
@@ -34,15 +34,15 @@ Code entirely in the cloud and push updates to your Pi Pico in real time. This b
 
 ### MicroPython Emulator
 
-![MicroPython Emulator demo](media/emulator.gif)
+![MicroPython Emulator demo](https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/raw/main/.extension/media/emulator.gif)
 
 ### REPL Terminal
 
-![REPL Terminal demo](media/terminal.gif)
+![REPL Terminal demo](https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/raw/main/.extension/media/terminal.gif)
 
 ### File Upload
 
-![File Upload demo](media/upload.gif)
+![File Upload demo](https://github.com/benpaddlejones/Codespaces_Micropython_Bridge/raw/main/.extension/media/upload.gif)
 
 ## 📋 Requirements
 

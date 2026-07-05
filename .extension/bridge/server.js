@@ -370,7 +370,10 @@ async function initializePtyWithRecovery(retryCount = 0) {
           retryCount + 1
         }/${MAX_RETRIES})`,
       );
-      setTimeout(() => initializePtyWithRecovery(retryCount + 1), RETRY_DELAY);
+      // Await the retry chain so callers (startup, health-monitor heal) only
+      // resolve once recovery has genuinely finished or given up.
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+      return initializePtyWithRecovery(retryCount + 1);
     } else {
       console.log(
         "[server] PTY bridge failed after retries - running without PTY forwarding",
@@ -385,7 +388,16 @@ async function initializePtyWithRecovery(retryCount = 0) {
 // =============================================================================
 
 // Configure health monitoring with PTY recovery
+let ptyRecoveryInProgress = false;
 healthMonitor.onHeal("onPtyFailure", async (ptyStatus) => {
+  // A recovery cycle (shutdown + up to 3 retries x 5s) can outlast the 15s
+  // health-check interval; without this guard, overlapping heals repeatedly
+  // tear down socat mid-recovery and the PTY never stabilises.
+  if (ptyRecoveryInProgress) {
+    console.log("[server] PTY recovery already in progress - skipping");
+    return;
+  }
+  ptyRecoveryInProgress = true;
   console.log("[server] Health monitor triggered PTY recovery");
   try {
     ptyBridge.shutdown();
@@ -393,6 +405,8 @@ healthMonitor.onHeal("onPtyFailure", async (ptyStatus) => {
     await initializePtyWithRecovery();
   } catch (err) {
     errorHandler.logError("PTY_RECOVERY", err);
+  } finally {
+    ptyRecoveryInProgress = false;
   }
 });
 
@@ -477,32 +491,36 @@ async function startServer() {
     console.log("[server] Server is ready for connections");
     console.log("=".repeat(60));
   });
-
-  // Handle server errors
-  let serverRetryCount = 0;
-  const MAX_SERVER_RETRIES = 3;
-
-  server.on("error", (err) => {
-    errorHandler.logError("SERVER_ERROR", err);
-
-    if (err.code === "EADDRINUSE") {
-      serverRetryCount++;
-      if (serverRetryCount <= MAX_SERVER_RETRIES) {
-        console.log(
-          `[server] Port ${actualPort} in use - retry ${serverRetryCount}/${MAX_SERVER_RETRIES}...`,
-        );
-        setTimeout(() => {
-          server.close();
-          startServer();
-        }, 5000);
-      } else {
-        console.error(
-          `[server] Port ${actualPort} still in use after ${MAX_SERVER_RETRIES} retries - giving up`,
-        );
-      }
-    }
-  });
 }
+
+// Handle server errors. Registered ONCE at module scope: startServer() is
+// re-entered on retry, so registering inside it would stack a fresh listener
+// (each with its own retry counter) on every attempt - one error event would
+// then schedule multiple compounding retries.
+let serverRetryCount = 0;
+const MAX_SERVER_RETRIES = 3;
+
+server.on("error", (err) => {
+  errorHandler.logError("SERVER_ERROR", err);
+
+  if (err.code === "EADDRINUSE") {
+    const currentPort = config.server.port;
+    serverRetryCount++;
+    if (serverRetryCount <= MAX_SERVER_RETRIES) {
+      console.log(
+        `[server] Port ${currentPort} in use - retry ${serverRetryCount}/${MAX_SERVER_RETRIES}...`,
+      );
+      setTimeout(() => {
+        server.close();
+        startServer();
+      }, 5000);
+    } else {
+      console.error(
+        `[server] Port ${currentPort} still in use after ${MAX_SERVER_RETRIES} retries - giving up`,
+      );
+    }
+  }
+});
 
 // Start the server
 startServer().catch((err) => {

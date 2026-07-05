@@ -17,6 +17,15 @@ import { updateToolButtons } from "../ui/status.js";
 // output pipe report the device being lost at (roughly) the same time.
 let cleaningUp = false;
 
+// Completion promises of the two pipeTo() pipes. pipeTo() locks the port's
+// readable/writable streams until its promise settles, so teardown MUST await
+// these after cancelling the reader / closing the writer - otherwise
+// port.close() rejects with "streams are locked", the port silently stays
+// open in the browser, and the device cannot be reconnected without a
+// hardware reset. Both are stored pre-caught, so awaiting them never throws.
+let readableStreamClosed = null;
+let writableStreamClosed = null;
+
 /**
  * Determine whether an error represents an expected loss of the serial device
  * (unplugged, reset, or port closed) rather than a genuine fault.
@@ -92,14 +101,17 @@ export async function connect(baudRate = 115200) {
 
     // Get writer for sending data. The pipeTo() promise rejects when the device
     // is unplugged; without a .catch() that becomes an uncaught rejection, so we
-    // route it through the shared device-lost handler.
+    // route it through the shared device-lost handler. Keep the settled promise
+    // so disconnect can await the pipe releasing its lock on port.writable.
     const textEncoder = new TextEncoderStream();
-    textEncoder.readable.pipeTo(port.writable).catch((err) => {
-      if (!isDeviceLostError(err)) {
-        console.error("Serial write stream error:", err);
-      }
-      onDeviceLost(err);
-    });
+    writableStreamClosed = textEncoder.readable
+      .pipeTo(port.writable)
+      .catch((err) => {
+        if (!isDeviceLostError(err)) {
+          console.error("Serial write stream error:", err);
+        }
+        onDeviceLost(err);
+      });
     const writer = textEncoder.writable.getWriter();
     store.setSerialWriter(writer);
 
@@ -184,6 +196,13 @@ async function resetConnectionState({ silent = false, reason = "" } = {}) {
       store.setSerialReader(null);
     }
 
+    // Wait for the read pipe to unwind and release its lock on port.readable.
+    // (Stored pre-caught, so this never throws.)
+    if (readableStreamClosed) {
+      await readableStreamClosed;
+      readableStreamClosed = null;
+    }
+
     // Close the writer. Closing can reject if the underlying device is gone.
     const writer = store.getWriter();
     if (writer) {
@@ -195,13 +214,21 @@ async function resetConnectionState({ silent = false, reason = "" } = {}) {
       store.setSerialWriter(null);
     }
 
-    // Close the port itself.
+    // Wait for the write pipe to flush/unwind and release port.writable.
+    if (writableStreamClosed) {
+      await writableStreamClosed;
+      writableStreamClosed = null;
+    }
+
+    // Close the port itself. Only now that both pipes have settled is the
+    // port actually unlockable; a swallowed failure here previously left the
+    // OS-level port open, forcing a hardware reset before reconnecting.
     const port = store.getPort();
     if (port) {
       try {
         await port.close();
-      } catch {
-        /* port may already be gone */
+      } catch (err) {
+        console.warn("Serial port close failed:", err);
       }
       store.setSerialPort(null);
     }
@@ -217,6 +244,16 @@ async function resetConnectionState({ silent = false, reason = "" } = {}) {
 
     // Clear device info
     store.clearDeviceInfo();
+
+    // Clear the Device Files panel - its listing describes a device that
+    // is no longer connected. Dynamic import avoids a static import cycle
+    // (connection <- rawRepl <- syncStatus).
+    try {
+      const { clearSyncStatus } = await import("../tools/syncStatus.js");
+      clearSyncStatus();
+    } catch {
+      /* panel module optional */
+    }
 
     const socket = getSocket();
     if (socket) {
@@ -234,13 +271,16 @@ async function startReadLoop(port) {
   const textDecoder = new TextDecoderStream();
   // The read pipe rejects when the device is unplugged; catch it so it does not
   // become an uncaught promise rejection. The read loop below also observes the
-  // failure via reader.read(), and onDeviceLost() is idempotent.
-  port.readable.pipeTo(textDecoder.writable).catch((err) => {
-    if (!isDeviceLostError(err)) {
-      console.error("Serial read stream error:", err);
-    }
-    onDeviceLost(err);
-  });
+  // failure via reader.read(), and onDeviceLost() is idempotent. Keep the
+  // settled promise so disconnect can await the pipe releasing port.readable.
+  readableStreamClosed = port.readable
+    .pipeTo(textDecoder.writable)
+    .catch((err) => {
+      if (!isDeviceLostError(err)) {
+        console.error("Serial read stream error:", err);
+      }
+      onDeviceLost(err);
+    });
   const reader = textDecoder.readable.getReader();
   store.setSerialReader(reader);
 
@@ -332,7 +372,16 @@ export async function changeBaudRate(newBaud) {
     startReadLoop(savedPort);
 
     const textEncoder = new TextEncoderStream();
-    textEncoder.readable.pipeTo(savedPort.writable);
+    // Same pattern as connect(): keep the pre-caught pipe promise so the next
+    // disconnect can await it before closing the port.
+    writableStreamClosed = textEncoder.readable
+      .pipeTo(savedPort.writable)
+      .catch((err) => {
+        if (!isDeviceLostError(err)) {
+          console.error("Serial write stream error:", err);
+        }
+        onDeviceLost(err);
+      });
     const writer = textEncoder.writable.getWriter();
     store.setSerialWriter(writer);
 

@@ -87,7 +87,7 @@ class I2C:
 
 class SoftI2C(I2C):
     """Software I2C implementation."""
-    def __init__(self, *, scl: Pin, sda: Pin, freq: int = ...) -> None: ...
+    def __init__(self, scl: Pin, sda: Pin, *, freq: int = ..., timeout: int = ...) -> None: ...
 
 class SPI:
     """SPI bus communication."""

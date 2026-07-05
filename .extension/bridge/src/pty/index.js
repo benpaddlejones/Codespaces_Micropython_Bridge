@@ -20,6 +20,7 @@ let dataHandlers = new Set();
 
 // Self-healing state
 let reconnectAttempts = 0;
+let reconnectTimer = null;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = 3000;
 
@@ -75,7 +76,7 @@ async function initialize() {
   } catch (err) {
     console.error("[pty] Failed to initialize PTY bridge:", err.message);
     console.log(
-      "[pty] Bridge will work without PTY forwarding (direct Web Serial only)"
+      "[pty] Bridge will work without PTY forwarding (direct Web Serial only)",
     );
     throw err; // Let caller handle retry
   } finally {
@@ -97,9 +98,16 @@ function handleSerialError(err) {
 }
 
 /**
- * Schedule a reconnection attempt
+ * Schedule a reconnection attempt.
+ * A serial failure fires both the 'error' and 'close' events, so this can be
+ * called twice in quick succession - the pending-timer guard ensures only one
+ * reconnect loop runs at a time (avoids competing socat spawns).
  */
 function scheduleReconnect() {
+  if (reconnectTimer) {
+    return; // A reconnect is already pending
+  }
+
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     console.log("[pty] Max reconnect attempts reached, giving up");
     return;
@@ -109,10 +117,11 @@ function scheduleReconnect() {
   const delay = RECONNECT_DELAY * reconnectAttempts;
 
   console.log(
-    `[pty] Scheduling reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`
+    `[pty] Scheduling reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`,
   );
 
-  setTimeout(async () => {
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
     try {
       // Clean up old connection
       if (serialPort) {
@@ -197,7 +206,11 @@ function onData(handler) {
 function shutdown() {
   console.log("[pty] Shutting down...");
 
-  // Clear data handlers
+  // Cancel any pending reconnect and clear data handlers
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
   dataHandlers.clear();
 
   if (serialPort) {
