@@ -119,13 +119,32 @@ print('[I2C] Scanning %d pin pairs...' % _total)
 for _i, (_sda, _scl, _bus) in enumerate(_PAIRS):
     print('[I2C] (%d/%d) SDA=GP%d SCL=GP%d (%s)...' % (_i + 1, _total, _sda, _scl, _bus))
     try:
-        _i2c = machine.SoftI2C(sda=machine.Pin(_sda), scl=machine.Pin(_scl), freq=100000, timeout=50000)
+    try:
+      _sda_pin = machine.Pin(_sda, mode=machine.Pin.OPEN_DRAIN, pull=machine.Pin.PULL_UP)
+      _scl_pin = machine.Pin(_scl, mode=machine.Pin.OPEN_DRAIN, pull=machine.Pin.PULL_UP)
+    except Exception:
+      # Some ports reject OPEN_DRAIN for these pins; fall back so scan still runs.
+      _sda_pin = machine.Pin(_sda)
+      _scl_pin = machine.Pin(_scl)
+    _i2c = machine.SoftI2C(sda=_sda_pin, scl=_scl_pin, freq=100000, timeout=50000)
         _devs = _i2c.scan()
     except Exception as _e:
         print('       skipped: %s' % _e)
         continue
     if len(_devs) > 24:
-        print('       %d addresses ACKed - floating bus (missing pull-ups?), ignored' % len(_devs))
+      print('       %d addresses ACKed - floating bus (missing pull-ups?), ignored' % len(_devs))
+      try:
+        _i2c_sw = machine.SoftI2C(sda=_scl_pin, scl=_sda_pin, freq=100000, timeout=50000)
+        _sw_devs = _i2c_sw.scan()
+        if 0 < len(_sw_devs) <= 24:
+          print('       NOTE: reversed mapping found %d device(s): %s' % (len(_sw_devs), ', '.join('0x%02X' % _a for _a in _sw_devs)))
+          print('       CHECK: SDA/SCL may be swapped in wiring for this pair')
+        elif len(_sw_devs) > 24:
+          print('       reversed mapping also floating (%d ACKs)' % len(_sw_devs))
+        else:
+          print('       reversed mapping found no devices')
+      except Exception as _sw_e:
+        print('       reversed mapping check failed: %s' % _sw_e)
         continue
     for _a in _devs:
         print('       FOUND 0x%02X - %s' % (_a, _NAMES.get(_a, 'unknown device')))

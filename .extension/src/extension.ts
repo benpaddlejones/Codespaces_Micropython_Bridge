@@ -251,34 +251,41 @@ export async function activate(
 
     logger.info("Pico Bridge extension activated successfully");
 
-    // Show welcome message on first activation.
-    // Fire-and-forget so the modal dialog doesn't keep activation in the
-    // "loading" state until the user clicks something — that's the main
-    // reason the extension felt laggy on first install.
-    const hasShownWelcome = context.globalState.get<boolean>(
-      "hasShownWelcome",
+    // Offer to start the server on every activation while it isn't running.
+    // Previously this was a one-shot welcome gated on globalState, which left
+    // rebuilt Codespaces with no visible way to start the bridge.
+    // Fire-and-forget so the dialog doesn't keep activation in the
+    // "loading" state until the user clicks something.
+    const promptSuppressed = context.globalState.get<boolean>(
+      "suppressStartPrompt",
       false,
     );
-    if (!hasShownWelcome) {
+    if (
+      !config.get<boolean>("server.autoStart", false) &&
+      !promptSuppressed &&
+      server &&
+      !server.isRunning
+    ) {
       void (async () => {
         const selection = await vscode.window.showInformationMessage(
-          "Welcome to Pico Bridge! This extension enables MicroPython development for Raspberry Pi Pico and ESP32.",
+          "Pico Bridge: start the bridge server?",
           "Start Server",
-          "Open Walkthrough",
-          "Dismiss",
+          "Always Start",
+          "Don't Ask Again",
         );
 
         if (selection === "Start Server") {
           await vscode.commands.executeCommand("picoBridge.startServer");
-        } else if (selection === "Open Walkthrough") {
-          const readmeUri = vscode.Uri.joinPath(
-            context.extensionUri,
-            "README.md",
+        } else if (selection === "Always Start") {
+          await config.update(
+            "server.autoStart",
+            true,
+            vscode.ConfigurationTarget.Global,
           );
-          await vscode.commands.executeCommand("vscode.open", readmeUri);
+          await vscode.commands.executeCommand("picoBridge.startServer");
+        } else if (selection === "Don't Ask Again") {
+          await context.globalState.update("suppressStartPrompt", true);
         }
-
-        await context.globalState.update("hasShownWelcome", true);
       })();
     }
   } catch (error) {

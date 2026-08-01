@@ -20,7 +20,7 @@ import { Logger } from "../utils";
  */
 export async function configurePylanceForMock(
   context: vscode.ExtensionContext,
-  logger: Logger
+  logger: Logger,
 ): Promise<void> {
   try {
     // Path to type stubs bundled in the extension
@@ -28,7 +28,7 @@ export async function configurePylanceForMock(
       context.extensionPath,
       "emulator",
       "mock",
-      "typings"
+      "typings",
     );
 
     // Path to runtime mock modules (for actual execution)
@@ -36,7 +36,7 @@ export async function configurePylanceForMock(
       context.extensionPath,
       "emulator",
       "mock",
-      "micropython"
+      "micropython",
     );
 
     logger.info(`Configuring Pylance for MicroPython mock...`);
@@ -50,29 +50,42 @@ export async function configurePylanceForMock(
     // Paths to add for Pylance
     const pathsToAdd = [typingsPath, micropythonPath];
 
+    // Drop absolute paths written by previous extension versions — they are
+    // versioned install directories that no longer exist and accumulate in
+    // workspace settings on every update.
+    const stalePathPattern =
+      /[/\\]\.?pico-bridge-[^/\\]+[/\\]emulator[/\\]mock[/\\](typings|micropython)$/;
+    const keptPaths = currentExtraPaths.filter((p) => {
+      const stale = !pathsToAdd.includes(p) && stalePathPattern.test(p);
+      if (stale) {
+        logger.info(`  Removing stale extraPath: ${p}`);
+      }
+      return !stale;
+    });
+
     // Build new extraPaths array, avoiding duplicates
-    const newExtraPaths = [...currentExtraPaths];
-    let pathsAdded = false;
+    const newExtraPaths = [...keptPaths];
+    let changed = keptPaths.length !== currentExtraPaths.length;
 
     for (const p of pathsToAdd) {
       if (!newExtraPaths.includes(p)) {
         newExtraPaths.push(p);
-        pathsAdded = true;
+        changed = true;
         logger.info(`  Adding to extraPaths: ${p}`);
       } else {
         logger.info(`  Already in extraPaths: ${p}`);
       }
     }
 
-    // Only update if we added new paths
-    if (pathsAdded) {
+    // Only update if something changed
+    if (changed) {
       await config.update(
         "extraPaths",
         newExtraPaths,
-        vscode.ConfigurationTarget.Workspace
+        vscode.ConfigurationTarget.Workspace,
       );
       logger.info(
-        `Pylance configured successfully. MicroPython imports will now work.`
+        `Pylance configured successfully. MicroPython imports will now work.`,
       );
     } else {
       logger.info(`Pylance already configured for MicroPython mock.`);
@@ -94,20 +107,20 @@ export async function configurePylanceForMock(
  */
 export async function removePylanceConfig(
   context: vscode.ExtensionContext,
-  logger: Logger
+  logger: Logger,
 ): Promise<void> {
   try {
     const typingsPath = path.join(
       context.extensionPath,
       "emulator",
       "mock",
-      "typings"
+      "typings",
     );
     const micropythonPath = path.join(
       context.extensionPath,
       "emulator",
       "mock",
-      "micropython"
+      "micropython",
     );
 
     const config = vscode.workspace.getConfiguration("python.analysis");
@@ -116,14 +129,14 @@ export async function removePylanceConfig(
     // Filter out our paths
     const pathsToRemove = [typingsPath, micropythonPath];
     const newExtraPaths = currentExtraPaths.filter(
-      (p) => !pathsToRemove.includes(p)
+      (p) => !pathsToRemove.includes(p),
     );
 
     if (newExtraPaths.length !== currentExtraPaths.length) {
       await config.update(
         "extraPaths",
         newExtraPaths.length > 0 ? newExtraPaths : undefined,
-        vscode.ConfigurationTarget.Workspace
+        vscode.ConfigurationTarget.Workspace,
       );
       logger.info(`Pylance configuration cleaned up.`);
     }
