@@ -4,6 +4,13 @@ All notable changes to the Pi Pico to Codespaces Bridge extension.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.44] - 2026-08-01
+
+- **Added**: 📦 Errorlens is now bundled in the extension pack, and the extension activates for any workspace containing a `.py` file (not just `main.py`).
+- **Added**: The startup prompt now offers to start the bridge server on every activation while it isn't already running, with "Start Server", "Always Start" (remembered via `server.autoStart`), and "Don't Ask Again" options — replacing the old one-shot welcome dialog that never reappeared after first install.
+- **Improved**: I2C scan pins are now driven open-drain with pull-ups (falling back gracefully if a port rejects that mode), and a floating bus (too many ACKs) triggers an automatic reversed-mapping check that flags likely SDA/SCL wiring swaps.
+- **Fixed**: Pylance configuration no longer accumulates stale `python.analysis.extraPaths` entries from previous extension versions — old versioned install paths are detected and removed automatically.
+
 ## [2.3.43] - 2026-07-05
 
 - **Added**: 🔍 I2C scan button — probes every documented I2C pin pair for the detected board (Pico/ESP32 families), reports each device address with a best-guess identification (30+ known sensors/displays), shows live per-pair progress, and flags floating buses with missing pull-ups.
