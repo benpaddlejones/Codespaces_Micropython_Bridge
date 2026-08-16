@@ -1,6 +1,6 @@
 # Codespaces ↔ MicroPython Bridge
 
-[![Version](https://img.shields.io/badge/Version-2.3.43-green)](.extension/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.3.46-green)](.extension/CHANGELOG.md)
 [![MicroPython](https://img.shields.io/badge/MicroPython-1.20%2B-00b2a9?logo=python&logoColor=white)](https://micropython.org/)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Pico%20Ready-c51a4a?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/documentation/microcontrollers/)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue)](LICENSE)

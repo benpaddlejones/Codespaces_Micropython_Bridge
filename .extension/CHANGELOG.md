@@ -4,6 +4,15 @@ All notable changes to the Pi Pico to Codespaces Bridge extension.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.46] - 2026-08-16
+
+- **Fixed**: I2C scan spammed `KeyboardInterrupt: Stop pin button pressed` tracebacks when a scanned pin (e.g. the stop-button pin) had a leftover IRQ from the launcher — the scan now clears any IRQ on a pin before driving it.
+
+## [2.3.45] - 2026-08-16
+
+- **Fixed**: I2C scan threw `SyntaxError: invalid syntax` on the device — the generated on-device script had a duplicated `try:` block with mismatched indentation.
+- **Added**: After scanning the documented I2C pin pairs, the scanner now offers to brute-force every remaining GPIO pin combination for the detected board.
+
 ## [2.3.44] - 2026-08-01
 
 - **Added**: 📦 Errorlens is now bundled in the extension pack, and the extension activates for any workspace containing a `.py` file (not just `main.py`).
